@@ -60,7 +60,7 @@
   const ENDLESS_NAMES = ['もう一駅', '帰りたい', '残業坂', '終電前', '星見台', 'ひざ笑う', '吊り革町', '満腹', '無限ヶ原', '明日こそ', '夢の島', 'まだ着かない', '揺れる谷', '腰が限界', '奇跡ヶ丘', '座席の森'];
   const FAV = { // 降りやすい駅
     salaryman: [4, 6], ol: [4, 6], student: [2], elderly: [5, 7, 8], obachan: [7, 5], tourist: [8, 9],
-    otaku: [9], drunk: [11], pregnant: [5], injured: [5], mother: [7], gamer: [], yankee: [], ceo: [4], alien: [9],
+    otaku: [9], drunk: [11], pregnant: [5], injured: [5], mother: [7], gamer: [], yankee: [], ceo: [4], alien: [9], sick: [5],
   };
 
   // ---------------------------------------------------------------- 乗客タイプ
@@ -81,8 +81,12 @@
     ceo: { name: '謎の紳士', female: 0, sleepy: 0, watch: 1, idle: ['none'], want: 1, react: 1.6, speed: 0.8, priority: 200, rare: 1 },
     thief: { name: '若者', female: 0, sleepy: 0, watch: 0, idle: ['phone'], want: 0, react: 1, speed: 1.5, noLook: 1 },
     alien: { name: '???', female: 0, sleepy: 0, watch: 0, idle: ['none'], want: 1, react: 1.0, speed: 1.0, priority: 150, rare: 1 },
+    sick: { name: '具合が悪そうな人', female: 0.5, sleepy: 0.05, watch: 0, idle: ['none'], want: 1, react: 1.4, speed: 0.9, priority: 35 },
+    dasher: { name: 'せっかちな人', female: 0.3, sleepy: 0, watch: 0, idle: ['phone'], want: 1, react: 0.05, speed: 2.8 },
+    emperor: { name: '車内の帝王', female: 0, sleepy: 0, watch: 0, idle: ['none'], want: 1, react: 0.1, speed: 0.9, tough: 1 },
+    henchman: { name: '帝王の子分', female: 0, sleepy: 0, watch: 0, idle: ['none'], want: 0, react: 1, speed: 1.4, tough: 1 },
   };
-  const BASE_WEIGHTS = { salaryman: 22, ol: 14, student: 12, elderly: 9, pregnant: 2.5, injured: 2, mother: 2.5, obachan: 6, tourist: 4, gamer: 7, yankee: 3, drunk: 2, otaku: 4 };
+  const BASE_WEIGHTS = { salaryman: 22, ol: 14, student: 12, elderly: 9, pregnant: 2.5, injured: 2, mother: 2.5, obachan: 6, tourist: 4, gamer: 7, yankee: 3, drunk: 2, otaku: 4, sick: 1.2 };
   const STATION_BOOST = { 2: { student: 18 }, 3: { salaryman: 20, ol: 10 }, 5: { elderly: 10, injured: 3 }, 6: { tourist: 5, ol: 6 }, 7: { obachan: 8, elderly: 6, mother: 3 }, 8: { elderly: 8, tourist: 4 }, 9: { otaku: 14 } };
 
   const COLORS = [
@@ -110,6 +114,31 @@
     { key: 'protein', name: '鉄拳プロテイン', icon: '🥊', cost: 30, dur: 60, desc: 'パンチの威力2倍、ガードで無傷（60秒）' },
     { key: 'confess', name: '懺悔', icon: '🙏', cost: 60, desc: 'カルマ-25（30秒に1回）' },
   ];
+
+  // ステータス（やりこむとレベルが上がって割り振れる）。どれも 0〜10、1 ポイントの効き目は小さめ
+  const STATS = [
+    { key: 'hp', name: '体力', icon: '💪', desc: '立っていても疲れにくい・座ると早く回復' },
+    { key: 'spd', name: '足の速さ', icon: '🦵', desc: '歩くのが速い・混んでいても進みやすい' },
+    { key: 'atk', name: '攻撃力', icon: '👊', desc: 'パンチがクリティカル（2倍）になりやすい' },
+    { key: 'def', name: '防御力', icon: '🛡', desc: '殴られても痛くない・揺れで踏ん張りやすい' },
+    { key: 'guts', name: '度胸', icon: '😤', desc: 'こわい人に注意しても言うことを聞いてくれやすい' },
+    { key: 'eye', name: '観察力', icon: '👀', desc: 'メガネが長持ち・あやしい人に気づきやすい' },
+  ];
+  const STAT_MAX = 10, STAT_CAP_TOTAL = 30, STAT_CAP_FAIR = 20; // 合計の上限（ランキング・オンラインは 20）
+  function normStats(st) { const o = {}; for (const d of STATS) o[d.key] = clamp(Math.floor(+(st && st[d.key]) || 0), 0, STAT_MAX); return o; }
+  function statSum(st) { let n = 0; for (const d of STATS) n += (st && st[d.key]) || 0; return n; }
+  // 合計が上限をこえていたら、大きいものから 1 ずつ減らす
+  function capStats(st, cap) {
+    const o = normStats(st);
+    while (statSum(o) > cap) { let k = STATS[0].key; for (const d of STATS) if (o[d.key] > o[k]) k = d.key; o[k]--; }
+    return o;
+  }
+  // レベル：経験値の表（lv → lv+1 に必要な経験値）
+  function xpNeed(lv) { return 60 + 20 * lv; }
+  function levelOf(xp) { let lv = 1, x = xp || 0; while (x >= xpNeed(lv) && lv < 99) { x -= xpNeed(lv); lv++; } return { lv, into: x, need: xpNeed(lv) }; }
+  function statPoints(lv) { return Math.min(STAT_CAP_TOTAL, Math.max(0, lv - 1)); }
+  function xpGain(g) { const sc = finalScore(g), res = g.multi ? (g.pi >= 0 ? g.players[g.pi].result : null) : g.result; return Math.round(sc.total / 10) + g.stats.stations * 3 + (res && res.cause === 'clear' ? 30 : 0); }
+  const ST = (g, k) => (g.player.st && g.player.st[k]) || 0;
 
   const TITLES = [
     [0, '吊り革の妖精'], [150, 'ただの通勤者'], [350, '車内の常連'], [600, '気づかいの人'], [900, '車内の守護者'],
@@ -152,6 +181,16 @@
     { id: 'jiji', name: '敬老の日', desc: '全員お年寄りモードで遊ぶ', hidden: 1 },
     { id: 'thief', name: '泥棒退治', desc: '落とし物泥棒を撃退する' },
     { id: 'hard', name: '満員地獄', desc: '地獄モードで終点まで行く', hidden: 1 },
+    { id: 'suri', name: '現行犯', desc: 'スリを撃退する' },
+    { id: 'faker', name: '名探偵', desc: '仮病を見破る' },
+    { id: 'blocker', name: '鉄壁', desc: '席ダッシュを体でブロックする' },
+    { id: 'hush', name: '車内の風紀委員', desc: '大声の電話をやめさせる' },
+    { id: 'hogask', name: 'すみません、詰めて', desc: '2人分の席を詰めてもらう' },
+    { id: 'emperor', name: '帝王討伐', desc: '車内の帝王を倒す', hidden: 1 },
+    { id: 'false', name: '冤罪', desc: 'まだ何もしていない人を殴る', hidden: 1 },
+    { id: 'speaker', name: '静かな車内', desc: '迷惑YouTuberのスピーカーを壊す' },
+    { id: 'brawl', name: '逆ギレ返し', desc: '逆ギレして向かってきた人を返り討ちにする' },
+    { id: 'bagthrow', name: 'かばん投げ', desc: '席に置かれたかばんをぶん投げる', hidden: 1 },
   ];
 
   // ---------------------------------------------------------------- 乱数
@@ -184,7 +223,7 @@
       x, z, yaw: Math.PI / 2, pitch: 0, seat: -1, stamina: C.MAX_STAMINA, karma: 0, toku: 0, earned: 0,
       combo: 0, lastDeedT: -999, carrying: null, lastBraceT: -99, braceHeld: false, punchCD: 0, hitFlash: 0,
       fakeSleep: false, mode: null, modeT: 0, buffs: {}, drinkCount: 0, confessCD: 0, stagger: 0, punchAnim: 0,
-      ignoreT: 0, sitT: 0,
+      ignoreT: 0, sitT: 0, st: normStats(null),
     };
   }
   function makeStats() {
@@ -192,6 +231,7 @@
       sits: 0, quickSits: 0, gives: 0, chikanKO: 0, counters: 0, delivered: 0, teeth: 0, ceo: 0, alien: 0, alienPunch: 0,
       brainwash: 0, force: 0, wrongPunch: 0, thiefKO: 0, stolen: 0, tanuki: 0, oversleepSteal: 0, braces: 0, braceFail: 0, doorHolds: 0, maxCombo: 0,
       standTime: 0, sitTime: 0, stations: 0, sos: 0, deeds: 0, skillsUsed: 0, bestDeed: null,
+      suriKO: 0, falseAccuse: 0, fakerExposed: 0, fooled: 0, dashBlock: 0, hush: 0, hogAsk: 0, henchKO: 0, emperorKO: 0, brawlKO: 0, bagThrow: 0, speakerKO: 0,
     };
   }
   function create(opts) {
@@ -213,14 +253,23 @@
       g.multi = true; g.pi = -1;
       const spots = [[0.4, 0.6], [-0.6, -0.55], [1.5, -0.5], [-1.4, 0.55]];
       g.players = opts.players.map((o, i) => ({
-        i, name: o.name || ('プレイヤー' + (i + 1)), cpu: !!o.cpu, pl: makePlayer(spots[i % 4][0], spots[i % 4][1]), stats: makeStats(),
+        i, name: o.name || ('プレイヤー' + (i + 1)), cpu: !!o.cpu, pl: Object.assign(makePlayer(spots[i % 4][0], spots[i % 4][1]), { st: capStats(o.cpu ? { hp: 3, spd: 3, atk: 4, def: 4, guts: 3, eye: 3 } : o.stats, STAT_CAP_FAIR) }), stats: makeStats(),
         aim: -1, prompt: null, events: [], out: false, result: null, ghost: false, tricks: 0, pko: 0,
       }));
       g.worldPlayer = makePlayer(999, 0); g.worldStats = makeStats(); g.worldEvents = [];
     }
+    // 悪者：どの種類が出るか（ふつうはスリ＋日がわりのゲスト 1 種類。地獄・終点なしは全部）
+    g.vr = rng((seed ^ 0x5eed5eed) >>> 0);
+    const GUESTS = ['hog', 'faker', 'dasher', 'caller', 'tuber'];
+    g.tutorial = mode === 'tutorial';
+    if (g.tutorial) { g.nextChikanCheck = 1e9; g.nextItemCheck = 1e9; }
+    g.villainKinds = g.jiji || g.tutorial ? [] : (g.hard || g.endless) ? ['suri'].concat(GUESTS) : ['suri', g.vr.pick(GUESTS)];
+    if (opts.villains) g.villainKinds = opts.villains.slice();
+    g.seenVillain = {};
     g.seats = buildSeats();
     g.slots = buildSlots(g.seats);
     g.player.stamina = C.MAX_STAMINA;
+    if (opts.stats && !g.multi) g.player.st = capStats(opts.stats, opts.statCap || STAT_CAP_TOTAL);
     populateStart(g);
     if (g.multi) setCtx(g, -1);
     return g;
@@ -315,15 +364,19 @@
     if (type === 'alien') skin = '#8fd18a';
     if (type === 'drunk') skin = '#eaa58a';
     if (type === 'thief') { top = ['黒', '#26262b']; bottom = ['紺', '#1f2a44']; }
+    if (type === 'dasher') { top = ['オレンジ', '#e0661c']; bottom = ['紺', '#1f2a44']; }
+    if (type === 'emperor') { top = ['金色', '#c9a227']; bottom = ['黒', '#1b1b1d']; hairC = '#e8e8e8'; }
+    if (type === 'henchman') { top = ['黒', '#1b1b1d']; bottom = top; hairC = '#1d1612'; }
     const hairStyle = female ? r.pick(['long', 'bob', 'pony', 'bun']) : r.pick(['short', 'short', 'side', 'buzz']);
     return {
       top: top[1], topName: top[0], bottom: bottom[1], skin, hair: hairC,
-      hairStyle: type === 'elderly' && !female && r.chance(0.4) ? 'bald' : type === 'alien' ? 'hat' : hairStyle,
-      glasses: (type === 'otaku' || type === 'salaryman' || type === 'elderly' || type === 'ceo') && r.chance(0.45),
-      mask: r.chance(0.12) && type !== 'alien',
+      hairStyle: type === 'elderly' && !female && r.chance(0.4) ? 'bald' : type === 'alien' ? 'hat' : type === 'henchman' ? 'buzz' : hairStyle,
+      glasses: (type === 'otaku' || type === 'salaryman' || type === 'elderly' || type === 'ceo') && r.chance(0.45) || type === 'emperor' || type === 'henchman',
+      mask: (r.chance(0.12) || type === 'sick' && r.chance(0.4)) && type !== 'alien' && type !== 'emperor' && type !== 'henchman',
       bag: r.chance(0.5) || type === 'tourist',
-      tie: (type === 'salaryman' || type === 'ceo') ? (type === 'ceo' ? '#d8b23a' : r.pick(['#8a2a2a', '#2a3f8a', '#3a6a3a', '#777'])) : null,
+      tie: (type === 'salaryman' || type === 'ceo' || type === 'emperor') ? (type === 'ceo' ? '#d8b23a' : type === 'emperor' ? '#7a1020' : r.pick(['#8a2a2a', '#2a3f8a', '#3a6a3a', '#777'])) : null,
       shade: r.range(-0.1, 0.1),
+      shades: type === 'emperor' || type === 'henchman', crown: type === 'emperor',
     };
   }
   function spawn(g, type, station, dest) {
@@ -355,6 +408,7 @@
     releaseSlot(g, p);
     p.prep = -1; p.anim = 'none';
     if (p.sleep === 0) assignSleep(g, p);
+    if (p.role === 'hog') hogClaim(g, p);
   }
   function releaseSlot(g, p) { if (p.slot >= 0) { if (g.slots[p.slot].occ === p.id) g.slots[p.slot].occ = -1; p.slot = -1; } }
   function freeSeat(g, seat, by) { seat.occ = -1; seat.res = -1; seat.gift = false; seat.freedAt = g.t; seat.freedBy = by != null ? by : -1; if (by !== -1 && by != null) emit(g, { type: 'seatFree', id: seat.id }); }
@@ -370,6 +424,7 @@
     }
     for (let i = 0; i < nStand; i++) {
       const p = spawn(g, pickType(g, 1), 0);
+      if (g.tutorial) { p.wantSeat = false; p.priority = 0; }
       g.people.push(p); placeStanding(g, p, true);
     }
     g.phase = 'stop'; g.phaseT = C.BOARD + 1.5; g.doorsOpen = true; g.doorSide = 1; g.nextDoorSide = 1;
@@ -483,10 +538,10 @@
     emit(g, { type: 'sfx', name: 'coin' });
     return pts;
   }
-  function hurt(g, amt, cause) {
+  function hurt(g, amt, cause, extra) {
     const pl = g.player;
     pl.stamina -= amt; pl.hitFlash = 0.4;
-    if (pl.stamina <= 0) { pl.stamina = 0; gameOver(g, cause); }
+    if (pl.stamina <= 0) { pl.stamina = 0; gameOver(g, cause, extra); }
   }
   const CAUSES = {
     collapse: { title: '膝が笑った', text: '立ちっぱなしで体力が尽きた…' },
@@ -511,7 +566,7 @@
     }
     if (g.over) return;
     g.over = true;
-    g.result = Object.assign({ cause }, CAUSES[cause]);
+    g.result = Object.assign({ cause }, CAUSES[cause], extra || {});
     emit(g, { type: cause === 'clear' ? 'clear' : 'gameover', cause });
   }
   function finalScore(g) {
@@ -553,12 +608,21 @@
     if (pl.seat >= 0) {
       const pr = priorityNear(g);
       if (pr) return { act: 'give', label: TYPES[pr.type].name === '???' ? '席を譲る（？）' : TYPES[pr.type].name + 'に席を譲る', id: pr.id };
+      if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.2) return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
       return { act: 'stand', label: '立ち上がる' };
     }
     if (pl.carrying && ap && apd < 1.8 && ap.state !== 'ko') return { act: 'deliver', label: pl.carrying.name + 'を渡す', id: ap.id };
     if (pl.carrying && atOpenDoor(g)) return { act: 'staff', label: '駅員に' + pl.carrying.name + 'を届ける' };
     if (pl.carrying && pl.pitch < -0.55) return { act: 'putdown', label: pl.carrying.name + 'を床に置く' };
+    if (speakerNear(g)) return { act: 'speaker', label: '🔊 スピーカーを壊す（パンチでもOK）' };
+    if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.0 && ap.state !== 'ko') return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
+    if (ap && ap.type === 'sick' && (ap.state === 'stand' || ap.state === 'walk') && ap.role !== 'faked' && !ap.checked && apd < 1.8) return { act: 'expose', label: '「…仮病じゃない？」と指摘する', id: ap.id };
     for (const it of g.items) if (!it.taken && dist2(it.x, it.z, pl.x, pl.z) < 1.15 && !pl.carrying) return { act: 'pick', label: it.name + 'を拾う', id: it.id };
+    for (const s of g.seats) if (s.hog && dist2(s.x, s.fz, pl.x, pl.z) < 0.95) {
+      const q = person(g, s.hog); if (!q) continue;
+      if (q.hogKind === 'bag' && pl.pitch < -0.45) return { act: 'throw', label: '👜 かばんをぶん投げて座る（カルマ+）', id: s.id };
+      if (!q.asked) return { act: 'ask', label: q.hogKind === 'bag' ? '「かばん、どけてもらえますか？」と頼む' : '「詰めてもらえますか？」と頼む', id: s.id };
+    }
     const fs = nearestFreeSeat(g);
     if (fs) return { act: 'sit', label: fs.pri ? '優先席に座る' : '座る', id: fs.id };
     if (g.runner && g.runner.active && !g.runner.held) {
@@ -651,6 +715,11 @@
         if (p.arrivedFrontT > 0 && g.t - p.arrivedFrontT < 6) { base += 10; label += '（早い！）'; }
         if (p.type === 'ceo') { g.stats.ceo++; label = '謎の紳士に席を譲った…「君、うちの会社に来ないか」'; }
         if (p.type === 'alien') { g.stats.alien++; label = '???に席を譲った…「ワレワレハ カンシャ スル」'; }
+        if (p.fake) { // 仮病にだまされた
+          p.expr = 'happy'; p.exprT = 5; p.role = 'faked'; p.priority = 0; bubble(g, p, 'ラッキー♪', 2.5);
+          g.stats.fooled++; toast(g, '…仮病だった！ だまされた（徳なし）', 'bad');
+          break;
+        }
         p.expr = 'happy'; p.exprT = 6; bubble(g, p, p.type === 'alien' ? 'ピピ…アリガト' : 'ありがとうございます', 2.5);
         g.stats.gives++;
         deed(g, base, label);
@@ -715,6 +784,57 @@
           toast(g, '「いたずらはやめてください」', 'bad');
         }
         emit(g, { type: 'sfx', name: 'buzzer' });
+        break;
+      }
+      case 'hush': {
+        const p = person(g, pr.id); if (!p) return;
+        p.hushed = true;
+        if (p.scary && gutsWin(g, p)) p.scary = false;
+        if (p.scary) {
+          bubble(g, p, g.r.pick(['あぁ？ 関係ねぇだろ！', 'は？ 今大事な話なんだけど！']), 2.5);
+          angerFight(g, p);
+        } else {
+          p.role = null; p.idle = 'phone'; p.expr = 'sad'; p.exprT = 4; bubble(g, p, 'あ…すみません', 2);
+          g.stats.hush++; deed(g, 20, '大声の電話を注意した');
+          for (const q of g.people) if (q !== p && q.sleep === 0 && q.state === 'seated' && dist2(q.x, q.z, p.x, p.z) < 3) { q.expr = 'happy'; q.exprT = 2.5; }
+        }
+        break;
+      }
+      case 'expose': {
+        const p = person(g, pr.id); if (!p) return;
+        if (p.fake) {
+          p.role = 'faked'; p.priority = 0; p.targetPlayer = false; p.expr = 'angry'; p.exprT = 5; bubble(g, p, 'ちっ…バレたか', 2.2);
+          g.stats.fakerExposed++; deed(g, 35, '仮病を見破った');
+          if (p.state === 'stand') placeStanding(g, p, false);
+        } else {
+          p.checked = true; p.expr = 'sad'; p.exprT = 5; bubble(g, p, 'ほんとに…つらいんです…', 2.5);
+          addKarma(g, 18, '本当に具合が悪い人を疑った'); toast(g, '本当に具合が悪い人だった…', 'bad');
+        }
+        break;
+      }
+      case 'ask': {
+        const s = g.seats[pr.id], q = s && person(g, s.hog); if (!q) return;
+        q.asked = true;
+        if (q.scary && gutsWin(g, q)) q.scary = false;
+        if (q.scary) {
+          bubble(g, q, g.r.pick(['あぁ？ 荷物が座ってんだよ', 'は？ 狭いんだけど']), 2.2);
+          angerFight(g, q);
+        } else {
+          q.expr = 'sad'; q.exprT = 3; bubble(g, q, 'あ…すみません', 1.8);
+          q.hogSeat = null; q.role = null; s.hog = 0; s.occ = -1; s.res = -1;
+          playerSit(g, s); g.stats.hogAsk++; deed(g, 15, '席を詰めてもらった');
+        }
+        break;
+      }
+      case 'speaker': if (speakerNear(g)) hitSpeaker(g, 1); break;
+      case 'throw': {
+        const s = g.seats[pr.id], q = s && person(g, s.hog); if (!q) return;
+        q.hogSeat = null; q.role = null; q.asked = true; s.hog = 0; s.occ = -1; s.res = -1;
+        q.expr = 'angry'; q.exprT = 5; bubble(g, q, q.scary ? 'てめぇ！ オレのかばん！' : 'ちょっと！？ 私のかばん！', 2.2);
+        emit(g, { type: 'bagThrow', x: s.x, z: s.z, side: s.side }); emit(g, { type: 'sfx', name: 'push' });
+        addKarma(g, 10, 'かばんをぶん投げた'); g.stats.bagThrow++;
+        playerSit(g, s);
+        if (q.scary) { hurt(g, 8, 'collapse'); emit(g, { type: 'shake', amount: 0.8 }); toast(g, 'どつかれた…（体力-8）', 'bad'); }
         break;
       }
       case 'brainwash': {
@@ -782,7 +902,7 @@
       pl.stamina = Math.min(C.MAX_STAMINA, pl.stamina + 35); pl.drinkCount++;
       emit(g, { type: 'sfx', name: 'drink' });
     } else {
-      pl.buffs[sk.key] = sk.dur;
+      pl.buffs[sk.key] = sk.dur + (sk.key === 'glasses' ? 2 * ST(g, 'eye') : 0);
     }
     pl.toku -= cost; g.stats.skillsUsed++;
     emit(g, { type: 'skill', key: sk.key });
@@ -800,12 +920,15 @@
     pl.punchCD = 0.42; pl.punchAnim = 0.3;
     pl.stamina = Math.max(0.1, pl.stamina - 1);
     emit(g, { type: 'sfx', name: 'whoosh' });
+    if (speakerNear(g)) { hitSpeaker(g, pl.buffs.protein > 0 ? 2 : 1); return; }
     const id = aimTarget(g, 1.6);
     if (g.multi && id >= PID) { punchPlayer(g, id - PID); return; }
     const p = id >= 0 ? person(g, id) : null;
     if (!p) return;
     const ch = g.chikan;
-    const dmgMul = pl.buffs.protein > 0 ? 2 : 1;
+    let dmgMul = pl.buffs.protein > 0 ? 2 : 1;
+    const foe = ch && p.id === ch.chikanId && ch.stage !== 'done' || p.role === 'thief' || p.role === 'suri' && p.loot || p.brute && !(p.role === 'emperor' && gangOf(g, p.id).some(q => q.role === 'hench'));
+    if (foe && p.state !== 'ko' && ST(g, 'atk') > 0 && g.r() < 0.04 * ST(g, 'atk')) { dmgMul++; emit(g, { type: 'crit' }); }
     if (ch && p.id === ch.chikanId && (ch.stage === 'active' || ch.stage === 'fight' || ch.stage === 'reported')) {
       if (ch.stage !== 'fight') {
         ch.stage = 'fight'; ch.fstate = 'idle'; ch.ft = 0.9; ch.pi = g.multi ? g.pi : 0;
@@ -835,6 +958,9 @@
       return;
     }
     if (ch && p.id === ch.chikanId && ch.stage === 'done') return; // 倒れた相手
+    if (p.state === 'ko') return; // 倒れている人
+    if (p.role === 'suri') { punchSuri(g, p, dmgMul); return; }
+    if (p.brute) { punchBrute(g, p, dmgMul); return; }
     if (p.role === 'thief' && p.state !== 'ko') {
       p.thiefHp -= dmgMul; p.stunned = 0.3; p.expr = 'pain'; p.exprT = 0.6; p.pickT = 0; p.thiefGoal = null;
       emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
@@ -914,7 +1040,7 @@
 
     // 体力
     if (pl.seat >= 0) {
-      const regen = C.SIT_REGEN * (pl.fakeSleep ? 1.35 : 1);
+      const regen = C.SIT_REGEN * (pl.fakeSleep ? 1.35 : 1) * (1 + 0.03 * ST(g, 'hp'));
       pl.stamina = Math.min(C.MAX_STAMINA, pl.stamina + regen * dt);
       g.stats.sitTime += dt;
       if (pl.fakeSleep) g.stats.tanuki += dt;
@@ -925,7 +1051,9 @@
       let drain = C.STAND_DRAIN + C.CROWD_DRAIN * crowd + (moving ? C.WALK_DRAIN : 0) + (pl.braceHeld ? C.BRACE_DRAIN : 0);
       if (g.phase === 'stop') drain *= 0.7;
       if (g.hard) drain *= 1.25;
+      if (g.speaker && g.speaker.on && !g.speaker.broken && dist2(g.speaker.x, g.speaker.z, pl.x, pl.z) < 4) drain += 0.35; // うるさくて疲れる
       if (g.endless && g.station > 11) drain *= 1 + Math.min(2, (g.station - 11) * 0.05);
+      drain *= 1 - 0.02 * ST(g, 'hp');
       if (pl.buffs.legs > 0) drain = pl.braceHeld ? C.BRACE_DRAIN * 0.5 : 0;
       pl.stamina -= drain * dt;
       if (pl.stamina <= 0) { pl.stamina = 0; gameOver(g, 'collapse'); return false; }
@@ -958,6 +1086,7 @@
       }
     } else pl.ignoreT = 0;
 
+    if (g.tutorial) { pl.stamina = Math.max(pl.stamina, 40); pl.karma = Math.min(pl.karma, 60); } // チュートリアルでは負けない
     if (pl.karma >= C.MAX_KARMA) { g.stats.arrestedAt = nextStation(g); gameOver(g, 'arrest'); return false; }
     return !isOver();
   }
@@ -970,14 +1099,15 @@
       if (pl.braceHeld) { mx *= 0.25; mz *= 0.25; }
       if (ml > 0.05) {
         const fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw), rx = Math.cos(pl.yaw), rz = -Math.sin(pl.yaw);
-        let sp = C.PLAYER_SPEED * (pl.stagger > 0 ? 0.4 : 1);
+        const spd = (pl.st && pl.st.spd) || 0;
+        let sp = C.PLAYER_SPEED * (1 + 0.02 * spd) * (pl.stagger > 0 ? 0.4 : 1);
         // 混雑による減速
         let crowd = false;
         for (const p of g.people) {
           if (p.state === 'gone' || p.state === 'seated') continue;
           if (dist2(p.x, p.z, pl.x, pl.z) < 0.5) { crowd = true; break; }
         }
-        if (crowd) sp *= 0.55;
+        if (crowd) sp *= 0.55 + 0.015 * spd;
         let nx = pl.x + (fx * mz + rx * mx) * sp * dt, nz = pl.z + (fz * mz + rz * mx) * sp * dt;
         [nx, nz] = aisleClamp(nx, nz);
         pl.x = nx; pl.z = nz; moving = true;
@@ -1129,7 +1259,7 @@
       if (g.phaseT >= C.BOARD && !g.boarded) { g.boarded = true; startBoard(g); }
       if (g.phaseT >= C.CLOSE_WARN && !g.warned) {
         g.warned = true; emit(g, { type: 'sfx', name: 'chime' }); emit(g, { type: 'announce', text: 'ドアが閉まります。ご注意ください。' });
-        if (g.station > 0 && g.r.chance(0.3)) g.runner = { active: true, door: g.r.pick(DOORS), held: false };
+        if (g.station > 0 && !g.tutorial && g.r.chance(0.3)) g.runner = { active: true, door: g.r.pick(DOORS), held: false };
       }
       if (g.phaseT >= g.doorClose && g.doorsOpen) {
         g.doorsOpen = false; emit(g, { type: 'doors', open: false, side: g.doorSide }); emit(g, { type: 'sfx', name: 'door' });
@@ -1158,6 +1288,7 @@
     }
   }
   function planLurches(g) {
+    if (g.tutorial) return [];
     const n = (g.hard ? 2 : 1) + (g.r.chance(0.45) ? 1 : 0);
     const arr = [];
     for (let i = 0; i < n; i++) arr.push(g.r.range(4, C.T_TRAVEL - 4));
@@ -1183,6 +1314,8 @@
     p.state = 'exit'; p.tx = d + (g.r() - 0.5) * 0.6; p.tz = g.doorSide * 1.2; p.then = 'out';
     p.packing = false; p.anim = 'none';
     if (p.role === 'thief' && p.stolen && !p.fleeing) toast(g, '…さっきの若者、盗んだ物を持って降りていった？', 'bad');
+    if (p.role === 'tuber' && g.speaker && g.speaker.owner === p.id) g.speaker = null;
+    if (p.role === 'suri' && p.loot) toast(g, p.caught ? 'スリに逃げられた…' : '…さっきの人、スリだった？ 財布を持って降りていった', 'bad');
     // 落とし物の持ち主が降りる
     for (const b of bodies(g)) { const it = b.carrying; if (it && it.owner === p.id) it.ownerLeaving = true; }
   }
@@ -1193,6 +1326,7 @@
     if (g.endless && st >= LINE.length - 1) range = [4 + Math.min(4, (st - 11) >> 2), 8 + Math.min(6, (st - 11) >> 1)];
     let n = g.r.int(range[0], range[1]);
     if (g.hard) n = Math.round(n * 1.4);
+    if (g.tutorial) n = 0; // チュートリアル：乗ってくる人はいない
     const alive = g.people.filter(p => p.state !== 'gone' && p.state !== 'exit').length;
     n = Math.max(0, Math.min(n, C.MAX_PEOPLE - alive));
     let i = 0;
@@ -1202,6 +1336,7 @@
     if (!g.endless && st >= 2 && st <= lastStation(g) - 3 && !thiefAboard && !g.jiji && (g.thiefCount || 0) < 2 && g.r.chance(g.hard ? 0.4 : 0.25) && g.boardQueue.length)
       g.boardQueue.splice(g.r.int(0, g.boardQueue.length - 1), 0, { at: 0, type: 'thief' });
     if (g.endless && st >= 2 && !thiefAboard && g.r.chance(0.3) && g.boardQueue.length) g.boardQueue.splice(0, 0, { at: 0, type: 'thief' });
+    planVillains(g, st);
     g.boardQueue.forEach((q, k) => { q.at = g.phaseT + k * 0.32; });
   }
   function updateBoardQueue(g) {
@@ -1209,6 +1344,7 @@
     while (g.boardQueue.length && g.boardQueue[0].at <= g.phaseT) {
       const q = g.boardQueue.shift();
       const p = spawn(g, q.type, g.station, q.type === 'thief' ? g.station + g.r.int(3, 5) : null);
+      if (q.v) setupVillain(g, p, q.v);
       if (q.type === 'thief') { g.thiefCount = (g.thiefCount || 0) + 1; p.role = 'thief'; p.wantSeat = false; p.stolen = 0; p.thiefT = g.r.range(3, 7); p.thiefHp = 3; p.look.mask = g.r.chance(0.4); }
       const d = g.r.pick(DOORS);
       p.x = d + (g.r() - 0.5) * 0.6; p.z = g.doorSide * 1.7;
@@ -1221,7 +1357,9 @@
         const dd = dist2(s.x, s.fz, p.x, 0) + g.r() * 0.8;
         if (dd < bd) { bd = dd; best = s; }
       }
+      if (!best && p.role === 'emperor') best = emperorKick(g, p);
       if (best) { best.res = p.id; p.state = 'walk'; p.tx = best.x; p.tz = best.fz; p.then = 'sit'; p.seatTarget = best.id; }
+      else if (p.role === 'hench' || p.role === 'suri') { p.state = 'walk'; p.tx = p.x; p.tz = 0; p.then = 'stand'; }
       else if (p.priority && seatedBody(g) && g.r.chance(0.55)) {
         const s = g.seats[seatedBody(g).seat]; p.state = 'walk'; p.tx = s.x + (g.r() - 0.5) * 0.3; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true; p.targetSeat = s.id;
       } else placeStanding(g, p, false);
@@ -1281,6 +1419,7 @@
           }
           // 眠り：近づくと起きる
           if (g.phase === 'travel' && p.sleep && !p.oversleep && rem <= 1 && g.r() < 0.12 * dt) { p.sleep = 0; p.expr = 'sleepy'; p.exprT = 3; }
+          if (p.role === 'hog' && p.hogSeat == null && !p.asked && g.r() < 0.5 * dt) hogClaim(g, p);
           if (p.type === 'drunk' && g.r() < 0.02 * dt) bubble(g, p, 'ういっく…', 1.5);
           if (p.sleep && g.r() < 0.03 * dt) bubble(g, p, 'Zzz…', 2);
           // NPC が席を譲る（若者）
@@ -1295,6 +1434,7 @@
           break;
         }
         case 'walk': {
+          if (p.role === 'dasher' && p.then === 'sit' && dasherBlocked(g, p)) break;
           const arrived = moveToward(p, p.tx, p.tz, p.speed, dt);
           if (arrived) {
             if (p.then === 'sit') {
@@ -1318,10 +1458,11 @@
             if (p.anim === 'none' && g.r() < lookRate * dt) { p.anim = 'board'; p.animT = 1.3; p.looks.push(g.t); }
           }
           // 空いた席を狙う
-          if (p.wantSeat && !p.leaving && rem >= 1 && !p.role && !(g.phase === 'stop' && p.dest <= g.station)) {
-            let best = null, bd = p.type === 'obachan' ? 4.0 : 3.0;
+          if (p.wantSeat && !p.leaving && rem >= 1 && (!p.role || SEEKERS[p.role]) && !(p.blockCD > g.t) && !(g.phase === 'stop' && p.dest <= g.station)) {
+            let best = null, bd = p.role === 'dasher' ? 5.5 : p.type === 'obachan' ? 4.0 : 3.0;
             for (const s of g.seats) {
-              if (s.occ >= 0 || s.res >= 0) continue;
+              if (s.occ >= 0) continue;
+              if (s.res >= 0 && !(p.role === 'dasher' && dashSteal(g, p, s))) continue;
               if (s.pri && !p.priority && !p.priOK && p.type !== 'obachan' && p.type !== 'yankee' && p.type !== 'drunk') continue;
               const d = dist2(s.x, s.fz, p.x, p.z);
               if (d < bd) { bd = d; best = s; }
@@ -1329,9 +1470,11 @@
             if (best) {
               p.scanT += dt;
               if (p.scanT >= p.react) {
+                if (best.res >= 0) { const q = person(g, best.res); if (q) { q.then = null; q.state = 'stand'; q.expr = 'sad'; q.exprT = 3; bubble(g, q, 'あっ…', 1.2); placeStanding(g, q, false); } }
                 p.scanT = 0; best.res = p.id; releaseSlot(g, p);
                 p.state = 'walk'; p.tx = best.x; p.tz = best.fz; p.then = 'sit'; p.seatTarget = best.id; p.targetPlayer = false;
                 if (p.type === 'obachan') bubble(g, p, 'よっこいしょ！', 1.2);
+                if (p.role === 'dasher') bubble(g, p, g.r.pick(['どいてどいて〜！', 'その席もらったァ！']), 1.4);
               }
             } else p.scanT = 0;
           }
@@ -1344,7 +1487,7 @@
           if (p.targetPlayer && !(p.targetSeat != null && g.multi ? g.seats[p.targetSeat].occ === 0 : sb)) p.targetPlayer = false;
           break;
         }
-        case 'fight': updateFighter(g, p, dt); break;
+        case 'fight': if (p.brute) updateBrute(g, p, dt); else updateFighter(g, p, dt); break;
         case 'ko': {
           p.koT = (p.koT || 0) + dt;
           if (g.phase === 'stop' && g.doorsOpen && p.koT > 2) { // 駅員に引き渡し
@@ -1355,6 +1498,11 @@
         }
       }
       if (p.role === 'thief') updateThief(g, p, dt);
+      else if (p.role === 'suri') updateSuri(g, p, dt);
+      else if (p.role === 'caller') updateCaller(g, p, dt);
+      else if (p.role === 'tuber') updateTuber(g, p, dt);
+      else if (p.role === 'hench' || p.role === 'emperor') updateGang(g, p, dt);
+      if (p.fake && p.role !== 'faked' && p.state !== 'seated' && p.state !== 'ko' && g.r() < 0.07 * dt) { p.expr = 'happy'; p.exprT = 0.45; } // 仮病：元気な顔がもれる
       if (p.robbedAt && g.t > p.robbedAt && p.state !== 'gone') { p.robbedAt = 0; p.sleep = 0; p.oversleep = false; p.expr = 'worried'; p.exprT = 6; bubble(g, p, 'あれ？財布がない…！', 2.5); }
       // 降りる人（席を立って待っている）→ ドアが開いたら出る
       if (p.leaving && g.phase === 'stop' && g.doorsOpen && p.state === 'stand' && p.dest <= g.station) { p.leaving = false; leave(g, p); }
@@ -1363,6 +1511,8 @@
     g.people = g.people.filter(p => p.state !== 'gone');
     for (const s of g.seats) if (s.res >= 0) { const q = person(g, s.res); if (!q || q.state !== 'walk' || q.then !== 'sit' || q.seatTarget !== s.id) { s.res = -1; s.gift = false; } }
     for (const s of g.slots) if (s.occ >= 0) { const q = person(g, s.occ); if (!q || q.slot < 0 || g.slots[q.slot] !== s) s.occ = -1; }
+    // 2 人分使われていた席：その人が立ったら空く
+    for (const s of g.seats) if (s.hog) { const q = person(g, s.hog); if (!q || q.state !== 'seated' || q.hogSeat !== s.id) { s.hog = 0; s.occ = -1; s.res = -1; s.freedAt = g.t; s.freedBy = -1; emit(g, { type: 'seatFree', id: s.id }); } }
 
     // NPC が優先の人に譲る
     g.samaritanT -= dt;
@@ -1370,7 +1520,7 @@
       g.samaritanT = g.r.range(12, 22);
       const needy = g.people.filter(p => p.priority && (p.state === 'stand') && !p.targetPlayer);
       for (const n of needy) {
-        const giver = g.people.find(q => q.state === 'seated' && !q.priority && q.sleep === 0 && q.type !== 'yankee' && q.type !== 'obachan' && q.type !== 'gamer' && dist2(q.x, q.z, n.x, n.z) < 1.8);
+        const giver = g.people.find(q => q.state === 'seated' && !q.priority && !q.role && q.sleep === 0 && q.type !== 'yankee' && q.type !== 'obachan' && q.type !== 'gamer' && dist2(q.x, q.z, n.x, n.z) < 1.8);
         if (giver && g.r.chance(0.45)) {
           const s = g.seats[giver.seat]; freeSeat(g, s, giver.id); giver.seat = -1; giver.state = 'stand';
           giver.z = s.fz; placeStanding(g, giver, false);
@@ -1436,6 +1586,340 @@
     p.thiefGoal = goal; p.state = 'walk'; p.tx = goal.x; p.tz = goal.z; p.then = 'stand';
   }
 
+  // ---------------------------------------------------------------- 悪者（スリ・席占領・仮病・席ダッシュ・大声電話・車内の帝王）
+  const SEEKERS = { hog: 1, dasher: 1, caller: 1, emperor: 1 };
+  const VILLAIN_MSG = {
+    suri: '⚠ スリが乗ってきた…！ 財布を抜く瞬間を見逃すな（抜く前に殴ると冤罪）',
+    hog: '⚠ 席を2人分使う人が乗ってきた（頼めば詰めてくれる…かも）',
+    faker: '⚠ 具合が悪そうな人が乗ってきた…本当に？',
+    dasher: '⚠ 席ダッシュの人が乗ってきた！ 空いた席を横取りされるな',
+    caller: '⚠ 大声で電話する人が乗ってきた…寝ている人が起きちゃう',
+    tuber: '⚠ 迷惑YouTuberが乗ってきた！ 床のスピーカーを壊せ（下を見てパンチ）',
+    emperor: '👑 車内の帝王が乗ってきた…！ 子分を倒さないと近づけない',
+  };
+  function capDest(g, d) { return Math.min(d, lastStation(g)); }
+  function villainCount(g) {
+    let n = g.chikan ? 1 : 0;
+    for (const p of g.people) {
+      if (p.state === 'gone' || p.state === 'exit' || p.state === 'ko') continue;
+      if (p.role === 'thief' || p.role === 'suri' || p.role === 'hog' || p.role === 'caller') n++;
+      else if (p.role === 'dasher' && p.state !== 'seated') n++;
+      else if (p.fake && p.role !== 'faked') n++;
+      else if (p.role === 'emperor') n += 2;
+      else if (p.role === 'tuber') n++;
+    }
+    return n;
+  }
+  // この駅で乗ってくる悪者を決める（同時に 2 人まで）
+  function planVillains(g, st) {
+    if (!g.villainKinds.length || st < 1 || st > lastStation(g) - 2 || !g.boardQueue) return;
+    const vr = g.vr, active = villainCount(g);
+    const put = (arr) => { const at = vr.int(0, g.boardQueue.length); g.boardQueue.splice(at, 0, ...arr); };
+    if (!g.emperorDone && st >= 3 && st <= lastStation(g) - 3 && active === 0 && vr.chance(g.hard || g.endless ? 0.07 : 0.035)) {
+      g.emperorDone = true;
+      put([{ at: 0, type: 'emperor', v: 'emperor' }, { at: 0, type: 'henchman', v: 'hench' }, { at: 0, type: 'henchman', v: 'hench' }]);
+      return;
+    }
+    if (active >= 2 || !vr.chance(g.hard ? 0.5 : 0.35)) return;
+    const w = {}; for (const k of g.villainKinds) w[k] = k === 'suri' ? 2 : 1;
+    const v = weighted(vr, w);
+    if (v === 'tuber' && g.speaker && g.speaker.on && !g.speaker.broken) return;
+    const type = v === 'suri' ? vr.pick(['salaryman', 'student', 'ol']) : v === 'hog' ? vr.pick(['salaryman', 'yankee', 'obachan', 'otaku']) : v === 'faker' ? 'sick' : v === 'dasher' ? 'dasher' : v === 'tuber' ? vr.pick(['student', 'yankee']) : vr.pick(['salaryman', 'ol', 'obachan', 'yankee']);
+    put([{ at: 0, type, v }]);
+  }
+  function setupVillain(g, p, v) {
+    const r = g.r, st = g.station;
+    if (!g.seenVillain[v] && VILLAIN_MSG[v] && !g.tutorial) { g.seenVillain[v] = true; toast(g, VILLAIN_MSG[v], 'warn'); }
+    if (v === 'suri') { p.role = 'suri'; p.wantSeat = false; p.sleep = 0; p.suri = { ph: 'roam', t: r.range(4, 8) }; p.hp = 2; p.dest = capDest(g, st + r.int(3, 5)); }
+    else if (v === 'hog') { p.role = 'hog'; p.wantSeat = true; p.react = 0.25; p.scary = p.tough || r.chance(0.3); p.hogKind = p.type === 'obachan' || p.type === 'otaku' || p.female ? 'bag' : 'spread'; p.dest = capDest(g, st + r.int(3, 6)); }
+    else if (v === 'faker') { p.fake = true; p.idle = 'phone'; p.wantSeat = true; }
+    else if (v === 'dasher') { p.role = 'dasher'; p.wantSeat = true; p.dest = capDest(g, st + r.int(2, 4)); }
+    else if (v === 'caller') { p.role = 'caller'; p.idle = 'call'; p.scary = p.tough || r.chance(0.3); p.callT = r.range(2, 4); p.dest = capDest(g, st + r.int(3, 5)); }
+    else if (v === 'tuber') { p.role = 'tuber'; p.wantSeat = false; p.idle = 'phone'; p.tubT = r.range(1, 2); p.dest = capDest(g, st + r.int(3, 5)); g.speaker = { owner: p.id, x: p.x, z: 0, hp: 2, on: false, broken: false }; }
+    else if (v === 'emperor') { p.role = 'emperor'; p.wantSeat = true; p.priOK = true; p.brute = { hp: 6, dmg: 18, guard: 0.4 }; p.dest = capDest(g, st + r.int(3, 5)); g.emperorId = p.id; p.menT = r.range(6, 10); }
+    else if (v === 'hench') {
+      const boss = person(g, g.emperorId);
+      p.role = 'hench'; p.wantSeat = false; p.brute = { hp: 3, dmg: 9, guard: 0.25 }; p.boss = g.emperorId; p.dest = boss ? boss.dest : capDest(g, st + 4);
+      p.gIdx = g.people.filter(q => q.role === 'hench' && q.boss === g.emperorId).length; p.menT = g.r.range(4, 9);
+    }
+  }
+  // テスト用：その場に悪者を出す
+  function spawnVillain(g, v, x, z) {
+    const type = v === 'tuber' ? 'student' : v === 'suri' ? 'salaryman' : v === 'faker' ? 'sick' : v === 'dasher' ? 'dasher' : v === 'emperor' ? 'emperor' : v === 'hench' ? 'henchman' : v === 'hog' ? 'salaryman' : 'ol';
+    const p = spawn(g, type, g.station);
+    p.x = x != null ? x : 0; p.z = z != null ? z : 0;
+    g.people.push(p); setupVillain(g, p, v);
+    p.state = 'stand';
+    return p;
+  }
+  // 2 人分の席：となりの空き席も使う
+  function hogClaim(g, p) {
+    if (p.seat < 0 || p.hogSeat != null) return;
+    const seat = g.seats[p.seat];
+    const s2 = g.seats.find(o => o.id !== seat.id && o.side === seat.side && o.pri === seat.pri && Math.abs(o.x - seat.x) < 0.55 && o.occ < 0 && o.res < 0);
+    if (!s2) return;
+    s2.occ = p.id; s2.hog = p.id; p.hogSeat = s2.id;
+  }
+  // 席ダッシュ：ほかの人が向かっている席も、自分のほうが近ければ横取りする
+  function dashSteal(g, p, s) {
+    const q = person(g, s.res); if (!q || q.role === 'emperor') return false;
+    return dist2(q.x, q.z, s.x, s.fz) > dist2(p.x, p.z, s.x, s.fz) + 0.5;
+  }
+  // 席ダッシュ：立っているプレイヤーにぶつかると止まる
+  function dasherBlocked(g, p) {
+    const bi = bodyIndex(g, (b) => b.seat < 0 && dist2(b.x, b.z, p.x, p.z) < 0.42);
+    if (bi < 0) return false;
+    const s = g.seats[p.seatTarget]; if (s && s.res === p.id) s.res = -1;
+    p.then = null; p.state = 'stand'; p.expr = 'surprised'; p.exprT = 2; p.blockCD = g.t + 6;
+    bubble(g, p, 'うわっ、ちょっ…！', 1.6); placeStanding(g, p, false);
+    asPlayer(g, bi, () => { g.stats.dashBlock++; deed(g, 15, '席ダッシュを体でブロック'); });
+    return true;
+  }
+  // プレイヤーの体を探す（1 人用は 0、オンラインは何人目か）
+  function bodyIndex(g, fn) {
+    if (!g.multi) return fn(g.player) ? 0 : -1;
+    return g.players.findIndex(P => !P.out && fn(P.pl));
+  }
+  function asPlayer(g, i, fn) { if (!g.multi) { fn(); return; } const prev = g.pi; setCtx(g, i); fn(); setCtx(g, prev); }
+  function bodyOf(g, i) { return g.multi ? (g.players[i] && !g.players[i].out ? g.players[i].pl : null) : g.player; }
+
+  // スリ：人に寄って、ポケットに手を入れて、抜いたら次の駅で逃げる
+  function updateSuri(g, p, dt) {
+    const S = p.suri; if (!S || p.state === 'ko' || p.state === 'exit' || p.state === 'gone') return;
+    if (S.ph === 'escape') return;
+    const tpos = () => { const T = S.target; if (!T) return null; if (T.kind === 'pl') { const b = bodyOf(g, T.i); return b && b.seat < 0 ? b : null; } const v = person(g, T.id); return v && v.state === 'stand' ? v : null; };
+    const roam = () => { S.ph = 'roam'; S.t = g.r.range(5, 9); S.target = null; if (p.anim === 'reach') { p.anim = 'none'; p.animT = 0; } if (p.state === 'stand' && p.slot < 0) placeStanding(g, p, false); };
+    if (S.ph === 'roam') {
+      if (p.state !== 'stand') return;
+      if (g.r() < dt * 0.25) { p.expr = 'shifty'; p.exprT = g.r.range(0.5, 1.4); }
+      S.t -= dt; if (S.t > 0) return;
+      S.t = g.r.range(5, 9);
+      if (g.phase !== 'travel' || C.T_TRAVEL - g.phaseT < 6) return;
+      const npcs = g.people.filter(q => q !== p && q.state === 'stand' && !q.role && !q.priority && !q.leaving && !q.robbed && dist2(q.x, q.z, p.x, p.z) < 6);
+      let T = null;
+      const bi = bodyIndex(g, b => b.seat < 0 && dist2(b.x, b.z, p.x, p.z) < 6);
+      if (bi >= 0 && (g.r.chance(0.45) || !npcs.length)) T = { kind: 'pl', i: bi };
+      else if (npcs.length) T = { kind: 'npc', id: g.r.pick(npcs).id };
+      if (!T) return;
+      S.target = T; S.ph = 'approach'; S.t = 7;
+    }
+    const tp = tpos();
+    if (!tp) { roam(); return; }
+    const d = dist2(p.x, p.z, tp.x, tp.z);
+    if (S.ph === 'approach') {
+      S.t -= dt; if (S.t <= 0) { roam(); return; }
+      if (d < 0.7) { S.ph = 'reach'; S.rt = 1.5; releaseSlot(g, p); p.state = 'stand'; p.then = null; }
+      else if (p.state === 'stand' || p.state === 'walk') { releaseSlot(g, p); p.state = 'walk'; p.then = 'stand'; const side = tp.x > p.x ? -1 : 1; [p.tx, p.tz] = aisleClamp(tp.x + side * 0.38, tp.z * 0.9); }
+      return;
+    }
+    if (S.ph === 'reach') {
+      if (d > 1.15) { roam(); return; }
+      p.anim = 'reach'; p.animT = 0.2; p.ry = Math.atan2(tp.x - p.x, tp.z - p.z);
+      S.rt -= dt;
+      if (S.rt <= 0) suriSteal(g, p, S.target);
+    }
+  }
+  function suriSteal(g, p, T) {
+    const S = p.suri; S.ph = 'escape'; p.anim = 'none'; p.animT = 0;
+    p.loot = { kind: T.kind, id: T.id, i: T.i, amt: 0 };
+    emit(g, { type: 'suriSteal', id: p.id });
+    if (T.kind === 'npc') { const v = person(g, T.id); if (v) { v.robbed = true; v.robbedAt = g.t + g.r.range(3, 6); } }
+    else asPlayer(g, T.i, () => {
+      const pl = g.player, amt = Math.min(Math.floor(pl.toku), g.r.int(20, 40));
+      pl.toku -= amt; p.loot.amt = amt;
+      toast(g, '💸 …ポケットが軽い！？ 徳を' + amt + '抜かれた！ スリだ、次の駅までに捕まえろ', 'bad');
+      emit(g, { type: 'shake', amount: 0.4 });
+    });
+    // 次の駅で逃げる
+    p.dest = capDest(g, g.phase === 'stop' ? g.station + 1 : nextStation(g)); p.leaving = true;
+    releaseSlot(g, p); const dd = nearestDoor(p.x);
+    p.state = 'walk'; p.tx = dd + (g.r() - 0.5) * 0.6; p.tz = (p.z >= 0 ? 1 : -1) * 0.95; p.then = 'stand';
+  }
+  function punchSuri(g, p, dmgMul) {
+    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
+    if (!p.loot) { // まだ何もしていない：冤罪
+      g.stats.falseAccuse++; g.stats.wrongPunch++;
+      p.expr = 'angry'; p.exprT = 5; p.angry = 8; bubble(g, p, '痛っ！なにするんですか！', 2);
+      addKarma(g, 20, '冤罪（まだ何もしていない人を殴った）');
+      toast(g, '…まだ何もしていなかった。冤罪だ！', 'bad');
+      const S = p.suri; S.ph = 'roam'; S.t = g.r.range(9, 14); S.target = null; p.anim = 'none';
+      if (p.state === 'walk') { p.state = 'stand'; p.then = null; placeStanding(g, p, false); }
+      return;
+    }
+    p.hp -= dmgMul; p.stunned = 0.3; p.expr = 'pain'; p.exprT = 0.6;
+    if (p.hp <= 0) {
+      releaseSlot(g, p); p.state = 'ko'; p.expr = 'ko'; p.exprT = 999; p.koT = 0; p.leaving = false; p.role = 'suriKO';
+      g.stats.suriKO++; deed(g, 80, 'スリを現行犯で撃退！');
+      returnLoot(g, p);
+      emit(g, { type: 'sfx', name: 'ko' });
+      return;
+    }
+    if (!p.caught) { p.caught = true; bubble(g, p, 'ちっ！', 1.2); toast(g, 'スリだ！ 逃がすな！ もう一発', 'warn'); p.speed = 1.6; }
+  }
+  function returnLoot(g, p) {
+    const L = p.loot; if (!L) return; p.loot = null;
+    if (L.kind === 'pl') {
+      const b = bodyOf(g, L.i); if (!b || !L.amt) return;
+      b.toku += L.amt;
+      asPlayer(g, L.i, () => toast(g, '抜かれた徳 ' + L.amt + ' が戻ってきた！', 'good'));
+      return;
+    }
+    const v = person(g, L.id);
+    const it = { id: g.nextId++, key: 'wallet', name: '財布', pts: 30, owner: L.id, x: p.x, z: p.z, t0: g.t, noticeAfter: 0, noticed: true, taken: true,
+      hint: v ? v.look.topName + 'の服の' + (v.female ? '女性' : '男性') : '降りた人' };
+    if (!g.player.carrying) { g.player.carrying = it; toast(g, '財布を取り返した！ 持ち主（' + it.hint + '）に返そう', 'good'); }
+    else { it.taken = false; [it.x, it.z] = aisleClamp(p.x, p.z); g.items.push(it); toast(g, '財布が床に落ちた（持ち主は' + it.hint + '）', 'info'); }
+  }
+
+  // 大声電話：寝ている人を起こしてしまう
+  function updateCaller(g, p, dt) {
+    if (p.state === 'ko' || p.state === 'exit' || p.state === 'gone') return;
+    p.callT -= dt; if (p.callT > 0) return;
+    p.callT = g.r.range(4, 7);
+    bubble(g, p, g.r.pick(['もしもし！？ 今電車！！', 'えーっ!? マジでぇ!?', 'だからさぁ！！ 聞こえる!?', 'ガハハハハ！！', 'うん、うん、今電車だって！！']), 2.2);
+    for (const q of g.people) {
+      if (q === p || q.state === 'gone' || dist2(q.x, q.z, p.x, p.z) > 3.2) continue;
+      if (q.sleep && !q.oversleep) { q.sleep = 0; q.expr = 'angry'; q.exprT = 3; if (g.r.chance(0.3)) bubble(g, q, 'うるさいなぁ…', 1.5); }
+      else if (q.sleep === 0 && q.state !== 'ko' && g.r.chance(0.3)) { q.expr = 'glare'; q.exprT = 2; }
+    }
+  }
+
+  // 迷惑YouTuber：床のスピーカーで音楽を流す。スピーカーを壊すと徳
+  function updateTuber(g, p, dt) {
+    const sp = g.speaker; if (!sp || sp.owner !== p.id || p.state === 'ko' || p.state === 'exit' || p.state === 'gone') return;
+    if (!sp.on) {
+      if (p.state !== 'stand') return;
+      [sp.x, sp.z] = aisleClamp(p.x + 0.4, p.z * 0.4); sp.on = true;
+      bubble(g, p, 'どうもー！ 今日は電車で爆音ライブしてみた！', 2.5); emit(g, { type: 'speaker', on: true });
+      return;
+    }
+    if (sp.broken) return;
+    p.tubT -= dt; if (p.tubT > 0) return;
+    p.tubT = g.r.range(3, 5);
+    bubble(g, p, g.r.pick(['♪♪ イェーイ！', 'チャンネル登録よろしく〜！', 'みんなノッてる〜？', '♪ ズンチャズンチャ ♪']), 2);
+    for (const q of g.people) {
+      if (q === p || q.state === 'gone' || dist2(q.x, q.z, sp.x, sp.z) > 4) continue;
+      if (q.sleep && !q.oversleep) { q.sleep = 0; q.expr = 'angry'; q.exprT = 3; if (g.r.chance(0.25)) bubble(g, q, 'うるさっ…', 1.4); }
+      else if (q.sleep === 0 && q.state !== 'ko' && g.r.chance(0.35)) { q.expr = 'glare'; q.exprT = 2; }
+    }
+  }
+  function speakerNear(g) {
+    const sp = g.speaker, pl = g.player;
+    return !!(sp && sp.on && !sp.broken && pl.seat < 0 && pl.pitch < -0.3 && dist2(sp.x, sp.z, pl.x, pl.z) < 1.15);
+  }
+  function hitSpeaker(g, dmg) {
+    const sp = g.speaker; sp.hp -= dmg || 1;
+    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'speakerHit' }); emit(g, { type: 'shake', amount: 0.4 });
+    if (sp.hp > 0) { const o = person(g, sp.owner); if (o) { o.expr = 'surprised'; o.exprT = 1.5; bubble(g, o, 'ちょっ、機材に触んな！', 1.4); } return; }
+    sp.broken = true; emit(g, { type: 'speaker', on: false });
+    const o = person(g, sp.owner);
+    if (o) { o.role = 'tuberSad'; o.idle = 'none'; o.expr = 'sad'; o.exprT = 8; bubble(g, o, 'ああっ！ 機材がぁ！', 2.5); }
+    g.stats.speakerKO++; deed(g, 40, '迷惑スピーカーを壊した');
+    for (const q of g.people) if (q !== o && q.sleep === 0 && q.state !== 'ko' && dist2(q.x, q.z, sp.x, sp.z) < 4) { q.expr = 'happy'; q.exprT = 3; }
+  }
+
+  // 車内の帝王と子分
+  function emperorKick(g, p) {
+    const cands = g.people.filter(q => q.state === 'seated' && !q.priority && !q.role && q.type !== 'alien');
+    if (!cands.length) return null;
+    let v = cands[0], bd = 1e9; for (const q of cands) { const d = dist2(q.x, q.z, p.x, 0); if (d < bd) { bd = d; v = q; } }
+    const s = g.seats[v.seat]; freeSeat(g, s, -1); v.seat = -1; v.state = 'stand'; v.z = s.fz; v.expr = 'worried'; v.exprT = 4; bubble(g, v, 'ひっ…どうぞ…', 1.8); placeStanding(g, v, false);
+    return s;
+  }
+  function gangOf(g, bossId) { return g.people.filter(q => (q.role === 'hench' && q.boss === bossId || q.role === 'emperor' && q.id === bossId) && q.state !== 'ko' && q.state !== 'gone' && q.state !== 'exit'); }
+  function updateGang(g, p, dt) {
+    if (p.state === 'ko' || p.state === 'exit' || p.state === 'gone' || p.state === 'fight') return;
+    p.menT -= dt;
+    if (p.role === 'hench') {
+      const boss = person(g, p.boss);
+      if (boss && boss.state === 'seated' && p.state === 'stand' && p.gSeat !== boss.seat) {
+        const s = g.seats[boss.seat]; p.gSeat = boss.seat; releaseSlot(g, p);
+        p.state = 'walk'; [p.tx, p.tz] = aisleClamp(s.x + (p.gIdx % 2 ? 0.45 : -0.45), s.fz); p.then = 'stand';
+      }
+      if (p.menT <= 0) {
+        p.menT = g.r.range(9, 15);
+        bubble(g, p, g.r.pick(['あぁん？', '見てんじゃねぇぞ', '帝王のお通りだ']), 1.8); p.expr = 'glare'; p.exprT = 2;
+        for (const q of g.people) if (q !== p && !q.brute && q.sleep === 0 && q.state !== 'ko' && dist2(q.x, q.z, p.x, p.z) < 2) { q.expr = 'worried'; q.exprT = 3; }
+      }
+    } else if (p.menT <= 0) { p.menT = g.r.range(10, 16); bubble(g, p, g.r.pick(['フッ…', '庶民の電車も悪くない', 'ワシの席はどこじゃ']), 1.8); }
+  }
+  function setAggro(g, q, pi) {
+    if (q.state === 'ko') return;
+    if (q.role === 'caller') q.callT = 99;
+    q.aggro = true; q.aggroPi = pi; releaseSlot(g, q);
+    if (q.seat >= 0) { freeSeat(g, g.seats[q.seat], q.id); q.seat = -1; }
+    if (q.hogSeat != null) q.hogSeat = null;
+    q.state = 'fight'; q.bfs = 'idle'; q.bft = g.r.range(0.6, 1.2); q.then = null;
+    if (!q.angryFight || q.role === 'emperor' || q.role === 'hench') bubble(g, q, q.role === 'emperor' ? 'ほう…やるじゃねぇか' : 'やんのかコラァ！', 1.8);
+  }
+  // 度胸：こわい人でも言うことを聞いてくれる
+  function gutsWin(g, p) {
+    if (!(g.r() < 0.07 * ST(g, 'guts'))) return false;
+    emit(g, { type: 'guts' }); toast(g, '😤 度胸で押し切った！', 'good');
+    return true;
+  }
+  // こわい人に注意すると、逆ギレして向かってくる
+  function angerFight(g, p) {
+    p.brute = { hp: p.type === 'yankee' ? 4 : 3, dmg: p.type === 'yankee' ? 12 : 10, guard: 0.3 };
+    p.angryFight = true; p.expr = 'angry'; p.exprT = 5;
+    setAggro(g, p, g.multi ? g.pi : 0);
+    toast(g, '逆ギレして向かってきた！ 構えたらパンチでカウンター、ガードで防御', 'warn');
+  }
+  function punchBrute(g, p, dmgMul) {
+    const pi = g.multi ? g.pi : 0, isGang = p.role === 'hench' || p.role === 'emperor', bossId = p.role === 'emperor' ? p.id : p.boss;
+    const gang = isGang ? gangOf(g, bossId) : [p], hench = gang.filter(q => q.role === 'hench');
+    if (p.role === 'emperor' && hench.length) {
+      bubble(g, hench[0], '帝王に触るな！', 1.5); emit(g, { type: 'sfx', name: 'block' });
+      toast(g, '子分が邪魔で届かない！ 先に子分を倒せ', 'warn');
+      for (const q of hench) if (!q.aggro) setAggro(g, q, pi);
+      return;
+    }
+    if (!p.aggro) { if (p.role === 'emperor' || !isGang) setAggro(g, p, pi); else { for (const q of hench) if (!q.aggro) setAggro(g, q, pi); } toast(g, p.role === 'emperor' ? '👑 帝王との決戦！' : '帝王の子分とケンカだ！ 構えたらパンチでカウンター、ガードで防御', 'warn'); }
+    if (p.bfs !== 'windup' && g.r() < p.brute.guard) { emit(g, { type: 'sfx', name: 'block' }); bubble(g, p, 'ガード！', 0.6); emit(g, { type: 'guarded', id: p.id }); return; }
+    let dmg = dmgMul;
+    if (p.bfs === 'windup') { dmg += 1; p.bfs = 'recover'; p.bft = 0.9; g.stats.counters++; emit(g, { type: 'counter' }); toast(g, 'カウンター！', 'good'); }
+    p.brute.hp -= dmg; p.stunned = 0.25; p.expr = 'pain'; p.exprT = 0.6;
+    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
+    if (p.brute.hp > 0) return;
+    releaseSlot(g, p); p.state = 'ko'; p.expr = 'ko'; p.exprT = 999; p.koT = 0; p.aggro = false;
+    emit(g, { type: 'sfx', name: 'ko' });
+    if (!isGang) { g.stats.brawlKO++; p.role = null; deed(g, 45, '逆ギレした人を返り討ちにした'); }
+    else if (p.role === 'hench') {
+      g.stats.henchKO++; deed(g, 50, '帝王の子分を倒した！');
+      const boss = person(g, bossId);
+      if (boss && boss.state !== 'ko' && !gangOf(g, bossId).some(q => q.role === 'hench')) setAggro(g, boss, pi);
+    } else {
+      g.stats.emperorKO++; deed(g, 250, '車内の帝王を倒した！！');
+      toast(g, '👑 車内に平和が戻った！', 'good');
+      for (const q of g.people) if (q.state !== 'ko' && q.state !== 'gone' && q.sleep === 0) { q.expr = 'happy'; q.exprT = 3; }
+    }
+  }
+  function updateBrute(g, p, dt) {
+    if (!p.aggro) { p.state = 'stand'; placeStanding(g, p, false); return; }
+    if (g.multi) {
+      if (p.aggroPi == null || !g.players[p.aggroPi] || g.players[p.aggroPi].out) { calmBrute(g, p); return; }
+      const prev = g.pi; setCtx(g, p.aggroPi); bruteStep(g, p, dt); setCtx(g, prev); return;
+    }
+    bruteStep(g, p, dt);
+  }
+  function calmBrute(g, p) { if (p.role === 'caller') p.callT = 2; p.aggro = false; p.bfs = 'idle'; p.state = 'stand'; p.gSeat = null; placeStanding(g, p, false); }
+  function bruteStep(g, p, dt) {
+    const pl = g.player;
+    if (pl.seat >= 0) { bubble(g, p, 'ちっ、座りやがった…', 1.5); calmBrute(g, p); return; }
+    const d = dist2(p.x, p.z, pl.x, pl.z);
+    p.ry = Math.atan2(pl.x - p.x, pl.z - p.z);
+    if (d > 0.8) { [p.x, p.z] = aisleClamp(p.x + (pl.x - p.x) / d * 1.3 * dt, p.z + (pl.z - p.z) / d * 1.3 * dt); }
+    p.bft -= dt * (p.stunned > 0 ? 0.5 : 1);
+    if (p.bfs === 'idle' && p.bft <= 0) { p.bfs = 'windup'; p.bft = p.role === 'emperor' ? 0.5 : 0.65; emit(g, { type: 'windup', id: p.id }); p.expr = 'angry'; p.exprT = 1; }
+    else if (p.bfs === 'windup' && p.bft <= 0) {
+      p.bfs = 'recover'; p.bft = 0.6;
+      if (d < 1.5) {
+        if (pl.braceHeld) { const chip = pl.buffs.protein > 0 ? 0 : 2; if (chip) hurt(g, chip, 'ko', { text: '帝王の一味にのされた…' }); emit(g, { type: 'sfx', name: 'block' }); emit(g, { type: 'block' }); }
+        else { hurt(g, Math.round(p.brute.dmg * (1 - 0.03 * ST(g, 'def'))), 'ko', { text: p.angryFight ? '逆ギレした人にのされた…' : '帝王の一味にのされた…' }); emit(g, { type: 'shake', amount: 1.2 }); emit(g, { type: 'sfx', name: 'hit' }); pl.stagger = 0.4; }
+      }
+    } else if (p.bfs === 'recover' && p.bft <= 0) { p.bfs = 'idle'; p.bft = g.r.range(0.9, 1.8); }
+  }
+
   // ---------------------------------------------------------------- 痴漢
   function updateFighter(g, p, dt) {
     if (g.multi) {
@@ -1457,7 +1941,7 @@
     else if (ch.fstate === 'windup' && ch.ft <= 0) {
       ch.fstate = 'recover'; ch.ft = 0.6;
       if (d < 1.5 && pl.seat < 0) {
-        const dmg = ch.kind === 'boxer' ? 22 : ch.kind === 'small' ? 10 : 15;
+        const dmg = Math.round((ch.kind === 'boxer' ? 22 : ch.kind === 'small' ? 10 : 15) * (1 - 0.03 * ST(g, 'def')));
         if (pl.braceHeld) {
           const chip = pl.buffs.protein > 0 ? 0 : 2;
           if (chip) hurt(g, chip, 'ko');
@@ -1482,7 +1966,7 @@
   }
   function tryStartChikan(g) {
     if (g.chikan || g.phase !== 'travel' || g.phaseT > C.T_TRAVEL - 8 || g.phaseT < 2) return;
-    const standing = g.people.filter(p => p.state === 'stand' && p.sleep === 0 && !p.leaving && p.dest > g.station + 1);
+    const standing = g.people.filter(p => p.state === 'stand' && p.sleep === 0 && !p.leaving && p.dest > g.station + 1 && !p.role && !p.fake);
     const victims = standing.filter(p => p.female && (p.type === 'ol' || p.type === 'student'));
     if (!victims.length || standing.length < 5) return;
     const v = g.r.pick(victims);
@@ -1513,11 +1997,11 @@
           L.done = true;
           emit(g, { type: 'lurch' });
           withEach(g, (pl) => { if (pl.seat >= 0) return;
-            const ok = pl.braceHeld || (g.t - pl.lastBraceT < 1.05 && pl.lastBraceT >= g.lurchWarnT - 0.1) || pl.buffs.legs > 0;
+            const ok = pl.braceHeld || (g.t - pl.lastBraceT < 1.05 + 0.03 * ST(g, 'def') && pl.lastBraceT >= g.lurchWarnT - 0.1) || pl.buffs.legs > 0;
             if (ok) { g.stats.braces++; emit(g, { type: 'brace', ok: true }); }
             else {
               g.stats.braceFail++;
-              hurt(g, 7, 'collapse'); pl.stagger = 0.8; emit(g, { type: 'brace', ok: false }); emit(g, { type: 'shake', amount: 1.5 });
+              hurt(g, Math.round(7 * (1 - 0.03 * ST(g, 'def'))), 'collapse'); pl.stagger = 0.8; emit(g, { type: 'brace', ok: false }); emit(g, { type: 'shake', amount: 1.5 });
               // ぶつかる
               const near = g.people.filter(p => (p.state === 'stand') && dist2(p.x, p.z, pl.x, pl.z) < 0.75);
               const f = near.find(p => p.female);
@@ -1613,6 +2097,16 @@
     if (g.jiji) add('jiji');
     if (g.hard && clear) add('hard');
     if (s.thiefKO) add('thief');
+    if (s.suriKO) add('suri');
+    if (s.fakerExposed) add('faker');
+    if (s.dashBlock) add('blocker');
+    if (s.hush) add('hush');
+    if (s.hogAsk) add('hogask');
+    if (s.emperorKO) add('emperor');
+    if (s.falseAccuse) add('false');
+    if (s.brawlKO) add('brawl');
+    if (s.speakerKO) add('speaker');
+    if (s.bagThrow) add('bagthrow');
     return out;
   }
 
@@ -1630,6 +2124,22 @@
       out.push(p.state === 'walk' || p.pickT > 0 ? '🤏 床や寝ている人のまわりをうろうろ' : '👀 キョロキョロしている');
       if (p.stolen) out.push('🎒 ポケットがふくらんでいる');
     }
+    if (p.role === 'suri') {
+      if (p.anim === 'reach') out.push('🤏 となりの人のポケットに手が…！');
+      else if (p.loot) out.push(p.caught ? '🏃 逃げようとしている！' : '💼 なにかをこっそりしまった…');
+      else if (p.suri && p.suri.ph === 'approach') out.push('🚶 人のすぐ後ろに寄っていく');
+      else if (ST(g, 'eye') >= 5) out.push('👀 人のポケットをちらちら見ている…？（観察力）');
+    }
+    if (p.role === 'hog') out.push(p.hogSeat != null ? (p.hogKind === 'bag' ? '👜 となりの席にかばんを置いている' : '🦵 大股開きでとなりの席まで使っている') : '😤 ふんぞり返っている');
+    if (p.aggro && p.angryFight) out.push('💢 逆ギレして向かってくる！');
+    if (p.role === 'caller') out.push('📞 大声で電話している');
+    if (p.role === 'tuber') out.push('📹 自撮りで配信中。床のスピーカーから爆音');
+    if (p.role === 'tuberSad') out.push('😢 スピーカーが壊れてしょんぼり');
+    if (p.role === 'dasher') out.push('🏃 空いた席をすごい目で探している');
+    if (p.type === 'sick' && p.role !== 'faked') out.push(p.fake && g.player.buffs && g.player.buffs.glasses > 0 ? '🤥 …仮病っぽい（メガネで見えた）' : p.fake && ST(g, 'eye') >= 5 ? '🤔 具合が悪そう…でも顔色は悪くない？（観察力）' : '🤒 具合が悪そう');
+    if (p.role === 'faked') out.push('😏 さっきまで具合が悪そうだったのに…');
+    if (p.role === 'hench') out.push('🕶 帝王の子分。にらみをきかせている');
+    if (p.role === 'emperor') out.push('👑 車内の帝王。子分に守られている');
     if (p.state === 'seated') {
       if (p.sleep === 2) out.push('💤 熟睡している');
       else if (p.sleep === 1) out.push('😪 うとうとしている');
@@ -1648,8 +2158,8 @@
   }
 
   return {
-    C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS,
+    C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
-    _internal: { updateThief, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
+    _internal: { sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });

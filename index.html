@@ -200,6 +200,31 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 #rMini .rk{padding:3px 8px;font-size:13px}
 #rMini .ttl{display:none}
 .achs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#tut{position:absolute;left:50%;top:84px;transform:translateX(-50%);width:min(92vw,460px);background:rgba(20,24,34,.92);border:2px solid var(--toku);border-radius:12px;padding:6px 10px;text-align:left;pointer-events:auto;z-index:5}
+#tut .tt{display:flex;align-items:center;gap:8px}#tut .tt b{flex:1;color:var(--toku);font-size:15px}
+#tutSkip{font:inherit;font-size:12px;background:none;border:1px solid var(--line);border-radius:99px;color:var(--sub);padding:2px 10px}
+#tutD{font-size:13px;line-height:1.45;margin-top:2px}
+#tutBtns .btn{margin:6px 0 0}
+body.touch #tut{top:calc(max(8px,env(safe-area-inset-top)) + 172px)}
+@media (orientation: landscape) and (max-height:520px){body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% + 4vw);width:min(34vw,380px)}#tut .tt b{font-size:13px}#tutD{font-size:11.5px}}
+html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% + calc(var(--ph) * 4 / 100));width:min(calc(var(--ph) * 34 / 100),380px)}
+#result .card{position:relative}.rlv{position:absolute;top:6px;right:8px;z-index:2;font:inherit;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);background:rgba(0,0,0,.45);color:var(--sub);order:-1}.rlv.up{color:#1b1200;background:var(--toku);border-color:var(--toku);font-weight:700;animation:lvp 1s ease 2}@keyframes lvp{50%{transform:scale(1.15)}}
+@media (orientation: landscape) and (max-height:520px){.rlv{right:auto;left:8px}}
+#bStat{white-space:nowrap}#lvDot{color:#ff5a5a;font-style:normal;font-size:10px;vertical-align:top;margin-left:1px}
+.xpbar{height:8px;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden;margin-top:4px}.xpbar i{display:block;height:100%;width:0;background:var(--toku)}
+.stwrap{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+#stHex{width:180px;height:166px;flex:0 0 auto}
+#stList{flex:1 1 220px;max-width:300px}
+.strow{display:grid;grid-template-columns:1fr 32px 26px 32px;align-items:center;gap:4px;font-size:14px;text-align:left;margin:3px 0;padding:1px 4px;border-radius:8px}
+.strow.sel{background:rgba(255,196,64,.12)}
+.strow span{cursor:pointer}
+.strow b{text-align:center;font-size:16px}
+.strow button{margin:0;padding:2px 0;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--ink);font-size:16px;font-family:inherit}
+.strow button:disabled{opacity:.3}
+@media (max-height:700px){#stat h2{margin:0 0 2px;font-size:19px}.strow{margin:1px 0}#stat .row .btn{padding:7px;margin:3px 0}#stat .xpbar{margin-top:2px}}
+@media (max-height:600px){#stHex{width:150px;height:139px}}
+@media (orientation: landscape) and (max-height:380px){.strow{margin:0}.strow button{padding:1px 0}}
+@media (orientation: landscape) and (max-height:520px){#stat .card{padding-top:8px;padding-bottom:8px}#stat .row{margin-top:0}#stDesc{display:inline}#stFree{display:inline;margin-left:8px}}
 .ach{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:12px}
 .ach b{display:block;font-size:13px}
 .ach.lock{opacity:.45}
@@ -420,6 +445,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div id="cross"></div>
   <div id="target" class="hidden"><h4 id="tName"></h4><div id="tNotes"></div></div>
   <div id="prompt" class="hidden"></div>
+  <div id="tut" class="hidden"><div class="tt"><b id="tutT"></b><button id="tutSkip">スキップ ›</button></div><div id="tutD"></div><div id="tutBtns" class="hidden"><button class="btn main" id="tutGo">🚃 出発する（たちっぱ線）</button><button class="btn sub2" id="tutEnd">タイトルへ</button></div></div>
   <div id="toasts"></div>
   <div id="pops"></div>
   <div id="warn" class="hidden"><span>⚠ 揺れるぞ！</span><small id="warnSub">[Space] で踏ん張れ！</small></div>
@@ -448,7 +474,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
     <div class="row" id="dailyRow"><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
     <button class="btn sub2" id="bModes">🔒 そのほかの路線</button>
-    <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button></div>
+    <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button><button class="btn sub2" id="bStat">📊 Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox">乗客名 <input id="nameIn" maxlength="12" placeholder="名無しの乗客"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
@@ -468,6 +494,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="howto" class="screen hidden">
   <div class="card howto">
     <h2>遊び方</h2>
+    <button class="btn" id="bTut" style="margin:0 0 6px">🎓 チュートリアルをやる（1 分）</button>
     <p>ここは各駅停車「たちっぱ線」。<b>立っていると体力が減り</b>、0になると倒れて終わり。<br>降りそうな人を見極めて<b>前に立ち、空いた瞬間に座れ！</b> 終点「やっと座れ橋」をめざそう。</p>
     <h3>降りる人のサイン</h3>
     <ul>
@@ -533,6 +560,28 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h2>実績 <span id="achCount" class="pill"></span></h2>
     <div class="achs" id="achList"></div>
     <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
+<div id="tutask" class="screen hidden">
+  <div class="card">
+    <h2>🎓 はじめての乗車</h2>
+    <p>座る・譲る・踏ん張る・悪者をつかまえる。<br>1 分くらいの練習で、基本を覚えよう</p>
+    <button class="btn main" id="tutYes">🎓 チュートリアルをやる</button>
+    <button class="btn sub2" id="tutNo">スキップして出発する</button>
+    <p class="small" style="color:var(--sub)">あとから「📖 遊び方」でいつでもできます</p>
+  </div>
+</div>
+
+<div id="stat" class="screen hidden">
+  <div class="card">
+    <h2>📊 ステータス <span class="pill" id="stLv">Lv.1</span></h2>
+    <div class="xpbar"><i id="stXp"></i></div>
+    <p class="small" id="stXpTxt" style="margin:2px 0"></p>
+    <div class="stwrap"><canvas id="stHex" width="400" height="370"></canvas><div id="stList"></div></div>
+    <p class="small" id="stDesc" style="margin:4px 0 0;min-height:1.4em"></p>
+    <p class="small" id="stFree" style="margin:2px 0;color:var(--toku)"></p>
+    <div class="row"><button class="btn sub2" id="stReset">↺ 振り直し</button><button class="btn sub2" data-back>もどる</button></div>
   </div>
 </div>
 
@@ -609,6 +658,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 
 <div id="result" class="screen hidden">
   <div class="card">
+    <button id="rLv" class="rlv"></button>
     <div class="rL">
     <p class="res-cause" id="rCause"></p>
     <p class="res-text" id="rText"></p>
@@ -646,7 +696,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261109073550"></script>
-<script src="game.js?v=20261109073550"></script>
+<script src="logic.js?v=20261109115257"></script>
+<script src="game.js?v=20261109115257"></script>
 </body>
 </html>
