@@ -1476,13 +1476,15 @@
         if (!best) return;
         const q = SW.person(g, best.occ); I.freeSeat(g, best, q.id); q.seat = -1; q.state = 'stand'; q.z = best.fz; q.wantSeat = false; q.dest = 99; q.bubble = 'あ、どうぞ'; q.bubbleT = 2; I.placeStanding(g, q, false);
         TUT.seat = best.id;
-      }, done(g) { return g.player.seat >= 0; } },
+      }, done(g) { return g.player.seat >= 0; },
+      retry(g) { if (g.player.seat >= 0) I.playerStand(g); this.start(g); } },
     { t: '④ 席を譲ろう', d: () => 'お年寄りが前に来た。「' + (isTouch ? '✋ アクション' : 'E') + '」で席を譲ると<b>徳</b>（スコア）がもらえる。無視するとカルマがたまる',
       start(g) {
         const pl = g.player; if (pl.seat < 0) return;
         const s = g.seats[pl.seat], p = I.spawn(g, 'elderly', g.station, g.station + 6);
-        p.x = s.x + 0.25; p.z = s.fz; p.state = 'stand'; p.targetPlayer = true; p.targetSeat = s.id; p.wantSeat = true; g.people.push(p); TUT.eld = p.id;
+        p.x = s.x + 0.25; p.z = s.fz; p.state = 'stand'; p.targetPlayer = true; p.targetSeat = s.id; p.wantSeat = true; g.people.push(p); TUT.eld = p.id; TUT.spawned.push(p.id);
       }, done(g) { return g.stats.gives > 0; },
+      retry(g) { if (g.player.seat < 0) { TUT.i -= 2; tutNext(g); return; } this.start(g); },
       tick(g) { if (g.player.seat < 0 && !g.stats.gives) { TUT.i--; tutNext(g); } } },
     { t: '⑤ 揺れに踏ん張ろう', d: () => '立っていると電車が揺れる。「⚠ 揺れるぞ！」が出たら' + (isTouch ? '「🛡 踏ん張る」' : '<b>Space</b>') + 'で踏ん張る',
       start() { TUT.lurch = null; TUT.fails = 0; TUT.ldt = null; }, done(g) { return g.stats.braces > 0; },
@@ -1507,20 +1509,20 @@
         const pl = g.player; const dx = pl.x < 5 ? 1 : -1;
         const v = I.spawn(g, 'ol', g.station, 99); [v.x, v.z] = I.aisleClamp(pl.x + dx * 1.3, 0); v.state = 'stand'; v.wantSeat = false; g.people.push(v);
         const su = I.spawnVillain(g, 'suri', ...I.aisleClamp(pl.x + dx * 2.6, 0)); su.suri.ph = 'approach'; su.suri.target = { kind: 'npc', id: v.id }; su.suri.t = 20; su.dest = 99;
-        TUT.suri = su.id; TUT.vic = v.id;
+        TUT.suri = su.id; TUT.vic = v.id; TUT.spawned.push(su.id, v.id);
       }, done(g) { return g.stats.suriKO > 0; },
       tick(g) {
         const su = SW.person(g, TUT.suri), v = SW.person(g, TUT.vic);
         if (v && v.state === 'stand') v.wantSeat = false;
-        if (!su || su.state === 'gone' || su.state === 'exit') { addToast('逃げられた…もう一回！', 'warn'); TUT.i--; tutNext(g); return; }
+        if (!su || su.state === 'gone' || su.state === 'exit' || su.state === 'ko' && !g.stats.suriKO) { addToast('逃げられた…もう一回！', 'warn'); tutRetry(g); return; }
         if (su.suri && su.suri.ph === 'roam' && !su.loot && v) { su.suri.ph = 'approach'; su.suri.target = { kind: 'npc', id: v.id }; su.suri.t = 20; }
-        if (su.loot && g.phase === 'stop' && g.phaseT > 0.8) g.phaseT = 0.8; // 練習なので、逃げる前に追いつけるよう少し待つ
+        if (su.loot && g.phase === 'stop' && g.phaseT > 0.7) g.phaseT = 0.7; // 練習なので、逃げる前に追いつけるよう少し待つ
       } },
   ];
   function tutBegin(after) {
     startGame('tutorial');
-    TUT = { i: -1, after: after || 'title' };
-    $('tut').classList.remove('hidden'); $('tutBtns').classList.add('hidden'); $('tutSkip').classList.remove('hidden');
+    TUT = { i: -1, after: after || 'title', spawned: [] };
+    $('tut').classList.remove('hidden'); $('tutBtns').classList.add('hidden'); $('tutSkip').classList.remove('hidden'); $('tutRetry').classList.remove('hidden');
     track('チュートリアルを始めた');
     tutNext(G);
   }
@@ -1528,7 +1530,7 @@
     TUT.i++;
     if (TUT.i >= TUT_STEPS.length) {
       $('tutT').textContent = '🎉 チュートリアル完了！'; $('tutD').innerHTML = 'あとは降りる人を見極めて、終点まで座って帰ろう。悪者はほかにもいるよ';
-      $('tutBtns').classList.remove('hidden'); $('tutSkip').classList.add('hidden');
+      $('tutBtns').classList.remove('hidden'); $('tutSkip').classList.add('hidden'); $('tutRetry').classList.add('hidden');
       profile.tutDone = true; saveProfile(); track('チュートリアルを完了した'); sfx('clear');
       tutLayout(); return;
     }
@@ -1536,6 +1538,16 @@
     $('tutT').textContent = S.t; $('tutD').innerHTML = S.d();
     if (S.start) S.start(g);
     if (TUT.i > 0) sfx('coin');
+    tutLayout();
+  }
+  // いまのステップをやり直す（出した人を消して、最初から）
+  function tutRetry(g) {
+    if (!TUT || TUT.i >= TUT_STEPS.length || !g) return;
+    g.people = g.people.filter((p) => { if (TUT.spawned.includes(p.id)) { I.releaseSlot(g, p); return false; } return true; });
+    TUT.spawned = []; g.player.carrying = null; g.player.mode = null;
+    const S = TUT_STEPS[TUT.i];
+    if (S.retry) S.retry(g); else if (S.start) S.start(g);
+    if (TUT.i < TUT_STEPS.length && TUT_STEPS[TUT.i] === S) { $('tutT').textContent = S.t; $('tutD').innerHTML = S.d(); }
     tutLayout();
   }
   function tutLayout() { $('toasts').style.marginTop = TUT ? ($('tut').offsetHeight + 6) + 'px' : ''; }
@@ -1547,6 +1559,7 @@
   }
   function tutClose() { TUT = null; $('tut').classList.add('hidden'); tutLayout(); }
   $('tutSkip').addEventListener('click', () => { profile.tutDone = true; saveProfile(); track('チュートリアルをスキップした（' + (TUT ? TUT.i + 1 : 0) + '）'); const after = TUT && TUT.after; tutClose(); if (after === 'normal') startGame('normal'); else { state = 'title'; titleScreen(); } });
+  $('tutRetry').addEventListener('click', () => { if (G && TUT) { tutRetry(G); addToast('↺ もう一回！', 'good'); track('チュートリアルをやり直した（' + (TUT.i + 1) + '）'); } });
   $('tutGo').addEventListener('click', () => { tutClose(); startGame('normal'); });
   $('tutEnd').addEventListener('click', () => { tutClose(); state = 'title'; titleScreen(); });
   $('tutYes').addEventListener('click', () => tutBegin('normal'));
