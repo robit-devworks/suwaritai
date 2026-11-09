@@ -74,7 +74,7 @@ body.inapp .logo .tag{display:none}
 body.inapp .logo{margin-bottom:6px}
 #inapp button{flex:none;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:800}
 #inapp #inappClose{padding:5px 9px}
-#dailyRow .btn{flex:1}
+#dailyRow .btn,#modesRow .btn{flex:1}
 .olcodein{flex:1;min-width:0;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:18px;text-align:center;letter-spacing:.2em;user-select:text;-webkit-user-select:text}
 .olcode{text-align:center;font-size:15px;margin:4px 0 8px}
 .olcode b{font-size:30px;letter-spacing:.15em;color:var(--toku)}
@@ -202,6 +202,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .achs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 #tut{position:absolute;left:50%;top:84px;transform:translateX(-50%);width:min(92vw,460px);background:rgba(20,24,34,.92);border:2px solid var(--toku);border-radius:12px;padding:6px 10px;text-align:left;pointer-events:auto;z-index:5}
 #tut .tt{display:flex;align-items:center;gap:8px}#tut .tt b{flex:1;color:var(--toku);font-size:15px}
+#tutRetry.blink{color:#1b1200;background:var(--toku);border-color:var(--toku);font-weight:700;animation:lvp .8s ease infinite}
 #tutRetry,#tutSkip{font:inherit;font-size:12px;background:none;border:1px solid var(--line);border-radius:99px;color:var(--sub);padding:2px 10px}
 #tutD{font-size:13px;line-height:1.45;margin-top:2px}
 #tutBtns .btn{margin:6px 0 0}
@@ -264,8 +265,8 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
   html:not(.pland) #title #bLand{order:3}
   html:not(.pland) #title #bStart{order:4;font-size:clamp(17px,5vw,20px);padding:14px}
   html:not(.pland) #title #dailyRow{order:5}
-  html:not(.pland) #title #bModes{order:6}
-  html:not(.pland) #title .row:not(#dailyRow){order:7}
+  html:not(.pland) #title #modesRow{order:6}
+  html:not(.pland) #title .row:not(#dailyRow):not(#modesRow){order:7}
   html:not(.pland) #title #nameNote{order:8}
   html:not(.pland) #title #bestLine{order:9}
   html:not(.pland) #title #bPort{order:9}
@@ -318,18 +319,18 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
   #title .logo .tag, #title #bestLine, #title #nameNote{display:none}
   #title #bStart{grid-row:3;align-self:end;font-size:clamp(16px,2.6vw,21px);padding:clamp(9px,1.9vh,14px)}
   #title #dailyRow{grid-row:4}
-  #title #bModes{grid-row:5}
+  #title #modesRow{grid-row:5}
   #title #bLand, #title #bPort{grid-column:1;grid-row:6;align-self:end;width:auto;justify-self:start;text-align:left}
   #title #bPort{padding:4px 10px;font-size:12px}
   #title .card>p.small:last-child{grid-column:2;grid-row:6;align-self:end;text-align:right;margin:0}
-  #title .row:not(#dailyRow){grid-column:1 / span 2;grid-row:7}
+  #title .row:not(#dailyRow):not(#modesRow){grid-column:1 / span 2;grid-row:7}
   #title .btn{margin:0;padding:7px}
   #title .btn:not(.main), #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
   #title .namebox .btn{padding:5px 9px}
   #title .namebox{flex-wrap:nowrap;white-space:nowrap;min-width:0}
   #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
   #title #bLand, #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
-  #title #dailyRow .btn, #title #bModes{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,2.1vw,16px);padding:7px 4px}
+  #title #dailyRow .btn, #title #modesRow .btn{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,2.1vw,16px);padding:7px 4px}
   #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #title #dailyRow .pill{font-size:10px;padding:0 5px}
   body.touch #bLand.landed{display:none}
@@ -392,18 +393,18 @@ html.pland #title .logo p{font-size:clamp(13px,calc(var(--ph) * 2.2 / 100),19px)
 html.pland #title .logo .tag, html.pland #title #bestLine, html.pland #title #nameNote{display:none}
 html.pland #title #bStart{grid-row:3;align-self:end;font-size:clamp(16px,calc(var(--ph) * 2.6 / 100),21px);padding:clamp(9px,calc(var(--pw) * 1.9 / 100),14px)}
 html.pland #title #dailyRow{grid-row:4}
-html.pland #title #bModes{grid-row:5}
+html.pland #title #modesRow{grid-row:5}
 html.pland #title #bLand, html.pland #title #bPort{grid-column:1;grid-row:6;align-self:end;width:auto;justify-self:start;text-align:left}
 html.pland #title #bPort{padding:4px 10px;font-size:12px}
 html.pland #title .card>p.small:last-child{grid-column:2;grid-row:6;align-self:end;text-align:right;margin:0}
-html.pland #title .row:not(#dailyRow){grid-column:1 / span 2;grid-row:7}
+html.pland #title .row:not(#dailyRow):not(#modesRow){grid-column:1 / span 2;grid-row:7}
 html.pland #title .btn{margin:0;padding:7px}
 html.pland #title .btn:not(.main), html.pland #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
 html.pland #title .namebox .btn{padding:5px 9px}
 html.pland #title .namebox{flex-wrap:nowrap;white-space:nowrap;min-width:0}
 html.pland #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
 html.pland #title #bLand, html.pland #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
-html.pland #title #dailyRow .btn, html.pland #title #bModes{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,calc(var(--ph) * 2.1 / 100),16px);padding:7px 4px}
+html.pland #title #dailyRow .btn, html.pland #title #modesRow .btn{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,calc(var(--ph) * 2.1 / 100),16px);padding:7px 4px}
 html.pland #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html.pland #title #dailyRow .pill{font-size:10px;padding:0 5px}
 html.pland body.touch #bLand.landed{display:none}
@@ -475,7 +476,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
     <div class="row" id="dailyRow"><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
-    <button class="btn sub2" id="bModes">🔒 そのほかの路線</button>
+    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2" id="bTut2">🎓 チュートリアル</button></div>
     <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button><button class="btn sub2" id="bStat">📊 Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox">乗客名 <input id="nameIn" maxlength="12" placeholder="名無しの乗客"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
@@ -698,7 +699,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261109171325"></script>
-<script src="game.js?v=20261109171325"></script>
+<script src="logic.js?v=20261109233945"></script>
+<script src="game.js?v=20261109233945"></script>
 </body>
 </html>

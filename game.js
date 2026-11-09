@@ -1321,7 +1321,7 @@
   }
   function renderModes() {
     const n = (profile.unlock.endless ? 1 : 0) + (profile.unlock.hard ? 1 : 0) + (profile.unlock.jiji ? 1 : 0);
-    $('bModes').textContent = (n ? '🚇 ' : '🔒 ') + 'そのほかの路線（' + n + '/3）';
+    $('bModes').textContent = (n ? '🚇 ' : '🔒 ') + 'ほかの路線 ' + n + '/3';
     const list = [
       ['endless', '♾ 終点なしモード', '終点がない。どこまで立っていられるか。だんだん疲れやすくなる', '開放条件：一度、終点まで行く'],
       ['hard', '🔥 満員地獄モード', '超満員・席取りおばちゃん倍増・痴漢多め', '開放条件：タイトル画面で伝説のコマンド（スマホはスワイプで）'],
@@ -1487,22 +1487,14 @@
       retry(g) { if (g.player.seat < 0) { TUT.i -= 2; tutNext(g); return; } this.start(g); },
       tick(g) { if (g.player.seat < 0 && !g.stats.gives) { TUT.i--; tutNext(g); } } },
     { t: '⑤ 揺れに踏ん張ろう', d: () => '立っていると電車が揺れる。「⚠ 揺れるぞ！」が出たら' + (isTouch ? '「🛡 踏ん張る」' : '<b>Space</b>') + 'で踏ん張る',
-      start() { TUT.lurch = null; TUT.fails = 0; TUT.ldt = null; }, done(g) { return g.stats.braces > 0; },
+      start() { TUT.lurch = null; TUT.failed = false; }, done(g) { return g.stats.braces > 0; },
       tick(g) {
-        if (g.player.seat >= 0) return;
+        if (g.player.seat >= 0 || TUT.failed) return; // 失敗したら「↺ やり直す」を押すまで待つ（揺れはくり返さない）
         const L = TUT.lurch;
-        if (L && L.done && TUT.ldt == null) { // 揺れが終わった
-          TUT.ldt = g.t;
-          if (!g.stats.braces) {
-            TUT.fails++;
-            if (TUT.fails >= 3) { addToast('だいじょうぶ！ 本番で踏ん張ろう', 'good'); tutNext(g); return; }
-            addToast(isTouch ? 'もう一回！「⚠ 揺れるぞ！」が出たら、右下の 🛡 を押す' : 'もう一回！「⚠ 揺れるぞ！」が出たら Space', 'warn');
-          }
-        }
+        if (L && L.done) { if (!g.stats.braces) tutFail(isTouch ? '「⚠ 揺れるぞ！」が出たら、右下の 🛡 を押そう' : '「⚠ 揺れるぞ！」が出たら Space を押そう'); return; }
         if (g.phase !== 'travel' || g.phaseT > 19) return;
-        if (L && !L.done) { if (!g.lurchPlan.includes(L)) g.lurchPlan = [L]; return; }
-        if (L && g.t - TUT.ldt < 4) return; // 次の揺れまで少し待つ（音が鳴りっぱなしにならないように）
-        TUT.lurch = { t: g.phaseT + 2.5, done: false, warned: false }; TUT.ldt = null; g.lurchPlan = [TUT.lurch];
+        if (L) { if (!g.lurchPlan.includes(L)) g.lurchPlan = [L]; return; }
+        TUT.lurch = { t: g.phaseT + 2.5, done: false, warned: false }; g.lurchPlan = [TUT.lurch];
       } },
     { t: '⑥ スリをつかまえよう', d: () => 'スリが乗客のポケットに手を入れる瞬間を見て、<b>抜いたあとに' + (isTouch ? '「👊 パンチ」' : 'F（パンチ）') + '</b>。抜く前に殴ると冤罪でカルマ！',
       start(g) {
@@ -1514,7 +1506,8 @@
       tick(g) {
         const su = SW.person(g, TUT.suri), v = SW.person(g, TUT.vic);
         if (v && v.state === 'stand') v.wantSeat = false;
-        if (!su || su.state === 'gone' || su.state === 'exit' || su.state === 'ko' && !g.stats.suriKO) { addToast('逃げられた…もう一回！', 'warn'); tutRetry(g); return; }
+        if (TUT.failed) return;
+        if (!su || su.state === 'gone' || su.state === 'exit' || su.state === 'ko' && !g.stats.suriKO) { tutFail('スリに逃げられた…'); return; }
         if (su.suri && su.suri.ph === 'roam' && !su.loot && v) { su.suri.ph = 'approach'; su.suri.target = { kind: 'npc', id: v.id }; su.suri.t = 20; }
         if (su.loot && g.phase === 'stop' && g.phaseT > 0.7) g.phaseT = 0.7; // 練習なので、逃げる前に追いつけるよう少し待つ
       } },
@@ -1527,7 +1520,7 @@
     tutNext(G);
   }
   function tutNext(g) {
-    TUT.i++;
+    TUT.i++; TUT.failed = false; $('tutRetry').classList.remove('blink');
     if (TUT.i >= TUT_STEPS.length) {
       $('tutT').textContent = '🎉 チュートリアル完了！'; $('tutD').innerHTML = 'あとは降りる人を見極めて、終点まで座って帰ろう。悪者はほかにもいるよ';
       $('tutBtns').classList.remove('hidden'); $('tutSkip').classList.add('hidden'); $('tutRetry').classList.add('hidden');
@@ -1540,8 +1533,16 @@
     if (TUT.i > 0) sfx('coin');
     tutLayout();
   }
+  // 失敗：「ブー」を 1 回だけ鳴らして、「↺ やり直す」を光らせて待つ
+  function tutFail(msg) {
+    if (!TUT || TUT.failed) return;
+    TUT.failed = true; sfx('buzzer');
+    $('tutD').innerHTML = '❌ 失敗… ' + msg + '<br><b>「↺ やり直す」でもう一回</b>';
+    $('tutRetry').classList.add('blink'); tutLayout();
+  }
   // いまのステップをやり直す（出した人を消して、最初から）
   function tutRetry(g) {
+    TUT && (TUT.failed = false); $('tutRetry').classList.remove('blink');
     if (!TUT || TUT.i >= TUT_STEPS.length || !g) return;
     g.people = g.people.filter((p) => { if (TUT.spawned.includes(p.id)) { I.releaseSlot(g, p); return false; } return true; });
     TUT.spawned = []; g.player.carrying = null; g.player.mode = null;
@@ -1565,6 +1566,7 @@
   $('tutYes').addEventListener('click', () => tutBegin('normal'));
   $('tutNo').addEventListener('click', () => { profile.tutDone = true; saveProfile(); track('チュートリアルをスキップした（最初）'); startGame('normal'); });
   $('bTut').addEventListener('click', () => tutBegin('title'));
+  $('bTut2').addEventListener('click', () => { track('ホームからチュートリアル'); tutBegin('title'); });
   $('bDaily').addEventListener('click', () => startGame('daily'));
   $('bModes').addEventListener('click', () => { backTo = 'title'; renderModes(); show('modes'); });
   $('bHow').addEventListener('click', () => { backTo = 'title'; show('howto'); track('遊び方を開いた'); });
