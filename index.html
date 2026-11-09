@@ -12,6 +12,14 @@
 <meta property="og:image" content="https://robit-devworks.github.io/suwaritai/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0e1116">
+<!-- ホーム画面に追加すると、ブラウザのバーなしの全画面で遊べる（iPhone は全画面のボタンが使えないため） -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="スワリタイ">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
@@ -43,7 +51,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .bar .t i{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:6px;transition:width .15s}
 #stamF{background:linear-gradient(90deg,#2ea85c,var(--stam))}
 #karmaF{background:linear-gradient(90deg,#6c35b8,var(--karma))}
-.bar .v{width:28px;text-align:right;text-shadow:0 1px 2px #000}
+.bar .v{width:26px;text-align:right;text-shadow:0 1px 2px #000}
 #karmaBar.danger .t{box-shadow:0 0 0 2px var(--bad);animation:blink .5s infinite alternate}
 #stamBar.danger .t{box-shadow:0 0 0 2px var(--bad);animation:blink .5s infinite alternate}
 @keyframes blink{to{opacity:.55}}
@@ -54,7 +62,40 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #tokuBox small{display:block;font-size:10px;color:var(--sub)}
 #toku{font-size:22px;font-weight:800;color:var(--toku);line-height:1.1}
 #combo{font-size:11px;color:var(--accent);font-weight:800;min-height:13px}
-#pauseBtn{pointer-events:auto;width:40px;height:40px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:18px}
+#pauseBtn,#fsBtn{pointer-events:auto;width:40px;height:40px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:18px}
+#a2hs{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,14,.7)}
+#a2hs ol{padding-left:20px;font-size:14px;line-height:1.8;margin:6px 0}
+#dailyRow .btn{flex:1}
+.olcodein{flex:1;min-width:0;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:18px;text-align:center;letter-spacing:.2em;user-select:text;-webkit-user-select:text}
+.olcode{text-align:center;font-size:15px;margin:4px 0 8px}
+.olcode b{font-size:30px;letter-spacing:.15em;color:var(--toku)}
+.olm{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;background:var(--panel2);margin:4px 0;font-size:14px}
+.olm i{width:14px;height:14px;border-radius:50%;flex:none}
+.olm.empty{opacity:.45}
+.olcpu{display:block;margin:6px 0}
+#mpBoard{margin-top:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 8px;font-size:11px;text-align:left;min-width:110px}
+#mpBoard div{display:flex;gap:5px;align-items:center;white-space:nowrap}
+#mpBoard i{width:8px;height:8px;border-radius:50%;flex:none}
+#mpBoard b{margin-left:auto;color:var(--toku)}
+#mpBoard .out{opacity:.45;text-decoration:line-through}
+#mpBoard .me{font-weight:800}
+@media (orientation: portrait){ body.touch #mpBoard{position:fixed;left:max(8px,env(safe-area-inset-left));top:46%;margin:0;pointer-events:none;opacity:.92} }
+#mpOut{position:fixed;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,14,.6)}
+#mpOut .card{width:min(420px,100%)}
+.mpr{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--panel2);margin:6px 0}
+.mpr .n{font-size:22px;font-weight:800;width:34px;text-align:center}
+.mpr .nm{flex:1;min-width:0}
+.mpr .nm small{display:block;color:var(--sub);font-size:11px}
+.mpr .sc{font-size:20px;font-weight:800;color:var(--toku)}
+.mpr.me{outline:2px solid var(--toku)}
+.mpr i{width:12px;height:12px;border-radius:50%;flex:none}
+#bLand{display:none;border-color:var(--toku);color:var(--toku)}
+body.touch #bLand{display:block}
+#rotate{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(8,10,14,.92);text-align:center;padding:16px}
+#rotate .rot-phone{font-size:72px;animation:rot 1.8s ease-in-out infinite}
+#rotate .rot-t{margin:0;font-size:24px;font-weight:800;color:var(--toku)}
+@keyframes rot{0%,20%{transform:rotate(0)}50%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+@media (prefers-reduced-motion: reduce){#rotate .rot-phone{animation:none;transform:rotate(-90deg)}}
 #skills{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));display:flex;gap:6px;pointer-events:auto}
 .sk{position:relative;width:50px;height:54px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:21px;line-height:1;padding:0}
 .sk small{font-size:10px;color:var(--toku);font-weight:800;margin-top:3px}
@@ -119,7 +160,7 @@ body.touch #pcHint{display:none}
 .screen{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,14,.55);overflow-y:auto}
 .card{width:min(560px,100%);background:rgba(16,20,28,.92);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);max-height:calc(100% - 8px);overflow-y:auto;touch-action:pan-y}
 .logo{text-align:center;margin:2px 0 10px}
-.logo h1{margin:0;font-size:clamp(40px,12vw,64px);font-weight:800;letter-spacing:.02em;color:#fff;text-shadow:0 4px 0 #c2410c,0 8px 0 rgba(0,0,0,.4);transform:rotate(-3deg)}
+.logo h1{margin:0;white-space:nowrap;font-size:clamp(32px,12vw,64px);font-weight:800;letter-spacing:.02em;color:#fff;text-shadow:0 4px 0 #c2410c,0 8px 0 rgba(0,0,0,.4);transform:rotate(-3deg)}
 .logo p{margin:6px 0 0;font-size:15px;color:var(--toku);font-weight:800}
 .logo .tag{display:inline-block;margin-top:6px;font-size:11px;color:var(--sub)}
 .btn{display:block;width:100%;margin:8px 0;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);font-size:16px;font-weight:800;text-align:center}
@@ -127,7 +168,9 @@ body.touch #pcHint{display:none}
 .btn.sub2{font-size:14px;padding:10px}
 .row{display:flex;gap:8px}.row .btn{flex:1}
 .small{font-size:12px;color:var(--sub);text-align:center;line-height:1.6}
-.namebox{display:flex;gap:6px;align-items:center;justify-content:center;font-size:13px;margin-top:6px}
+.namebox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;font-size:13px;margin-top:6px}
+.namebox>*{white-space:nowrap}
+.namebox input{min-width:0;flex:1 1 110px;max-width:170px}
 .namebox input{width:150px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:14px;user-select:text;-webkit-user-select:text}
 h2{margin:0 0 10px;font-size:20px;text-align:center}
 h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
@@ -161,10 +204,65 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .stats div{background:var(--panel2);border-radius:10px;padding:6px;text-align:center;font-size:11px;color:var(--sub)}
 .stats b{display:block;font-size:18px;color:var(--ink)}
 .newach{margin-top:8px;font-size:13px;color:var(--good);text-align:center}
+#result .card{display:flex;flex-direction:column}
+#result .rL,#result .rR{display:contents}
+#rCause{order:1}#rText{order:2}#rScore{order:3}#rTitle{order:4}#rBrk{order:5}#rStats{order:6}#rAch{order:7}#rRank{order:8}
+#result .rR .row{order:9}#bToTitle{order:10}#rMiniBox{order:11}
 .modeinfo{font-size:12px;color:var(--sub);margin:-4px 0 6px;text-align:center}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;background:var(--bg);font-size:16px;color:var(--sub);text-align:center;padding:20px}
 .pill{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px;color:var(--sub)}
 @media (max-height:700px){ .logo h1{font-size:44px} .btn{padding:9px;margin:6px 0} .btn.main{font-size:17px} }
+@media (max-height:700px) and (orientation: portrait){ #result .btn{margin:3px 0;padding:8px} #result .stats{margin-top:5px} .res-text{margin:2px 0 4px} #result .newach{margin-top:4px} #result .score{font-size:40px} }
+/* ---------- 横向きのスマホ（高さが低い画面） ---------- */
+@media (orientation: landscape) and (max-height: 520px) {
+  #topL{width:min(32vw,250px)}
+  #station{padding:4px 8px} #stName{font-size:14px} #stSub{font-size:10px}
+  .bar{margin-top:3px;font-size:10px} .bar .t{height:9px}
+  #buffs{margin-top:3px}
+  #tokuBox{padding:2px 8px;min-width:70px} #toku{font-size:18px} #tokuBox small{font-size:9px}
+  #pauseBtn,#fsBtn{width:34px;height:34px;font-size:15px}
+  body.touch #skills{top:auto;bottom:max(8px,env(safe-area-inset-bottom));left:50%;gap:4px}
+  body.touch .sk{width:40px;height:42px;font-size:17px}
+  body.touch .sk small{font-size:9px;margin-top:1px}
+  body.touch #prompt{top:auto;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 52px);font-size:13px;padding:5px 12px}
+  body.touch #target{top:calc(50% + 22px)}
+  body.touch #toasts{top:max(6px,env(safe-area-inset-top));left:calc(50% + 4vw);width:min(34vw,380px)}
+  .toast{font-size:12px;padding:3px 10px}
+  #warn{top:24%;font-size:24px}
+  .pop{font-size:17px}
+  #tbtns{width:160px;height:160px}
+  #bAct{width:78px;height:78px}
+  #bPunch{right:86px;bottom:2px;width:60px;height:60px}
+  #bGuard{right:10px;bottom:86px;width:60px;height:60px}
+  #bSleep{right:86px;bottom:70px;width:50px;height:50px}
+  #joy{width:38%;height:78%}
+  #joyHint{width:76px;height:76px}
+  .screen{padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left))}
+  .card{padding:12px 16px}
+  .logo h1{font-size:clamp(32px,7vw,54px)}
+  /* タイトル：左にロゴ、右にボタン */
+  #title .card{width:min(780px,100%);display:grid;grid-template-columns:1fr 1.25fr;column-gap:18px;align-items:center}
+  #title .card>*{grid-column:2}
+  #title .logo{grid-column:1;grid-row:1 / span 9;margin:0}
+  #title .btn{margin:3px 0;padding:6px}
+  #title .btn.main{font-size:16px}
+  body.touch #bLand.landed{display:none}
+  #online .card>p.small:first-of-type{display:none}
+  #online h2{margin-bottom:4px;font-size:17px}
+  #olMembers{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}
+  .olm{padding:5px 8px;margin:3px 0}
+  .olcode{margin:0 0 4px} .olcode b{font-size:24px}
+  #online .btn{margin:4px 0;padding:7px}
+  #title #bLand{padding:5px;font-size:13px}
+  #title .namebox{margin-top:3px}
+  #title .small{margin:4px 0}
+  /* 結果：左に点数、右に内訳とボタン */
+  #result .card{width:min(820px,100%);display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-items:start}
+  #result .rL,#result .rR{display:block}
+  .res-cause{font-size:22px} .score{font-size:40px}
+  .stats{margin-top:5px;gap:4px} .stats div{padding:3px} .stats b{font-size:14px} .brk{padding:6px 10px;font-size:12px}
+  #result .btn{margin:3px 0;padding:7px}
+}
 </style>
 </head>
 <body>
@@ -181,7 +279,8 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
     <div id="buffs"></div>
   </div>
   <div id="topR">
-    <div id="tokuBox"><small>徳（スコア）</small><div id="toku">0</div><div id="combo"></div></div>
+    <div><div id="tokuBox"><small>徳（スコア）</small><div id="toku">0</div><div id="combo"></div></div><div id="mpBoard" class="hidden"></div></div>
+    <button id="fsBtn" class="fs-btn" aria-label="全画面">⛶</button>
     <button id="pauseBtn" aria-label="一時停止">Ⅱ</button>
   </div>
   <div id="cross"></div>
@@ -209,11 +308,12 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 <div id="title" class="screen hidden">
   <div class="card">
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
+    <button class="btn land-only" id="bLand">📱 横向き・全画面で遊ぶ <span class="pill">おすすめ</span></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
-    <button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button>
+    <div class="row" id="dailyRow"><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
     <button class="btn sub2" id="bModes">🔒 そのほかの路線</button>
     <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button></div>
-    <div class="namebox">乗客名 <input id="nameIn" maxlength="12" placeholder="名無しの乗客"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button></div>
+    <div class="namebox">乗客名 <input id="nameIn" maxlength="12" placeholder="名無しの乗客"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
     <p class="small" style="margin:2px 0 0"><a href="https://robit-devworks.github.io/suwaritai/pondashi/" style="color:var(--sub)">🧪 ポン出し版（1 発目のまま）はこちら</a></p>
@@ -256,6 +356,13 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
     </ul>
     <h3>スキル（徳で買う）</h3>
     <div id="skillHelp"></div>
+    <h3>🌐 オンライン対戦（β・フレンド戦）</h3>
+    <ul>
+      <li>合言葉の部屋に 2〜4 人（空いた席は CPU）。7 駅の短い路線で、いちばん徳を積んだ人の勝ち</li>
+      <li>ライバルを殴ると、相手はよろけるだけ（体力 −8）で、自分のカルマ +15。<b>具合が悪そうな顔</b>（体力 20 以下）ならトドメで脱落させられる（カルマ +25）</li>
+      <li>脱落したら「👻 ニセ乗客」になって、座っている人にウソの降りるサインを出させて邪魔できる</li>
+      <li>部屋をつくった人（ホスト）の端末が試合を進めます。ホストは試合中にアプリを切りかえないでね</li>
+    </ul>
     <h3>操作</h3>
     <div class="keys">
       <kbd>WASD</kbd><span>移動（スマホは左下をドラッグ）</span>
@@ -295,26 +402,88 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
   <div class="card">
     <h2>一時停止</h2>
     <button class="btn main" id="bResume">つづける</button>
+    <button class="btn fs-btn" id="bFs2">⛶ 全画面</button>
     <button class="btn" id="bHow2">📖 遊び方</button>
     <button class="btn" id="bQuit">タイトルへ（途中でやめる）</button>
     <p class="small">PCは画面をクリックするとマウスで見回せます。</p>
   </div>
 </div>
 
+<!-- オンライン対戦（β） -->
+<div id="online" class="screen hidden">
+  <div class="card">
+    <h2>🌐 オンライン対戦 <span class="pill">β・フレンド戦</span></h2>
+    <p class="small">合言葉の部屋に 2〜4 人。7 駅の短い路線で、いちばん徳を積んだ人の勝ち。<br>具合が悪そうなライバルはパンチでトドメ（カルマに注意）。脱落したら「ニセ乗客」で邪魔できる。</p>
+    <div id="olMenu">
+      <div class="namebox">乗客名 <input id="olName" maxlength="12" placeholder="名無しの乗客"></div>
+      <button class="btn main" id="olCreate">🚪 部屋をつくる</button>
+      <div class="row"><input id="olCode" class="olcodein" inputmode="numeric" maxlength="4" placeholder="合言葉（4けた）" autocomplete="off"><button class="btn" id="olJoin">入る</button></div>
+    </div>
+    <div id="olRoom" class="hidden">
+      <div class="olcode">合言葉 <b id="olCodeShow">----</b> <button class="btn sub2" id="olCopy" style="width:auto;display:inline-block;margin:0 0 0 6px;padding:4px 10px">コピー</button></div>
+      <div id="olMembers"></div>
+      <label class="small olcpu"><input type="checkbox" id="olCpu" checked> 空いた席は CPU で埋める</label>
+      <button class="btn main" id="olStart">🚃 スタート</button>
+      <p class="small" id="olWait"></p>
+    </div>
+    <p class="small" id="olNote" style="color:var(--toku)"></p>
+    <button class="btn sub2" id="olBack">もどる</button>
+  </div>
+</div>
+<div id="mpOut" class="hidden">
+  <div class="card">
+    <h2 id="mpOutT">脱落…</h2>
+    <p class="small" id="mpOutS"></p>
+    <button class="btn main" id="mpGhost">👻 ニセ乗客になって邪魔する</button>
+    <p class="small">座っている人に照準を合わせてアクション → ウソの「降りるサイン」を出させる。だまされた人の数が「いたずら」になる</p>
+    <button class="btn" id="mpWatch">👀 見ているだけ</button>
+    <button class="btn sub2" id="mpQuit">部屋を出る</button>
+  </div>
+</div>
+<div id="mpres" class="screen hidden">
+  <div class="card">
+    <h2>🏁 オンライン対戦の結果</h2>
+    <div id="mpResList"></div>
+    <p class="small" id="mpResNote"></p>
+    <button class="btn main" id="mpAgain">もう一回（同じ部屋で）</button>
+    <button class="btn sub2" id="mpLeave">部屋を出る</button>
+  </div>
+</div>
+<!-- 「スマホを横にしてね」 -->
+<div id="rotate" class="hidden">
+  <div class="rot-phone">📱</div>
+  <p class="rot-t">スマホを横にしてね</p>
+  <p class="small" id="rotSub">画面の向きのロックがオンなら、オフにしてください</p>
+  <button class="btn sub2" id="rotClose" style="width:auto;padding:8px 18px">このまま遊ぶ</button>
+</div>
+<!-- iPhone など全画面のボタンが使えない端末向けの案内 -->
+<div id="a2hs" class="hidden">
+  <div class="card">
+    <h2>全画面で遊ぶには</h2>
+    <ol id="a2hsSteps"></ol>
+    <p class="small">アイコンから開くと、ブラウザのバーが消えて画面いっぱいで遊べます。</p>
+    <button class="btn main" id="a2hsClose">わかった</button>
+  </div>
+</div>
+
 <div id="result" class="screen hidden">
   <div class="card">
+    <div class="rL">
     <p class="res-cause" id="rCause"></p>
     <p class="res-text" id="rText"></p>
     <div class="score" id="rScore">0</div>
     <div class="rtitle" id="rTitle"></div>
-    <div class="brk" id="rBrk"></div>
-    <div class="stats" id="rStats"></div>
     <div class="newach" id="rAch"></div>
     <p class="small" id="rRank"></p>
+    <div id="rMiniBox" class="hidden" style="margin-top:10px"><div id="rMini"></div><button class="btn sub2" id="bRankR" style="margin-top:6px">🏆 みんなのランキングを見る</button></div>
+    </div>
+    <div class="rR">
+    <div class="brk" id="rBrk"></div>
+    <div class="stats" id="rStats"></div>
     <div class="row"><a class="btn" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn" id="bShareImg">🖼 画像</button></div>
     <div class="row"><button class="btn main" id="bRetry">もう一回乗る</button></div>
     <button class="btn sub2" id="bToTitle">タイトルへ</button>
-    <div id="rMiniBox" class="hidden" style="margin-top:10px"><div id="rMini"></div><button class="btn sub2" id="bRankR" style="margin-top:6px">🏆 みんなのランキングを見る</button></div>
+    </div>
   </div>
 </div>
 
@@ -335,7 +504,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261109035556"></script>
-<script src="game.js?v=20261109035556"></script>
+<script src="logic.js?v=20261109055420"></script>
+<script src="game.js?v=20261109055420"></script>
 </body>
 </html>

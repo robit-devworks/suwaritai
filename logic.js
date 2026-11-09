@@ -179,6 +179,21 @@
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
   // ---------------------------------------------------------------- ゲーム作成
+  function makePlayer(x, z) {
+    return {
+      x, z, yaw: Math.PI / 2, pitch: 0, seat: -1, stamina: C.MAX_STAMINA, karma: 0, toku: 0, earned: 0,
+      combo: 0, lastDeedT: -999, carrying: null, lastBraceT: -99, braceHeld: false, punchCD: 0, hitFlash: 0,
+      fakeSleep: false, mode: null, modeT: 0, buffs: {}, drinkCount: 0, confessCD: 0, stagger: 0, punchAnim: 0,
+      ignoreT: 0, sitT: 0,
+    };
+  }
+  function makeStats() {
+    return {
+      sits: 0, quickSits: 0, gives: 0, chikanKO: 0, counters: 0, delivered: 0, teeth: 0, ceo: 0, alien: 0, alienPunch: 0,
+      brainwash: 0, force: 0, wrongPunch: 0, thiefKO: 0, stolen: 0, tanuki: 0, oversleepSteal: 0, braces: 0, braceFail: 0, doorHolds: 0, maxCombo: 0,
+      standTime: 0, sitTime: 0, stations: 0, sos: 0, deeds: 0, skillsUsed: 0, bestDeed: null,
+    };
+  }
   function create(opts) {
     opts = opts || {};
     const seed = opts.seed != null ? opts.seed : (Math.random() * 1e9) | 0;
@@ -189,28 +204,31 @@
       phase: 'stop', phaseT: C.BOARD - 0.4, station: 0, doorSide: 1, doorsOpen: true, doorClose: C.T_STOP,
       items: [], chikan: null, lurch: null, runner: null, nextChikanCheck: 30, nextItemCheck: 12, samaritanT: 15,
       endless: mode === 'endless', hard: mode === 'hard', jiji: mode === 'jiji',
-      player: {
-        x: 0.4, z: 0.6, yaw: Math.PI / 2, pitch: 0, seat: -1, stamina: C.MAX_STAMINA, karma: 0, toku: 0, earned: 0,
-        combo: 0, lastDeedT: -999, carrying: null, lastBraceT: -99, braceHeld: false, punchCD: 0, hitFlash: 0,
-        fakeSleep: false, mode: null, modeT: 0, buffs: {}, drinkCount: 0, confessCD: 0, stagger: 0, punchAnim: 0,
-        ignoreT: 0, sitT: 0,
-      },
-      stats: {
-        sits: 0, quickSits: 0, gives: 0, chikanKO: 0, counters: 0, delivered: 0, teeth: 0, ceo: 0, alien: 0, alienPunch: 0,
-        brainwash: 0, force: 0, wrongPunch: 0, thiefKO: 0, stolen: 0, tanuki: 0, oversleepSteal: 0, braces: 0, braceFail: 0, doorHolds: 0, maxCombo: 0,
-        standTime: 0, sitTime: 0, stations: 0, sos: 0, deeds: 0, skillsUsed: 0, bestDeed: null,
-      },
-      aim: -1, prompt: null, ann: '',
+      player: makePlayer(0.4, 0.6),
+      stats: makeStats(),
+      aim: -1, prompt: null, ann: '', online: mode === 'online',
     };
+    // 複数プレイヤー（オンライン）：opts.players = [{ name, cpu }]
+    if (opts.players && opts.players.length) {
+      g.multi = true; g.pi = -1;
+      const spots = [[0.4, 0.6], [-0.6, -0.55], [1.5, -0.5], [-1.4, 0.55]];
+      g.players = opts.players.map((o, i) => ({
+        i, name: o.name || ('プレイヤー' + (i + 1)), cpu: !!o.cpu, pl: makePlayer(spots[i % 4][0], spots[i % 4][1]), stats: makeStats(),
+        aim: -1, prompt: null, events: [], out: false, result: null, ghost: false, tricks: 0, pko: 0,
+      }));
+      g.worldPlayer = makePlayer(999, 0); g.worldStats = makeStats(); g.worldEvents = [];
+    }
     g.seats = buildSeats();
     g.slots = buildSlots(g.seats);
     g.player.stamina = C.MAX_STAMINA;
     populateStart(g);
+    if (g.multi) setCtx(g, -1);
     return g;
   }
 
-  function lastStation(g) { return g.endless ? 1e9 : LINE.length - 1; }
+  function lastStation(g) { return g.endless ? 1e9 : g.online ? 7 : LINE.length - 1; }
   function stationName(g, i) {
+    if (g.online && i >= 7) return LINE[LINE.length - 1].name;
     if (i < LINE.length - (g.endless ? 1 : 0)) return LINE[i].name;
     if (g.endless) {
       const k = i - (LINE.length - 1);
@@ -220,6 +238,27 @@
   }
   function nextStation(g) { return g.phase === 'travel' ? g.station + 1 : g.station; }
 
+  // ---------------------------------------------------------------- 複数プレイヤー
+  const PID = 100000; // 照準で「ほかのプレイヤー」を表す番号（PID + 何人目か）
+  // いま処理しているプレイヤーに切り替える（-1 は世界）。1 人用のときは何もしない
+  function setCtx(g, i) {
+    if (!g.multi) return;
+    if (g.pi >= 0) { const P = g.players[g.pi]; P.aim = g.aim; P.prompt = g.prompt; }
+    g.pi = i;
+    if (i < 0) { g.player = g.worldPlayer; g.stats = g.worldStats; g.events = g.worldEvents; g.aim = -1; g.prompt = null; return; }
+    const P = g.players[i]; g.player = P.pl; g.stats = P.stats; g.events = P.events; g.aim = P.aim; g.prompt = P.prompt;
+  }
+  function aliveIdx(g) { const a = []; g.players.forEach((P, i) => { if (!P.out) a.push(i); }); return a; }
+  // 世界の処理から見たプレイヤーの体（脱落した人は含めない）
+  function bodies(g) { return g.multi ? g.players.filter(P => !P.out).map(P => P.pl) : [g.player]; }
+  function seatedBody(g) { for (const b of bodies(g)) if (b.seat >= 0) return b; return null; }
+  function withEach(g, fn) {
+    if (!g.multi) { fn(g.player, 0); return; }
+    const prev = g.pi;
+    for (const i of aliveIdx(g)) { setCtx(g, i); fn(g.player, i); }
+    setCtx(g, prev);
+  }
+  function toOthers(g, e) { if (!g.multi) return; g.players.forEach((P, i) => { if (i !== g.pi) P.events.push(e); }); }
   function emit(g, e) { g.events.push(e); if (g.events.length > 400) g.events.splice(0, 100); }
   function toast(g, text, kind) { emit(g, { type: 'toast', text, kind: kind || 'info' }); }
   function bubble(g, p, text, dur) { p.bubble = text; p.bubbleT = dur || 2.2; emit(g, { type: 'bubble', id: p.id, text }); }
@@ -342,7 +381,7 @@
     for (let i = 0; i < g.slots.length; i++) {
       const s = g.slots[i];
       if (s.occ >= 0) continue;
-      if (dist2(s.x, s.z, g.player.x, g.player.z) < 0.5) continue;
+      if (bodies(g).some(b => dist2(s.x, s.z, b.x, b.z) < 0.5)) continue;
       let d = dist2(s.x, s.z, nearX, nearZ);
       if (preferFront && s.kind !== 'front') d += 2.5;
       if (!preferFront && s.kind === 'front') d += 0.8;
@@ -385,6 +424,21 @@
         const allow = Math.atan(0.3 / d) + 0.05;
         if (ang < allow) { const sc = ang / allow + d * 0.05; if (sc < bs) { bs = sc; best = p.id; } }
       }
+    }
+    if (g.multi) {
+      g.players.forEach((P, j) => {
+        if (j === g.pi || P.out) return;
+        const b = P.pl, hy = b.seat >= 0 ? C.EYE_SIT + 0.05 : C.EYE_STAND + 0.05;
+        for (const yy of [hy - 0.05, hy - 0.45]) {
+          const dx = b.x - pl.x, dy = yy - ey, dz = b.z - pl.z;
+          const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (d > maxD || d < 0.05) continue;
+          const dot = (dx * fx + dy * fy + dz * fz) / d;
+          if (dot <= 0) continue;
+          const ang = Math.acos(clamp(dot, -1, 1)), allow = Math.atan(0.3 / d) + 0.05;
+          if (ang < allow) { const sc = ang / allow + d * 0.05; if (sc < bs) { bs = sc; best = PID + j; } }
+        }
+      });
     }
     return best;
   }
@@ -434,20 +488,35 @@
     pl.stamina -= amt; pl.hitFlash = 0.4;
     if (pl.stamina <= 0) { pl.stamina = 0; gameOver(g, cause); }
   }
-  function gameOver(g, cause) {
+  const CAUSES = {
+    collapse: { title: '膝が笑った', text: '立ちっぱなしで体力が尽きた…' },
+    ko: { title: 'KO負け', text: '痴漢の反撃で床に沈んだ…' },
+    arrest: { title: '駅員に連行', text: 'カルマがたまりすぎて、次の駅で降ろされた…' },
+    clear: { title: '終点到着！', text: 'おつかれさまでした' },
+    pko: { title: 'トドメを刺された', text: 'ライバルのパンチで床に沈んだ…' },
+    leave: { title: '途中で降りた', text: '' },
+  };
+  function gameOver(g, cause, extra) {
+    if (g.multi) {
+      const P = g.players[g.pi]; if (!P || P.out) return;
+      P.out = true; P.outT = g.t; P.outStation = g.station; g.outCount = (g.outCount || 0) + 1; P.outOrder = g.outCount;
+      P.result = Object.assign({ cause }, CAUSES[cause], extra || {});
+      const pl = P.pl;
+      if (pl.seat >= 0) { freeSeat(g, g.seats[pl.seat], -1); pl.seat = -1; }
+      if (pl.carrying) { const it = pl.carrying; pl.carrying = null; [it.x, it.z] = aisleClamp(pl.x, pl.z); it.taken = false; it.t0 = g.t; g.items.push(it); }
+      pl.fakeSleep = false; pl.mode = null;
+      emit(g, { type: cause === 'clear' ? 'clear' : 'gameover', cause });
+      if (cause !== 'clear') toOthers(g, { type: 'toast', text: P.name + ' が脱落！（' + CAUSES[cause].title + '）', kind: 'warn' });
+      return;
+    }
     if (g.over) return;
     g.over = true;
-    const causes = {
-      collapse: { title: '膝が笑った', text: '立ちっぱなしで体力が尽きた…' },
-      ko: { title: 'KO負け', text: '痴漢の反撃で床に沈んだ…' },
-      arrest: { title: '駅員に連行', text: 'カルマがたまりすぎて、次の駅で降ろされた…' },
-      clear: { title: '終点到着！', text: 'おつかれさまでした' },
-    };
-    g.result = Object.assign({ cause }, causes[cause]);
+    g.result = Object.assign({ cause }, CAUSES[cause]);
     emit(g, { type: cause === 'clear' ? 'clear' : 'gameover', cause });
   }
   function finalScore(g) {
-    const pl = g.player, clear = g.result && g.result.cause === 'clear';
+    const res = g.multi ? (g.pi >= 0 ? g.players[g.pi].result : null) : g.result;
+    const pl = g.player, clear = res && res.cause === 'clear';
     const stationBonus = g.stats.stations * 10;
     const clearBonus = clear ? 300 + Math.round(pl.stamina) : 0;
     const karmaPen = Math.round(pl.karma);
@@ -732,13 +801,14 @@
     pl.stamina = Math.max(0.1, pl.stamina - 1);
     emit(g, { type: 'sfx', name: 'whoosh' });
     const id = aimTarget(g, 1.6);
+    if (g.multi && id >= PID) { punchPlayer(g, id - PID); return; }
     const p = id >= 0 ? person(g, id) : null;
     if (!p) return;
     const ch = g.chikan;
     const dmgMul = pl.buffs.protein > 0 ? 2 : 1;
     if (ch && p.id === ch.chikanId && (ch.stage === 'active' || ch.stage === 'fight' || ch.stage === 'reported')) {
       if (ch.stage !== 'fight') {
-        ch.stage = 'fight'; ch.fstate = 'idle'; ch.ft = 0.9;
+        ch.stage = 'fight'; ch.fstate = 'idle'; ch.ft = 0.9; ch.pi = g.multi ? g.pi : 0;
         p.state = 'fight'; releaseSlot(g, p);
         bubble(g, p, ch.kind === 'boxer' ? 'ほう…やる気か' : 'な、なにを！', 1.8);
         const v = person(g, ch.victimId); if (v) { v.expr = 'surprised'; v.exprT = 3; }
@@ -793,13 +863,40 @@
     if (p.tough) { hurt(g, 18, 'ko'); bubble(g, p, 'やんのかコラァ！', 2); emit(g, { type: 'shake', amount: 1 }); }
   }
 
+  // プレイヤー同士のパンチ：元気な相手はよろけるだけ。具合が悪そう（体力 20 以下）ならトドメで脱落
+  function punchPlayer(g, j) {
+    const me = g.pi, T = g.players[j];
+    if (!T || T.out) return;
+    const tp = T.pl;
+    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hitPlayer', i: j });
+    if (tp.stamina <= 20) {
+      g.players[me].pko++;
+      addKarma(g, 25, T.name + 'にトドメ');
+      toast(g, T.name + ' にトドメを刺した！', 'warn');
+      setCtx(g, j); gameOver(g, 'pko', { by: g.players[me].name, text: g.players[me].name + ' のパンチで床に沈んだ…' }); setCtx(g, me);
+    } else {
+      addKarma(g, 15, T.name + 'を殴った');
+      tp.stamina = Math.max(1, tp.stamina - 8); tp.stagger = 0.5; tp.hitFlash = 0.4;
+      T.events.push({ type: 'toast', text: g.players[me].name + ' に殴られた！ 体力-8', kind: 'bad' });
+      T.events.push({ type: 'shake', amount: 1 }); T.events.push({ type: 'sfx', name: 'hit' });
+    }
+  }
+
   // ---------------------------------------------------------------- 更新
   function update(g, dt, input) {
     if (g.over) return;
     input = input || {};
     dt = Math.min(dt, 0.1);
     g.t += dt;
+    if (!playerStep(g, dt, input)) return;
+    updatePhase(g, dt);
+    updatePeople(g, dt);
+    updateEvents(g, dt);
+  }
+  // 1 人分の操作と体の更新。脱落・終わりなら false
+  function playerStep(g, dt, input) {
     const pl = g.player;
+    const isOver = () => g.multi ? g.players[g.pi].out : g.over;
     // 視点
     if (input.yaw != null) pl.yaw = input.yaw;
     if (input.pitch != null) pl.pitch = clamp(input.pitch, -1.2, 1.2);
@@ -810,9 +907,64 @@
     pl.braceHeld = !!input.brace;
     if (input.bracePressed) pl.lastBraceT = g.t;
 
-    // 移動
+    // 移動（オンラインの参加者は自分の端末で動かして、場所だけ送ってくる）
     let moving = false;
-    if (pl.seat < 0) {
+    if (input.pos) { if (pl.seat < 0) { [pl.x, pl.z] = aisleClamp(+input.pos[0] || 0, +input.pos[1] || 0); moving = !!input.mv; } }
+    else if (pl.seat < 0) moving = movePlayer(g, pl, input, dt);
+
+    // 体力
+    if (pl.seat >= 0) {
+      const regen = C.SIT_REGEN * (pl.fakeSleep ? 1.35 : 1);
+      pl.stamina = Math.min(C.MAX_STAMINA, pl.stamina + regen * dt);
+      g.stats.sitTime += dt;
+      if (pl.fakeSleep) g.stats.tanuki += dt;
+    } else {
+      g.stats.standTime += dt;
+      const standing = g.people.filter(p => p.state === 'stand' || p.state === 'walk' || p.state === 'fight').length;
+      const crowd = clamp((standing - 4) / 18, 0, 1);
+      let drain = C.STAND_DRAIN + C.CROWD_DRAIN * crowd + (moving ? C.WALK_DRAIN : 0) + (pl.braceHeld ? C.BRACE_DRAIN : 0);
+      if (g.phase === 'stop') drain *= 0.7;
+      if (g.hard) drain *= 1.25;
+      if (g.endless && g.station > 11) drain *= 1 + Math.min(2, (g.station - 11) * 0.05);
+      if (pl.buffs.legs > 0) drain = pl.braceHeld ? C.BRACE_DRAIN * 0.5 : 0;
+      pl.stamina -= drain * dt;
+      if (pl.stamina <= 0) { pl.stamina = 0; gameOver(g, 'collapse'); return false; }
+    }
+
+    // 狸寝入り
+    if (input.fakeSleep) { if (pl.seat >= 0) { pl.fakeSleep = !pl.fakeSleep; emit(g, { type: 'sfx', name: pl.fakeSleep ? 'snore' : 'sit' }); } }
+
+    // 照準
+    g.aim = pl.fakeSleep ? -1 : aimTarget(g, 7);
+    // スキル
+    if (input.skill != null && input.skill >= 0) useSkill(g, input.skill);
+    // 行動
+    g.prompt = pl.fakeSleep ? { act: 'wake', label: '目を開ける' } : computePrompt(g);
+    if (input.action && g.prompt) { doAction(g); g.prompt = pl.fakeSleep ? { act: 'wake', label: '目を開ける' } : computePrompt(g); }
+    if (input.punch && !pl.fakeSleep) doPunch(g);
+    if (isOver()) return false;
+
+    // 優先が必要な人を無視
+    const pr = priorityNear(g);
+    if (pr && pl.seat >= 0) {
+      pl.ignoreT += dt;
+      if (pl.ignoreT > 3) {
+        const rate = (pl.fakeSleep ? 0.15 : 0.55) * (g.seats[pl.seat].pri ? 1.8 : 1);
+        pl.karma = Math.min(C.MAX_KARMA, pl.karma + rate * dt);
+        if (g.r() < dt * 0.15 && !pl.fakeSleep) {
+          const glare = g.people.filter(p => p.state === 'seated' && p.sleep === 0 && dist2(p.x, p.z, pl.x, pl.z) < 3);
+          for (const q of glare.slice(0, 2)) { q.expr = 'glare'; q.exprT = 2.5; }
+        }
+      }
+    } else pl.ignoreT = 0;
+
+    if (pl.karma >= C.MAX_KARMA) { g.stats.arrestedAt = nextStation(g); gameOver(g, 'arrest'); return false; }
+    return !isOver();
+  }
+
+  // 立っているプレイヤーの移動（混雑で遅くなる・人に押される）。動いたら true
+  function movePlayer(g, pl, input, dt) {
+    let moving = false;
       let mx = input.mx || 0, mz = input.mz || 0;
       const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
       if (pl.braceHeld) { mx *= 0.25; mz *= 0.25; }
@@ -840,72 +992,133 @@
           [pl.x, pl.z] = aisleClamp(pl.x, pl.z);
         }
       }
-    }
-
-    // 体力
-    if (pl.seat >= 0) {
-      const regen = C.SIT_REGEN * (pl.fakeSleep ? 1.35 : 1);
-      pl.stamina = Math.min(C.MAX_STAMINA, pl.stamina + regen * dt);
-      g.stats.sitTime += dt;
-      if (pl.fakeSleep) g.stats.tanuki += dt;
-    } else {
-      g.stats.standTime += dt;
-      const standing = g.people.filter(p => p.state === 'stand' || p.state === 'walk' || p.state === 'fight').length;
-      const crowd = clamp((standing - 4) / 18, 0, 1);
-      let drain = C.STAND_DRAIN + C.CROWD_DRAIN * crowd + (moving ? C.WALK_DRAIN : 0) + (pl.braceHeld ? C.BRACE_DRAIN : 0);
-      if (g.phase === 'stop') drain *= 0.7;
-      if (g.hard) drain *= 1.25;
-      if (g.endless && g.station > 11) drain *= 1 + Math.min(2, (g.station - 11) * 0.05);
-      if (pl.buffs.legs > 0) drain = pl.braceHeld ? C.BRACE_DRAIN * 0.5 : 0;
-      pl.stamina -= drain * dt;
-      if (pl.stamina <= 0) { pl.stamina = 0; gameOver(g, 'collapse'); return; }
-    }
-
-    // 狸寝入り
-    if (input.fakeSleep) { if (pl.seat >= 0) { pl.fakeSleep = !pl.fakeSleep; emit(g, { type: 'sfx', name: pl.fakeSleep ? 'snore' : 'sit' }); } }
-
-    // 照準
-    g.aim = pl.fakeSleep ? -1 : aimTarget(g, 7);
-    // スキル
-    if (input.skill != null && input.skill >= 0) useSkill(g, input.skill);
-    // 行動
-    g.prompt = pl.fakeSleep ? { act: 'wake', label: '目を開ける' } : computePrompt(g);
-    if (input.action && g.prompt) { doAction(g); g.prompt = pl.fakeSleep ? { act: 'wake', label: '目を開ける' } : computePrompt(g); }
-    if (input.punch && !pl.fakeSleep) doPunch(g);
-    if (g.over) return;
-
-    // 優先が必要な人を無視
-    const pr = priorityNear(g);
-    if (pr && pl.seat >= 0) {
-      pl.ignoreT += dt;
-      if (pl.ignoreT > 3) {
-        const rate = (pl.fakeSleep ? 0.15 : 0.55) * (g.seats[pl.seat].pri ? 1.8 : 1);
-        pl.karma = Math.min(C.MAX_KARMA, pl.karma + rate * dt);
-        if (g.r() < dt * 0.15 && !pl.fakeSleep) {
-          const glare = g.people.filter(p => p.state === 'seated' && p.sleep === 0 && dist2(p.x, p.z, pl.x, pl.z) < 3);
-          for (const q of glare.slice(0, 2)) { q.expr = 'glare'; q.exprT = 2.5; }
-        }
+      if (g.multi) for (const P of g.players) {
+        const o = P.pl; if (o === pl || P.out || o.seat >= 0) continue;
+        const d = dist2(o.x, o.z, pl.x, pl.z), m = 0.45;
+        if (d < m && d > 0.001) { const push = (m - d) * 0.4; pl.x += (pl.x - o.x) / d * push; pl.z += (pl.z - o.z) / d * push; [pl.x, pl.z] = aisleClamp(pl.x, pl.z); }
       }
-    } else pl.ignoreT = 0;
+        return moving;
+  }
 
-    if (pl.karma >= C.MAX_KARMA) { g.stats.arrestedAt = nextStation(g); gameOver(g, 'arrest'); return; }
-
+  // ---------------------------------------------------------------- オンライン（複数プレイヤー）の更新
+  // inputs[i]：i 人目の操作（CPU は自動）。ホストの端末だけが呼ぶ
+  function updateMulti(g, dt, inputs) {
+    if (g.over) return;
+    dt = Math.min(dt, 0.1);
+    g.t += dt;
+    for (let i = 0; i < g.players.length; i++) {
+      const P = g.players[i];
+      setCtx(g, i);
+      if (P.out) { if (P.ghost) ghostStep(g, dt, (inputs && inputs[i]) || {}); continue; }
+      const inp = P.cpu ? botInput(g, i) : ((inputs && inputs[i]) || {});
+      playerStep(g, dt, inp);
+    }
+    setCtx(g, -1);
     updatePhase(g, dt);
-    updatePeople(g, dt);
-    updateEvents(g, dt);
+    if (!g.over) { updatePeople(g, dt); updateEvents(g, dt); trickCheck(g); }
+    if (g.worldEvents.length) { for (const P of g.players) for (const e of g.worldEvents) P.events.push(e); g.worldEvents.length = 0; }
+    for (const P of g.players) if (P.events.length > 300) P.events.splice(0, P.events.length - 300);
+    if (!g.over && g.players.every(P => P.out && !P.ghost) || !g.over && g.players.every(P => P.out)) { g.over = true; g.result = { cause: 'end' }; }
+  }
+  // 脱落したあとの「ニセ乗客」：座っている人にウソの降りるサインを出させる
+  const FAKE_KINDS = [['board', '掲示板をチラ見'], ['watch', '時計を見る'], ['pack', '荷物をまとめる']];
+  function ghostStep(g, dt, input) {
+    const pl = g.player, P = g.players[g.pi];
+    if (input.yaw != null) pl.yaw = input.yaw;
+    if (input.pitch != null) pl.pitch = clamp(input.pitch, -1.2, 1.2);
+    if (input.pos) [pl.x, pl.z] = aisleClamp(+input.pos[0] || 0, +input.pos[1] || 0);
+    else ghostMove(pl, input, dt);
+    P.fakeCD = Math.max(0, (P.fakeCD || 0) - dt);
+    const id = aimTarget(g, 7);
+    const t = id >= 0 && id < PID ? person(g, id) : null;
+    g.aim = id < PID ? id : -1;
+    g.prompt = t && t.state === 'seated' ? { act: 'fake', label: P.fakeCD > 0 ? 'ウソのサイン（' + Math.ceil(P.fakeCD) + '秒）' : 'ウソの降りるサインを出させる', id: t.id } : null;
+    if (input.action && g.prompt && P.fakeCD <= 0) {
+      const k = FAKE_KINDS[(P.fakeN = ((P.fakeN || 0) + 1)) % FAKE_KINDS.length];
+      if (k[0] === 'board') { t.anim = 'board'; t.animT = 1.3; t.looks.push(g.t); }
+      else if (k[0] === 'watch') { t.anim = 'watch'; t.animT = 1.1; t.watches.push(g.t); }
+      else { t.packing = true; t.fakePackT = g.t + 8; }
+      t.sleep = 0; t.fakeUntil = g.t + 10; t.fakeBy = g.pi;
+      P.fakeCD = 2.5;
+      emit(g, { type: 'toast', text: '👻 ' + k[1] + 'させた', kind: 'info' });
+    }
+  }
+  function ghostMove(pl, input, dt) {
+    let mx = input.mx || 0, mz = input.mz || 0;
+    const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
+    if (ml > 0.05) {
+      const fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw), rx = Math.cos(pl.yaw), rz = -Math.sin(pl.yaw);
+      [pl.x, pl.z] = aisleClamp(pl.x + (fx * mz + rx * mx) * 2.4 * dt, pl.z + (fz * mz + rz * mx) * 2.4 * dt);
+    }
+  }
+  // 通信が切れた・部屋を出たプレイヤーを脱落にする
+  function dropPlayer(g, i, cause) { const prev = g.pi; setCtx(g, i); gameOver(g, cause || 'leave'); setCtx(g, prev); }
+  // ウソのサインにだまされて、その人の前に立ったプレイヤーを数える
+  function trickCheck(g) {
+    for (const p of g.people) {
+      if (!(p.fakeUntil > g.t) || p.state !== 'seated') continue;
+      const s = g.seats[p.seat]; if (!s) continue;
+      g.players.forEach((P, i) => {
+        if (P.out || i === p.fakeBy || P.pl.seat >= 0) return;
+        if (dist2(P.pl.x, P.pl.z, s.x, s.fz) > 0.6) return;
+        p.fooled = p.fooled || {};
+        if (p.fooled[i]) return;
+        p.fooled[i] = 1;
+        const G = g.players[p.fakeBy]; if (!G) return;
+        G.tricks++;
+        G.events.push({ type: 'toast', text: '👻 ' + P.name + ' がだまされた！（いたずら +1）', kind: 'good' });
+      });
+    }
+  }
+  // CPU のプレイヤー（様子を見て、降りそうな人の前で待つ）
+  function botInput(g, i) {
+    const P = g.players[i], pl = P.pl, mem = P.bot || (P.bot = { react: 0.35 + (i * 0.17) % 0.5 });
+    const inp = { yaw: pl.yaw, pitch: 0 };
+    if (g.phase === 'travel' && g.lurchPlan) for (const L of g.lurchPlan) if (L.warned && !L.done && g.phaseT > L.t - 0.55) inp.bracePressed = true;
+    const pr = g.prompt;
+    if (pl.seat >= 0) { if (pr && pr.act === 'give' && pl.stamina > 70) inp.action = true; return inp; }
+    if (pr && pr.act === 'sit') { if (!mem.sitSeen) mem.sitSeen = g.t; if (g.t - mem.sitSeen > mem.react) { inp.action = true; mem.sitSeen = 0; } return inp; }
+    mem.sitSeen = 0;
+    if (pr && pr.act === 'staff') { inp.action = true; return inp; }
+    if (pl.stamina < 30 && pl.toku >= skillCost(g, 1)) inp.skill = 1;
+    let best = null, bs = -1e9;
+    for (const p of g.people) {
+      if (p.state !== 'seated') continue;
+      const seat = g.seats[p.seat];
+      let sc = p.looks.filter(t => g.t - t < 30).length * 2 + p.watches.filter(t => g.t - t < 30).length * 2 + (p.packing ? 6 : 0) - (p.sleep ? 5 : 0);
+      if (p.type === 'tourist') sc -= 6;
+      sc -= dist2(seat.x, seat.fz, pl.x, pl.z) * 0.3;
+      // ほかのプレイヤーがもう前にいる席は避ける
+      if (g.players.some((Q, j) => j !== i && !Q.out && dist2(Q.pl.x, Q.pl.z, seat.x, seat.fz) < 0.5)) sc -= 4;
+      if (sc > bs) { bs = sc; best = seat; }
+    }
+    if (best) {
+      const dx = best.x - pl.x, dz = best.fz - pl.z, d = Math.hypot(dx, dz);
+      if (d > 0.25) { inp.yaw = Math.atan2(-dx, -dz); inp.mz = 1; }
+    }
+    return inp;
+  }
+  // i 人目の最終スコア
+  function finalScoreOf(g, i) { const prev = g.pi; setCtx(g, i); const r = finalScore(g); setCtx(g, prev); return r; }
+  // 順位（スコアの高い順。同点なら長く残った人が上）
+  function standings(g) {
+    return g.players.map((P, i) => ({ i, name: P.name, cpu: P.cpu, score: finalScoreOf(g, i).total, cause: P.result ? P.result.cause : 'clear', outOrder: P.outOrder || 99, tricks: P.tricks, pko: P.pko }))
+      .sort((a, b) => b.score - a.score || b.outOrder - a.outOrder);
   }
 
   function updatePhase(g, dt) {
     g.phaseT += dt;
-    const pl = g.player;
     if (g.phase === 'travel') {
       if (g.phaseT >= C.T_TRAVEL) {
-        g.phase = 'stop'; g.phaseT = 0; g.station++; g.stats.stations++;
+        g.phase = 'stop'; g.phaseT = 0; g.station++; withEach(g, () => { g.stats.stations++; });
         g.doorSide = g.nextDoorSide || 1; g.doorsOpen = false; g.doorClose = C.T_STOP;
         g.ann = stationName(g, g.station) + '、' + stationName(g, g.station) + '。お出口は' + (g.doorSide > 0 ? '右側' : '左側') + 'です。';
         emit(g, { type: 'arrive', station: g.station });
         emit(g, { type: 'sfx', name: 'brake' });
-        if (g.station >= lastStation(g)) { pl.stamina = Math.max(pl.stamina, 0); gameOver(g, 'clear'); return; }
+        if (g.station >= lastStation(g)) {
+          if (g.multi) { withEach(g, () => gameOver(g, 'clear')); g.over = true; g.result = { cause: 'end' }; return; }
+          gameOver(g, 'clear'); return;
+        }
         // 洗脳中の人などを降ろす準備
       }
       // 予告アナウンス
@@ -933,9 +1146,11 @@
         g.nextDoorSide = g.r.chance(0.5) ? 1 : -1;
         // 置いて行かれた落とし物の持ち主
         for (const it of g.items) { const o = person(g, it.owner); if (!o || o.state === 'gone') it.ownerGone = true; }
-        if (pl.carrying) { const o = person(g, pl.carrying.owner); if (!o || o.state === 'gone') pl.carrying.ownerGone = true; }
         g.items = g.items.filter(it => g.t - it.t0 < 100);
-        if (pl.carrying && !person(g, pl.carrying.owner) && !pl.carrying.told) { pl.carrying.told = true; toast(g, '持ち主は降りてしまった…次の駅で、開いたドアの近くの駅員に届けよう', 'warn'); }
+        withEach(g, (pl) => {
+          if (pl.carrying) { const o = person(g, pl.carrying.owner); if (!o || o.state === 'gone') pl.carrying.ownerGone = true; }
+          if (pl.carrying && !person(g, pl.carrying.owner) && !pl.carrying.told) { pl.carrying.told = true; toast(g, '持ち主は降りてしまった…次の駅で、開いたドアの近くの駅員に届けよう', 'warn'); }
+        });
         emit(g, { type: 'depart' });
         emit(g, { type: 'sfx', name: 'depart' });
         g.ann = '';
@@ -969,8 +1184,7 @@
     p.packing = false; p.anim = 'none';
     if (p.role === 'thief' && p.stolen && !p.fleeing) toast(g, '…さっきの若者、盗んだ物を持って降りていった？', 'bad');
     // 落とし物の持ち主が降りる
-    const it = g.player.carrying;
-    if (it && it.owner === p.id) it.ownerLeaving = true;
+    for (const b of bodies(g)) { const it = b.carrying; if (it && it.owner === p.id) it.ownerLeaving = true; }
   }
   function startBoard(g) {
     const st = g.station;
@@ -1008,8 +1222,8 @@
         if (dd < bd) { bd = dd; best = s; }
       }
       if (best) { best.res = p.id; p.state = 'walk'; p.tx = best.x; p.tz = best.fz; p.then = 'sit'; p.seatTarget = best.id; }
-      else if (p.priority && g.player.seat >= 0 && g.r.chance(0.55)) {
-        const s = g.seats[g.player.seat]; p.state = 'walk'; p.tx = s.x + (g.r() - 0.5) * 0.3; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true;
+      else if (p.priority && seatedBody(g) && g.r.chance(0.55)) {
+        const s = g.seats[seatedBody(g).seat]; p.state = 'walk'; p.tx = s.x + (g.r() - 0.5) * 0.3; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true; p.targetSeat = s.id;
       } else placeStanding(g, p, false);
       if (q.type === 'ceo' || q.type === 'alien') emit(g, { type: 'rare', id: p.id });
     }
@@ -1063,7 +1277,7 @@
               const d = nearestDoor(p.x);
               p.state = 'walk'; p.tx = d + (g.r() - 0.5) * 0.6; p.tz = (g.r() < 0.5 ? 1 : -1) * 0.95; p.then = 'stand'; p.leaving = true;
             }
-            if (rem > 0 && p.packing) p.packing = false;
+            if (rem > 0 && p.packing && !(p.fakePackT > g.t)) p.packing = false;
           }
           // 眠り：近づくと起きる
           if (g.phase === 'travel' && p.sleep && !p.oversleep && rem <= 1 && g.r() < 0.12 * dt) { p.sleep = 0; p.expr = 'sleepy'; p.exprT = 3; }
@@ -1122,11 +1336,12 @@
             } else p.scanT = 0;
           }
           // 優先の人：座っているプレイヤーの前へ寄ってくる
-          if (p.priority && !p.targetPlayer && pl.seat >= 0 && g.phase === 'travel' && g.r() < 0.02 * dt) {
-            const s = g.seats[pl.seat];
-            if (dist2(p.x, p.z, s.x, s.fz) < 4.5) { releaseSlot(g, p); p.state = 'walk'; p.tx = s.x + 0.15; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true; }
+          const sb = seatedBody(g);
+          if (p.priority && !p.targetPlayer && sb && g.phase === 'travel' && g.r() < 0.02 * dt) {
+            const s = g.seats[sb.seat];
+            if (dist2(p.x, p.z, s.x, s.fz) < 4.5) { releaseSlot(g, p); p.state = 'walk'; p.tx = s.x + 0.15; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true; p.targetSeat = s.id; }
           }
-          if (p.targetPlayer && pl.seat < 0) p.targetPlayer = false;
+          if (p.targetPlayer && !(p.targetSeat != null && g.multi ? g.seats[p.targetSeat].occ === 0 : sb)) p.targetPlayer = false;
           break;
         }
         case 'fight': updateFighter(g, p, dt); break;
@@ -1209,10 +1424,9 @@
     if (p.thiefT > 0) return;
     p.thiefT = g.r.range(7, 12);
     if (p.stolen >= 3) return; // 盗みすぎない
-    const pl = g.player;
     // 床の落とし物（プレイヤーの近くは避ける）
     let goal = null, bd = 9;
-    for (const it of g.items) { const d = dist2(it.x, it.z, p.x, p.z); if (d < bd && dist2(it.x, it.z, pl.x, pl.z) > 0.8) { bd = d; goal = { kind: 'item', id: it.id, x: it.x, z: it.z }; } }
+    for (const it of g.items) { const d = dist2(it.x, it.z, p.x, p.z); if (d < bd && bodies(g).every(b => dist2(it.x, it.z, b.x, b.z) > 0.8)) { bd = d; goal = { kind: 'item', id: it.id, x: it.x, z: it.z }; } }
     if (!goal && g.r.chance(0.45)) {
       const sl = g.people.filter(q => q.state === 'seated' && q.sleep && !q.robbedAt && !q.robbed && dist2(q.x, q.z, p.x, p.z) < 7);
       if (sl.length) { const v = g.r.pick(sl); v.robbed = true; const s = g.seats[v.seat]; goal = { kind: 'pocket', id: v.id, x: s.x, z: s.fz }; }
@@ -1224,6 +1438,14 @@
 
   // ---------------------------------------------------------------- 痴漢
   function updateFighter(g, p, dt) {
+    if (g.multi) {
+      const ch = g.chikan;
+      if (!ch || ch.pi == null || g.players[ch.pi].out) { if (ch && ch.chikanId === p.id) { ch.stage = 'active'; endChikan(g, 'escaped'); } else p.state = 'stand'; return; }
+      const prev = g.pi; setCtx(g, ch.pi); fighterStep(g, p, dt); setCtx(g, prev); return;
+    }
+    fighterStep(g, p, dt);
+  }
+  function fighterStep(g, p, dt) {
     const ch = g.chikan, pl = g.player;
     if (!ch || ch.chikanId !== p.id) { p.state = 'stand'; return; }
     if (pl.seat >= 0) { toast(g, '痴漢は逃げ出した！', 'bad'); ch.stage = 'active'; endChikan(g, 'escaped'); return; }
@@ -1283,7 +1505,6 @@
 
   // ---------------------------------------------------------------- 出来事
   function updateEvents(g, dt) {
-    const pl = g.player;
     // 揺れ
     if (g.phase === 'travel' && g.lurchPlan) {
       for (const L of g.lurchPlan) {
@@ -1291,7 +1512,7 @@
         if (!L.done && g.phaseT >= L.t) {
           L.done = true;
           emit(g, { type: 'lurch' });
-          if (pl.seat < 0) {
+          withEach(g, (pl) => { if (pl.seat >= 0) return;
             const ok = pl.braceHeld || (g.t - pl.lastBraceT < 1.05 && pl.lastBraceT >= g.lurchWarnT - 0.1) || pl.buffs.legs > 0;
             if (ok) { g.stats.braces++; emit(g, { type: 'brace', ok: true }); }
             else {
@@ -1303,7 +1524,7 @@
               if (f && g.r.chance(0.35)) { f.expr = 'angry'; f.exprT = 4; bubble(g, f, 'ちょっと！どこ触って…！', 2); addKarma(g, 8, 'ぶつかった（誤解）'); }
               else if (near.length) { bubble(g, near[0], 'おっと', 1); }
             }
-          }
+          });
         }
       }
     }
@@ -1334,7 +1555,7 @@
         it.noticed = true; o.expr = 'worried'; o.exprT = 8; bubble(g, o, 'あれ？' + it.name + 'がない…', 2.5);
       }
     }
-    if (pl.carrying) {
+    for (const pl of bodies(g)) if (pl.carrying) {
       const o = person(g, pl.carrying.owner);
       if (o && o.state !== 'gone' && g.r() < 0.08 * dt) { o.expr = 'worried'; o.exprT = 4; }
     }
@@ -1428,7 +1649,7 @@
 
   return {
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS,
-    create, update, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
+    create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
     _internal: { updateThief, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });

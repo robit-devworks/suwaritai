@@ -466,7 +466,7 @@
     c.strokeStyle = browCol; c.lineWidth = p.female ? 2.2 : 3.4; c.lineCap = 'round';
     let bIn = 0, bOut = 0;
     if (expr === 'angry' || expr === 'glare' || expr === 'pain') { bIn = 5; bOut = -2; }
-    if (expr === 'worried' || expr === 'distressed' || expr === 'sad' || expr === 'panic') { bIn = -5; bOut = 2; }
+    if (expr === 'worried' || expr === 'distressed' || expr === 'sad' || expr === 'panic' || expr === 'sick') { bIn = -5; bOut = 2; }
     if (expr === 'surprised' || expr === 'shifty') { bIn = -5; bOut = -5; }
     for (const sx of [-1, 1]) { c.beginPath(); c.moveTo(64 + sx * 9, ey - 15 + bIn * 1.3); c.quadraticCurveTo(64 + sx * 20, ey - 20 + (bIn + bOut) / 2 - 2, 64 + sx * 32, ey - 13 + bOut); c.stroke(); }
     // 目
@@ -477,7 +477,7 @@
       if (expr === 'ko') { c.strokeStyle = '#222'; c.lineWidth = 3; c.beginPath(); c.moveTo(cx - 6, ey - 5); c.lineTo(cx + 6, ey + 5); c.moveTo(cx + 6, ey - 5); c.lineTo(cx - 6, ey + 5); c.stroke(); continue; }
       if (expr === 'happy' || expr === 'relief') { c.strokeStyle = '#2a1d16'; c.lineWidth = 3.4; c.beginPath(); c.arc(cx, ey + 4, 9, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); continue; }
       if (closed) { c.strokeStyle = '#2a1d16'; c.lineWidth = 3; c.beginPath(); c.arc(cx, ey - 3, 9, Math.PI * 0.15, Math.PI * 0.85); c.stroke(); if (p.female) { c.beginPath(); c.moveTo(cx + sx * 7, ey + 1); c.lineTo(cx + sx * 9, ey + 3); c.stroke(); } continue; }
-      let oh = expr === 'surprised' || expr === 'panic' ? 7.5 : expr === 'sleepy' || expr === 'dazed' ? 3 : expr === 'glare' || expr === 'angry' ? 4.5 : 5.5;
+      let oh = expr === 'surprised' || expr === 'panic' ? 7.5 : expr === 'sleepy' || expr === 'dazed' || expr === 'sick' ? 3 : expr === 'glare' || expr === 'angry' ? 4.5 : 5.5;
       oh *= 1.25;
       c.fillStyle = '#fbfbf8'; c.beginPath(); c.ellipse(cx, ey, 11.5, oh, 0, 0, TAU); c.fill();
       c.save(); c.beginPath(); c.ellipse(cx, ey, 11.5, oh, 0, 0, TAU); c.clip();
@@ -510,13 +510,15 @@
         case 'sleep': c.ellipse(64, my, 4, 3, 0, 0, TAU); c.fill(); break;
         case 'pain': c.fillStyle = '#fff'; roundRect(c, 52, my - 5, 24, 9, 3); c.fill(); c.strokeStyle = '#555'; c.lineWidth = 1; c.stroke(); break;
         case 'ko': c.ellipse(64, my, 7, 5, 0, 0, TAU); c.fill(); break;
+        case 'sick': c.moveTo(52, my + 2); c.bezierCurveTo(56, my - 4, 60, my + 6, 64, my); c.bezierCurveTo(68, my - 6, 72, my + 4, 76, my - 1); c.stroke(); break;
         case 'dazed': c.moveTo(54, my); c.bezierCurveTo(58, my + 5, 62, my - 5, 66, my); c.bezierCurveTo(70, my + 5, 72, my - 2, 75, my); c.stroke(); break;
         default: c.moveTo(55, my); c.quadraticCurveTo(64, my + 2, 73, my); c.stroke();
       }
       if (!p.female && (p.id % 4 === 1) && !elder) { c.fillStyle = 'rgba(40,30,30,.18)'; for (let i = 0; i < 40; i++) c.fillRect(46 + Math.random() * 36, 100 + Math.random() * 16, 1.5, 1.5); }
     }
     // 汗・涙
-    if (expr === 'shifty' || expr === 'panic' || expr === 'worried') { c.fillStyle = '#7cc8ff'; c.beginPath(); c.moveTo(98, 34); c.quadraticCurveTo(106, 48, 98, 52); c.quadraticCurveTo(90, 48, 98, 34); c.fill(); }
+    if (expr === 'sick') { c.fillStyle = 'rgba(110,190,110,.28)'; c.beginPath(); c.ellipse(64, 70, 46, 50, 0, 0, TAU); c.fill(); c.strokeStyle = 'rgba(60,110,60,.5)'; c.lineWidth = 1.5; for (const sx of [-1, 1]) { c.beginPath(); c.arc(64 + sx * ex, ey + 9, 7, 0.2, Math.PI - 0.2); c.stroke(); } }
+    if (expr === 'shifty' || expr === 'panic' || expr === 'worried' || expr === 'sick') { c.fillStyle = '#7cc8ff'; c.beginPath(); c.moveTo(98, 34); c.quadraticCurveTo(106, 48, 98, 52); c.quadraticCurveTo(90, 48, 98, 34); c.fill(); }
     if (expr === 'sad' || expr === 'distressed') { c.fillStyle = 'rgba(120,200,255,.8)'; c.fillRect(64 - ex - 1, ey + 6, 2.5, 14); }
     if (expr === 'sleep' && p.type !== 'alien') { c.fillStyle = 'rgba(160,220,255,.7)'; c.beginPath(); c.arc(70, my + 6, 2, 0, TAU); c.fill(); }
     H.face.tex.needsUpdate = true;
@@ -825,6 +827,7 @@
     // 吊り革の揺れ
     const sw = Math.sin(now * 1.7) * 0.08 * (v / VMAX) + lurchKick * 0.5;
     for (const s of straps) s.rotation.z = sw;
+    updateAvatars(g, dt, now);
     // ビーム
     for (let i = beams.length - 1; i >= 0; i--) { const b = beams[i]; b.t -= dt; b.m.material.opacity = Math.max(0, b.t / 0.6); b.m.rotation.y += dt * 20; if (b.t <= 0) { scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose(); beams.splice(i, 1); } }
   }
@@ -1114,9 +1117,14 @@
     cross.classList.toggle('aim', g.aim >= 0); cross.classList.toggle('mode', !!pl.mode);
     if (targetT <= 0) {
       targetT = 0.15;
-      const p = g.aim >= 0 ? SW.person(g, g.aim) : null;
-      let html = '';
-      if (p && !pl.fakeSleep) { const o = SW.observe(g, p); html = `<h4>${o.name}</h4>` + o.notes.slice(0, 3).map(n => `<div>${n}</div>`).join(''); }
+      const p = g.aim >= 0 && g.aim < SW.PID ? SW.person(g, g.aim) : null;
+      let html = '', o = null;
+      if (!pl.fakeSleep) {
+        if (MP.active && !MP.isHost) o = MP.myObs;
+        else if (p) o = SW.observe(g, p);
+        else if (g.multi && g.aim >= SW.PID) o = playerObs(g, g.aim - SW.PID);
+      }
+      if (o) html = `<h4>${esc(o.name)}</h4>` + o.notes.slice(0, 3).map(n => `<div>${esc(n)}</div>`).join('');
       if (html !== hud.target) { hud.target = html; $('target').innerHTML = html; $('target').classList.toggle('hidden', !html); }
     }
     // 揺れ警告
@@ -1142,7 +1150,7 @@
     const pl = g.player;
     if (g.t > 3) tip('observe', '座っている人に照準を合わせると「様子」が見える。掲示板をチラ見する人は、降りるのが近い');
     if (g.t > 14 && pl.seat < 0) tip('stand', '立っていると体力が減る。降りそうな人の前で待ち、空いたらすぐアクションで座ろう');
-    if (pl.toku >= 40) tip('shop', '徳がたまった！ 画面の' + (isTouch ? '上' : '下') + 'のスキルが使える（👓メガネで降りる駅が見える）');
+    if (pl.toku >= 40) tip('shop', '徳がたまった！ 画面のスキルのボタンが使える（👓メガネで降りる駅が見える）');
     if (pl.seat >= 0 && SW._internal.priorityNear(g)) tip('give', '目の前に座りたそうな人が。譲ると徳が入る…けど、また立つことに。無視するとカルマ');
     if (pl.karma >= 40) tip('karma', 'カルマが100になると駅員に連行される。🙏懺悔か善行で減らそう');
   }
@@ -1219,7 +1227,7 @@
   }
 
   // ================================================================ 画面
-  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'pause', 'result'];
+  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'pause', 'result', 'online', 'mpres'];
   let backTo = 'title';
   function show(id) {
     for (const s of screens) $(s).classList.toggle('hidden', s !== id);
@@ -1237,7 +1245,7 @@
   $('bSnd').addEventListener('click', () => { AU.on = !AU.on; profile.sound = AU.on; saveProfile(); $('bSnd').textContent = AU.on ? '🔊' : '🔇'; initAudio(); if (AU.master) AU.master.gain.value = AU.on ? 0.6 : 0; if (!AU.on && speechOK) try { speechSynthesis.cancel(); } catch (e) { } });
   function titleScreen() {
     state = 'title'; backTo = 'title';
-    $('hud').classList.add('hidden'); $('touch').classList.add('hidden');
+    $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('mpOut').classList.add('hidden');
     $('sleepFx').style.opacity = 0; $('hitFlash').style.opacity = 0; $('lowFx').style.boxShadow = 'none';
     if (document.pointerLockElement) document.exitPointerLock();
     if (!demo || demo.over) demo = SW.create({ seed: (Math.random() * 1e9) | 0 });
@@ -1284,9 +1292,95 @@
       setTimeout(() => $('pcHint').classList.add('hidden'), 9000);
       if (!noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
     }
+    if (isTouch && isPortrait()) setTimeout(() => { if (state === 'play' && isPortrait()) addToast('📱 スマホを横にすると遊びやすいよ', 'warn'); }, 4000);
     addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
   }
+  // ================================================================ 全画面（デストロイ碁と同じ仕組み）
+  const fsTarget = document.documentElement;
+  const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+  let EMBEDDED = false; try { EMBEDDED = window.self !== window.top; } catch (e) { EMBEDDED = true; }
+  // ホーム画面のアイコンから開いているとき（もう画面いっぱい）
+  const standalone = !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches));
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  function fsToast(msg) { if (state === 'play') addToast(msg, 'bad'); else titleToast(msg); }
+  function toggleFullscreen(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    const req = fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    try {
+      const r = fsElement() ? exit.call(document) : req.call(fsTarget);
+      if (r && r.catch) r.catch(() => fsToast('この画面では全画面にできません'));
+    } catch (err) { fsToast('この画面では全画面にできません'); }
+  }
+  function updateFsButtons() {
+    const on = !!fsElement();
+    $('fsBtn').textContent = on ? '✕' : '⛶';
+    $('bFs').textContent = on ? '全画面を終了' : '⛶ 全画面';
+    $('bFs2').textContent = on ? '全画面を終了' : '⛶ 全画面';
+  }
+  $('a2hsSteps').innerHTML = (isIOS ? [
+    'アドレスバーの右にある<b>共有ボタン</b>（□に↑のマーク）を押す。見つからなければ右下の「…」→「共有」',
+    '「<b>表示を増やす</b>」を押して、「<b>ホーム画面に追加</b>」を選ぶ',
+    'ホーム画面にできた<b>スワリタイのアイコン</b>から開く',
+  ] : isAndroid ? [
+    'Chrome の右上の<b>「⋮」</b>を押す',
+    '「<b>ホーム画面に追加</b>」（または「アプリをインストール」）を選ぶ',
+    'ホーム画面にできた<b>スワリタイのアイコン</b>から開く',
+  ] : [
+    'Chrome / Edge のアドレスバーの右にある<b>インストールのマーク</b>を押す（なければ右上の「⋮」→「キャスト、保存、共有」→「ページをアプリとしてインストール」）',
+    'できた<b>スワリタイのアイコン</b>から開く',
+  ]).map(t => `<li>${t}</li>`).join('');
+  function openA2hs(e) { if (e) { e.preventDefault(); e.stopPropagation(); } if (state === 'play') pause(); $('a2hs').classList.remove('hidden'); }
+  $('a2hsClose').addEventListener('click', () => $('a2hs').classList.add('hidden'));
+  document.querySelectorAll('.fs-btn').forEach(b => {
+    b.addEventListener('touchstart', ev => ev.stopPropagation(), { passive: true });
+    if (fsSupported) { b.addEventListener('click', toggleFullscreen); return; } // パソコンや Android
+    b.classList.toggle('hidden', standalone || !isIOS || EMBEDDED); // iPhone は「ホーム画面に追加」の案内
+    b.addEventListener('click', openA2hs);
+  });
+  document.addEventListener('fullscreenchange', () => { updateFsButtons(); resize(); });
+  document.addEventListener('webkitfullscreenchange', () => { updateFsButtons(); resize(); });
+
+  // ---------------------------------------------------------------- 横向き・全画面で遊ぶ
+  const isPortrait = () => window.innerHeight > window.innerWidth;
+  let wantLand = false;
+  function updateLand() {
+    const fsOn = !!fsElement() || standalone;
+    $('bLand').classList.toggle('landed', !isPortrait() && (fsOn || !fsSupported)); // iPhone は全画面にできないので、横になっていれば十分
+    if (wantLand && !isPortrait()) { $('rotate').classList.add('hidden'); wantLand = false; }
+  }
+  async function playLandscape(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    initAudio();
+    // 1) 全画面（できる端末だけ）
+    if (fsSupported && !fsElement()) {
+      try { const req = fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen; await req.call(fsTarget, { navigationUI: 'hide' }); } catch (err) { /* できなくても続ける */ }
+    }
+    // 2) 横に固定（Android の Chrome など。全画面のときだけできる）
+    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (err) { /* iPhone などはできない */ }
+    // 3) まだ縦なら「横にしてね」
+    setTimeout(() => {
+      if (isPortrait()) {
+        wantLand = true;
+        $('rotSub').innerHTML = (!fsSupported && isIOS && !standalone)
+          ? '画面の向きのロックがオンなら、オフにしてください<br>iPhone は<b>ホーム画面に追加</b>してアイコンから開くと、全画面で遊べます'
+          : '画面の向きのロックがオンなら、オフにしてください';
+        $('rotate').classList.remove('hidden');
+      }
+      updateLand();
+    }, 350);
+    track('横向き・全画面で遊ぶを押した');
+  }
+  $('bLand').addEventListener('click', playLandscape);
+  $('rotClose').addEventListener('click', () => { wantLand = false; $('rotate').classList.add('hidden'); });
+  window.addEventListener('resize', updateLand);
+  window.addEventListener('orientationchange', () => setTimeout(updateLand, 300));
+  document.addEventListener('fullscreenchange', updateLand);
+  document.addEventListener('webkitfullscreenchange', updateLand);
+
   function pause() {
     if (state !== 'play') return;
     state = 'pause'; backTo = 'pause'; show('pause');
@@ -1301,7 +1395,7 @@
   $('pauseBtn').addEventListener('click', () => pause());
   $('pauseBtn').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
   $('bResume').addEventListener('click', () => { state = 'play'; show(null); if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } } });
-  $('bQuit').addEventListener('click', () => titleScreen());
+  $('bQuit').addEventListener('click', () => { if (MP.active || MP.code) mpLeave(false); else titleScreen(); });
   $('bRetry').addEventListener('click', () => startGame(G && G.modeName || 'normal'));
   $('bToTitle').addEventListener('click', () => titleScreen());
 
@@ -1625,13 +1719,473 @@
   }
   $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'daily' ? 'daily' : 'normal'); track('結果からランキングを開いた'); });
 
+  // ================================================================ オンライン対戦（β・フレンド戦）
+  // 部屋を作った人（ホスト）の端末がゲームを進め、ほかの人は操作を送って、様子（スナップショット）を受け取る。
+  // 通信は Firebase（suwaritai/rooms/合言葉）。?online=local をつけると、同じブラウザの別タブどうしでつながる（試す用）
+  const NET_LOCAL = /[?&]online=local\b/.test(location.search);
+  const MPCOL = ['#e85d75', '#3d8bfd', '#2fbf71', '#f2a33a'];
+  const CPU_NAMES = ['CPUのたなか', 'CPUのすずき', 'CPUのさとう', 'CPUのやまだ'];
+  const roomP = (c) => 'suwaritai/rooms/' + c;
+  let NET = null;
+  function localNet() {
+    const ch = new BroadcastChannel('suwaritai-net');
+    let store = {};
+    const subs = [], disc = [];
+    let uid = null; try { uid = sessionStorage.getItem('sw-uid'); } catch (e) { }
+    if (!uid) { uid = 'L' + Math.random().toString(36).slice(2, 8); try { sessionStorage.setItem('sw-uid', uid); } catch (e) { } }
+    const segs = (p) => p.split('/').filter(Boolean);
+    const clone = (v) => v == null ? null : JSON.parse(JSON.stringify(v));
+    const getP = (p) => { const v = segs(p).reduce((o, k) => o == null ? undefined : o[k], store); return v === undefined ? null : v; };
+    const setP = (p, v) => {
+      const ks = segs(p); if (!ks.length) { store = v || {}; return; }
+      let o = store; for (let i = 0; i < ks.length - 1; i++) { if (o[ks[i]] == null || typeof o[ks[i]] !== 'object') o[ks[i]] = {}; o = o[ks[i]]; }
+      if (v == null) delete o[ks[ks.length - 1]]; else o[ks[ks.length - 1]] = clone(v);
+    };
+    const notify = (p) => { for (const s of subs.slice()) if (s.path.startsWith(p) || p.startsWith(s.path)) s.cb(clone(getP(s.path))); };
+    const ts = (v) => { if (v && typeof v === 'object') { if (v['.sv']) return Date.now(); const o = Array.isArray(v) ? [] : {}; for (const k in v) o[k] = ts(v[k]); return o; } return v; };
+    const apply = (op, p, v) => { if (op === 'set') setP(p, v); else if (op === 'update') { for (const k in v) setP(p + '/' + k, v[k]); } else setP(p, null); notify(p); };
+    ch.onmessage = (e) => { const m = e.data; if (m.t === 'op') apply(m.op, m.p, m.v); else if (m.t === 'hello') ch.postMessage({ t: 'store', s: store }); else if (m.t === 'store' && !Object.keys(store).length && m.s) { store = m.s; notify(''); } };
+    ch.postMessage({ t: 'hello' });
+    window.addEventListener('pagehide', () => { for (const p of disc) ch.postMessage({ t: 'op', op: 'remove', p }); });
+    const write = (op, p, v) => { v = ts(v); apply(op, p, v); ch.postMessage({ t: 'op', op, p, v }); return Promise.resolve(); };
+    return {
+      uid, TS: { '.sv': 'timestamp' },
+      get: (p) => Promise.resolve(clone(getP(p))),
+      set: (p, v) => write('set', p, v), update: (p, v) => write('update', p, v), remove: (p) => write('remove', p),
+      on: (p, cb) => { const s = { path: p, cb }; subs.push(s); setTimeout(() => cb(clone(getP(p)))); return () => { const i = subs.indexOf(s); if (i >= 0) subs.splice(i, 1); }; },
+      onDisconnectRemove: (p) => { disc.push(p); },
+    };
+  }
+  async function fbNet() {
+    const F = await firebaseReady(); if (!F) throw new Error('オンラインが使えない環境です');
+    const db = F.db;
+    return {
+      uid: F.uid, TS: F.TS,
+      get: async (p) => (await withTimeout(db.ref(p).get(), 10000)).val(),
+      set: (p, v) => withTimeout(db.ref(p).set(v), 10000), update: (p, v) => withTimeout(db.ref(p).update(v), 10000), remove: (p) => db.ref(p).remove(),
+      on: (p, cb) => { const r = db.ref(p); const h = (s) => cb(s.val()); r.on('value', h); return () => r.off('value', h); },
+      onDisconnectRemove: (p) => { try { db.ref(p).onDisconnect().remove(); } catch (e) { } },
+    };
+  }
+  let netWait = null;
+  function net() {
+    if (!netWait) netWait = NET_LOCAL ? new Promise((res) => { const n = localNet(); setTimeout(() => { NET = n; res(n); }, 250); }) // ほかのタブから中身を受け取るのを少し待つ
+      : fbNet().then((n) => (NET = n)).catch((e) => { netWait = null; throw e; });
+    return netWait;
+  }
+  if (NET_LOCAL) net();
+  const MP = {};
+  function mpReset() {
+    for (const off of (MP.offs || [])) { try { off(); } catch (e) { } }
+    Object.assign(MP, {
+      active: false, code: null, isHost: false, uid: null, hostUid: null, me: -1, offs: [], members: {}, state: null, players: [],
+      remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, cnt: { a: 0, p: 0, bp: 0, fs: 0, sk: 0 }, skIdx: -1,
+      seen: 0, looks: {}, newIds: [], sentMax: 0, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
+    });
+  }
+  mpReset();
+  const onlineAvailable = () => NET_LOCAL || fbAllowed;
+  function olNote(t) { $('olNote').textContent = t || ''; }
+  function openOnline() {
+    backTo = 'title'; show('online'); olNote('');
+    $('olName').value = profile.name || '';
+    $('olMenu').classList.toggle('hidden', !!MP.code); $('olRoom').classList.toggle('hidden', !MP.code);
+    track('オンライン：画面を開いた');
+  }
+  $('bOnline').classList.toggle('hidden', !onlineAvailable());
+  $('bOnline').addEventListener('click', openOnline);
+  $('olName').addEventListener('input', () => { profile.name = $('olName').value.trim().slice(0, 12); saveProfile(); $('nameIn').value = profile.name; });
+  $('olCreate').addEventListener('click', () => mpCreate());
+  $('olJoin').addEventListener('click', () => mpJoin());
+  $('olCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') mpJoin(); });
+  $('olBack').addEventListener('click', () => { if (MP.code) mpLeave(true); else titleScreen(); });
+  $('olStart').addEventListener('click', () => mpStart());
+  $('olCopy').addEventListener('click', () => { try { const p = navigator.clipboard.writeText('スワリタイ！のオンライン対戦で遊ぼう。合言葉は ' + MP.code + '\n' + SHARE_URL.split('?')[0]); if (p && p.catch) p.catch(() => { }); olNote('合言葉をコピーしました'); } catch (e) { } });
+  $('olCpu').addEventListener('change', () => { if (MP.isHost && MP.code) net().then((N) => N.update(roomP(MP.code) + '/state', { cpu: $('olCpu').checked })); mpRenderRoom(); });
+  $('mpGhost').addEventListener('click', () => { MP.ghost = true; MP.watching = false; $('mpOut').classList.add('hidden'); if (MP.isHost) G.players[MP.me].ghost = true; addToast('👻 ニセ乗客になった。座っている人を狙ってアクション', 'good'); track('オンライン：ニセ乗客になった'); });
+  $('mpWatch').addEventListener('click', () => { MP.watching = true; $('mpOut').classList.add('hidden'); });
+  $('mpQuit').addEventListener('click', () => mpLeave(false));
+  $('mpAgain').addEventListener('click', () => mpAgain());
+  $('mpLeave').addEventListener('click', () => mpLeave(false));
+
+  async function mpCreate() {
+    if (!profile.name) { olNote('乗客名を入れてください'); $('olName').focus(); return; }
+    try {
+      const N = await net(); olNote('部屋をつくっています…');
+      for (let k = 0; k < 8; k++) {
+        const code = String(1000 + Math.floor(Math.random() * 9000));
+        const ex = await N.get(roomP(code));
+        if (ex) {
+          if (ex.created && ex.created < Date.now() - 3600000) { try { await N.remove(roomP(code)); } catch (e) { continue; } }
+          else continue;
+        }
+        await N.update(roomP(code), { host: N.uid, created: N.TS, state: { s: 'lobby', cpu: true } });
+        MP.isHost = true;
+        await mpEnter(code);
+        track('オンライン：部屋をつくった');
+        return;
+      }
+      olNote('部屋をつくれませんでした。もう一度ためしてください');
+    } catch (e) { olNote('オンラインにつなげませんでした（' + (e && e.message || e) + '）'); }
+  }
+  async function mpJoin() {
+    const code = ($('olCode').value || '').replace(/\D/g, '');
+    if (code.length !== 4) { olNote('合言葉は 4 けたの数字です'); return; }
+    if (!profile.name) { olNote('乗客名を入れてください'); $('olName').focus(); return; }
+    try {
+      const N = await net(); olNote('さがしています…');
+      const r = await N.get(roomP(code));
+      if (!r || !r.host) { olNote('その合言葉の部屋はありません'); return; }
+      if (r.state && r.state.s === 'play') { olNote('その部屋はもう始まっています'); return; }
+      const mem = r.members || {};
+      if (Object.keys(mem).length >= 4 && !mem[N.uid]) { olNote('その部屋は満員です（4 人まで）'); return; }
+      MP.isHost = r.host === N.uid;
+      await mpEnter(code);
+      track('オンライン：部屋に入った');
+    } catch (e) { olNote('入れませんでした（' + (e && e.message || e) + '）'); }
+  }
+  async function mpEnter(code) {
+    const N = await net();
+    MP.code = code; MP.uid = N.uid;
+    try { await N.set(roomP(code) + '/members/' + N.uid, { n: rankName(), t: N.TS }); }
+    catch (e) { olNote('この乗客名は使えません。名前を変えてください'); MP.code = null; return; }
+    N.onDisconnectRemove(roomP(code) + '/members/' + N.uid);
+    N.onDisconnectRemove(roomP(code) + '/inputs/' + N.uid);
+    $('olMenu').classList.add('hidden'); $('olRoom').classList.remove('hidden'); $('olCodeShow').textContent = code; olNote('');
+    MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; mpRenderRoom(); mpMembersChanged(); }));
+    MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
+    MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code) mpAbort('部屋がなくなりました'); }));
+  }
+  function mpSortedMembers() { return Object.entries(MP.members || {}).sort((a, b) => (a[1].t || 0) - (b[1].t || 0)).slice(0, 4); }
+  function mpRenderRoom() {
+    if (!MP.code) return;
+    const mem = mpSortedMembers(), cpu = MP.isHost ? $('olCpu').checked : !!(MP.state && MP.state.cpu);
+    let html = '';
+    for (let i = 0; i < 4; i++) {
+      const m = mem[i];
+      if (m) html += `<div class="olm"><i style="background:${MPCOL[i]}"></i>${esc(m[1].n || '名無しの乗客')}${m[0] === MP.hostUid ? ' <span class="pill">ホスト</span>' : ''}${m[0] === MP.uid ? ' <span class="pill">あなた</span>' : ''}</div>`;
+      else html += `<div class="olm empty"><i style="background:${MPCOL[i]}"></i>${cpu ? '🤖 ' + CPU_NAMES[i] : '（あき）'}</div>`;
+    }
+    $('olMembers').innerHTML = html;
+    $('olCpu').disabled = !MP.isHost; $('olCpu').checked = cpu;
+    $('olStart').classList.toggle('hidden', !MP.isHost);
+    $('olWait').textContent = MP.isHost ? (mem.length < 2 && !cpu ? 'ほかの人が入るのを待っています（合言葉を送ってね）' : '') : 'ホストがスタートするのを待っています…';
+  }
+  function mpMembersChanged() {
+    if (!MP.active || !G) return;
+    // ホスト：抜けた人は脱落あつかい
+    if (MP.isHost) {
+      MP.players.forEach((p, i) => { if (!p.cpu && i !== MP.me && !MP.members[p.uid] && !G.players[i].out) { SW.dropPlayer(G, i, 'leave'); SW.setCtx(G, MP.me); } });
+    } else if (MP.hostUid && !MP.members[MP.hostUid]) mpAbort('ホストが抜けたので、試合は終わりです');
+  }
+  function mpOnState(v) {
+    MP.state = v;
+    if (!v) return;
+    if (!MP.isHost && typeof v.cpu === 'boolean') $('olCpu').checked = v.cpu;
+    if (v.s === 'play' && !MP.active) mpBegin(v);
+    else if (v.s === 'done' && MP.active) mpShowResult(v.res || []);
+    else if (v.s === 'lobby') { if (state === 'result' && $('mpres').classList.contains('hidden') === false || MP.active) { MP.active = false; openOnline(); } mpRenderRoom(); }
+  }
+  async function mpStart() {
+    const N = await net();
+    const mem = mpSortedMembers();
+    const players = mem.map(([uid, m]) => ({ uid, name: (m.n || '名無しの乗客').slice(0, 12), cpu: false }));
+    if ($('olCpu').checked) while (players.length < 4) players.push({ uid: 'cpu' + players.length, name: CPU_NAMES[players.length], cpu: true });
+    if (players.length < 2) { olNote('2 人以上（CPU をふくむ）で始められます'); return; }
+    try {
+      await N.remove(roomP(MP.code) + '/snap');
+      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, t: N.TS } });
+    } catch (e) { olNote('スタートできませんでした（' + (e && e.message || e) + '）'); }
+  }
+  function mpBegin(st) {
+    const idx = (st.players || []).findIndex((p) => p.uid === MP.uid);
+    if (idx < 0) { olNote('始まった試合に入れませんでした'); return; }
+    Object.assign(MP, { active: true, me: idx, players: st.players, remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, seen: 0, newIds: [], ghost: false, watching: false, outShown: false, resSent: false, scores: [], myObs: null });
+    MP.cnt = { a: 0, p: 0, bp: 0, fs: 0, sk: 0 };
+    for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); } MP.avatars = {};
+    initAudio(); clearWorld();
+    G = SW.create({ seed: st.seed, mode: 'online', players: st.players.map((p) => ({ name: p.name, cpu: p.cpu })) });
+    G.modeName = 'online';
+    MP.sentMax = G.nextId - 1;
+    SW.setCtx(G, MP.me);
+    inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
+    state = 'play'; show(null);
+    $('hud').classList.remove('hidden'); $('mpBoard').classList.remove('hidden');
+    if (isTouch) $('touch').classList.remove('hidden');
+    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = -1;
+    $('toasts').innerHTML = ''; $('pops').innerHTML = '';
+    if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
+    addToast('🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
+    net().then((N) => {
+      if (MP.isHost) MP.offs.push(N.on(roomP(MP.code) + '/inputs', (v) => { MP.remote = v || {}; }));
+      else MP.offs.push(N.on(roomP(MP.code) + '/snap', (v) => { if (v) mpApply(v); }));
+    });
+    track('オンライン：試合開始（人間' + st.players.filter((p) => !p.cpu).length + '人）');
+  }
+  // ---- ホスト：ほかの人の操作を受け取る
+  function mpRemoteInput(i) {
+    const p = MP.players[i], v = MP.remote[p.uid], P = G.players[i];
+    if (!v) return {};
+    let L = MP.last[p.uid];
+    if (!L) L = MP.last[p.uid] = { a: v.a || 0, p: v.p || 0, bp: v.bp || 0, fs: v.fs || 0, sk: v.sk ? v.sk[0] : 0 };
+    const r = { yaw: v.yaw, pitch: v.pitch, brace: !!v.b, pos: v.pos, mv: !!v.mv };
+    if ((v.a || 0) > L.a) { r.action = true; L.a = v.a; }
+    if ((v.p || 0) > L.p) { r.punch = true; L.p = v.p; }
+    if ((v.bp || 0) > L.bp) { r.bracePressed = true; L.bp = v.bp; }
+    if ((v.fs || 0) > L.fs) { r.fakeSleep = true; L.fs = v.fs; }
+    if (v.sk && v.sk[0] > L.sk) { r.skill = v.sk[1]; L.sk = v.sk[0]; }
+    if (v.gh && P.out) P.ghost = true;
+    return r;
+  }
+  const r2 = (v) => Math.round(v * 100);
+  const STC = ['seated', 'stand', 'walk', 'exit', 'gone', 'fight', 'ko'];
+  function playerObs(g, j) {
+    const P = g.players[j], s = P.pl.stamina;
+    return { name: P.name + '（ライバル）', notes: [s <= 20 ? '🤢 具合が悪そう…（トドメのチャンス？）' : s < 45 ? '😓 ちょっと疲れている' : '💪 まだ元気そう', P.pl.seat >= 0 ? '💺 座っている' : '🧍 立っている'] };
+  }
+  function mpSendSnap() {
+    const g = G; MP.k++;
+    const pe = g.people.map((p) => [p.id, r2(p.x), r2(p.z), r2(p.ry), STC.indexOf(p.state), p.seat, p.anim === 'board' ? 1 : p.anim === 'watch' ? 2 : 0, p.sleep, p.expr, p.bubble || '',
+      (p.packing ? 1 : 0) | (p.leaving ? 2 : 0) | (p.targetPlayer ? 4 : 0) | (p.priority ? 8 : 0) | (p.stunned > 0 ? 16 : 0) | (p.fleeing ? 32 : 0) | (p.pickT > 0 ? 64 : 0) | (p.sleep && p.oversleep ? 128 : 0) | (p.undercover ? 256 : 0),
+      p.slot, p.idle, p.dest, p.role || '', Math.round((p.speed || 1) * 10)]);
+    for (const p of g.people) if (p.id > MP.sentMax) { MP.newIds.push([p.id, MP.k]); MP.sentMax = Math.max(MP.sentMax, p.id); }
+    MP.newIds = MP.newIds.filter((a) => a[1] > MP.k - 20);
+    const nw = {};
+    for (const [id] of MP.newIds) { const p = SW.person(g, id); if (p) nw[id] = [p.type, p.female, Math.round(p.h * 100), p.look]; }
+    const pl = g.players.map((P, i) => {
+      const b = P.pl, aim = P.aim;
+      let obs = 0;
+      if (!MP.players[i].cpu && i !== MP.me) {
+        if (aim >= SW.PID) obs = playerObs(g, aim - SW.PID);
+        else if (aim >= 0) { const q = SW.person(g, aim); if (q) obs = SW.observe(g, q); }
+      }
+      return [r2(b.x), r2(b.z), r2(b.yaw), r2(b.pitch), b.seat, Math.round(b.stamina * 10) / 10, Math.round(b.karma), b.toku, b.earned, b.combo, Math.round((g.t - b.lastDeedT) * 10),
+        P.out ? 1 : 0, P.ghost ? 1 : 0, b.carrying ? [b.carrying.key, b.carrying.name] : 0, b.buffs, b.mode || '', Math.round(b.modeT * 10), Math.round(b.punchAnim * 100), b.braceHeld ? 1 : 0, b.fakeSleep ? 1 : 0,
+        Math.round(b.stagger * 10), Math.round(b.hitFlash * 10), P.prompt ? P.prompt.label : '', P.prompt ? P.prompt.act : '', aim, P.result ? P.result.cause : '', P.tricks, obs, P.result ? (P.result.text || '') : '', b.drinkCount, Math.round(b.confessCD * 10)];
+    });
+    const snap = {
+      k: MP.k, t: Math.round(g.t * 100) / 100, ph: g.phase === 'stop' ? 's' : 't', pt: Math.round(g.phaseT * 100) / 100, st: g.station, ds: g.doorSide, nds: g.nextDoorSide || 1, do: g.doorsOpen ? 1 : 0, ann: g.ann || '',
+      se: g.seats.map((s) => s.occ === 0 ? 'p' : s.occ > 0 ? 'n' : s.res >= 0 ? 'r' : '-').join(''),
+      pe, nw, it: g.items.map((it) => [it.id, it.key, r2(it.x), r2(it.z), it.name]),
+      ch: g.chikan ? [g.chikan.stage, g.chikan.fstate, Math.round(g.chikan.ft * 100), g.chikan.chikanId, g.chikan.victimId] : 0,
+      ru: g.runner ? [g.runner.door, g.runner.held ? 1 : 0] : 0,
+      pl, ev: MP.evRing.slice(-60), sc: MP.scores,
+    };
+    net().then((N) => N.set(roomP(MP.code) + '/snap', snap)).catch(() => { });
+  }
+  // ---- 参加者：受け取った様子を手元に写す
+  function mkMirrorPerson(id, lk) {
+    const L = lk || ['salaryman', 0, 172, { top: '#6c7078', bottom: '#1b1b1d', skin: '#e8b88f', hair: '#2b2018', hairStyle: 'short', glasses: false, mask: false, bag: false, tie: null, topName: '灰色' }];
+    return { id, type: L[0], female: L[1], h: L[2] / 100, look: L[3], x: 0, z: 0, ry: 0, state: 'stand', seat: -1, slot: -1, anim: 'none', animT: 0, sleep: 0, expr: 'neutral', bubble: null, idle: 'none', dest: 0, role: null, speed: 1, walkPhase: 0, blink: Math.random() * 4, looks: [], watches: [], priority: 0, _new: true };
+  }
+  function mpApply(snap) {
+    if (!G || snap.k <= MP.lastK) return;
+    MP.lastK = snap.k;
+    const g = G;
+    g.t = snap.t; g.phase = snap.ph === 's' ? 'stop' : 'travel'; g.phaseT = snap.pt; g.station = snap.st; g.doorSide = snap.ds; g.nextDoorSide = snap.nds; g.doorsOpen = !!snap.do; g.ann = snap.ann;
+    for (let k = 0; k < g.seats.length; k++) { const c = snap.se[k]; g.seats[k].occ = c === 'p' ? 0 : c === 'n' ? 1 : -1; g.seats[k].res = c === 'r' ? 1 : -1; }
+    if (snap.nw) for (const id in snap.nw) MP.looks[id] = snap.nw[id];
+    const map = new Map(g.people.map((p) => [p.id, p])), next = [];
+    for (const a of snap.pe || []) {
+      let p = map.get(a[0]);
+      if (!p) { p = mkMirrorPerson(a[0], MP.looks[a[0]]); p.x = a[1] / 100; p.z = a[2] / 100; p.ry = a[3] / 100; }
+      p._tx = a[1] / 100; p._tz = a[2] / 100; p._try = a[3] / 100;
+      p.state = STC[a[4]] || 'stand'; p.seat = a[5]; p.anim = a[6] === 1 ? 'board' : a[6] === 2 ? 'watch' : 'none'; p.sleep = a[7]; p.expr = a[8]; p.bubble = a[9] || null;
+      const f = a[10]; p.packing = !!(f & 1); p.leaving = !!(f & 2); p.targetPlayer = !!(f & 4); p.priority = f & 8 ? 1 : 0; p.stunned = f & 16 ? 0.2 : 0; p.fleeing = !!(f & 32); p.pickT = f & 64 ? 1 : 0; p.oversleep = !!(f & 128); p.undercover = !!(f & 256);
+      p.slot = a[11]; p.idle = a[12]; p.dest = a[13]; p.role = a[14] || null; p.speed = a[15] / 10;
+      if (p.state === 'seated' && p.seat >= 0) { const s = g.seats[p.seat]; p._tx = s.x; p._tz = s.z; }
+      next.push(p);
+    }
+    g.people = next;
+    g.items = (snap.it || []).map((a) => ({ id: a[0], key: a[1], x: a[2] / 100, z: a[3] / 100, name: a[4] }));
+    g.chikan = snap.ch ? { stage: snap.ch[0], fstate: snap.ch[1], ft: snap.ch[2] / 100, chikanId: snap.ch[3], victimId: snap.ch[4] } : null;
+    g.runner = snap.ru ? { active: true, door: snap.ru[0], held: !!snap.ru[1] } : null;
+    (snap.pl || []).forEach((a, i) => {
+      const P = g.players[i]; if (!P) return;
+      const b = P.pl, mine = i === MP.me;
+      const prevSeat = b.seat;
+      if (!mine || a[4] >= 0 || prevSeat >= 0 || a[11]) {
+        if (mine && (a[4] >= 0 || prevSeat >= 0)) {
+          if (a[4] >= 0 || prevSeat !== a[4]) { b.x = a[0] / 100; b.z = a[1] / 100; }
+          if (prevSeat !== a[4]) { inp.yaw = a[2] / 100; inp.pitch = 0; }
+        } else if (!mine) { b._tx = a[0] / 100; b._tz = a[1] / 100; if (b._init == null) { b.x = b._tx; b.z = b._tz; b._init = 1; } b.yaw = a[2] / 100; b.pitch = a[3] / 100; }
+      }
+      b.seat = a[4]; b.stamina = a[5]; b.karma = a[6]; b.toku = a[7]; b.earned = a[8]; b.combo = a[9]; b.lastDeedT = g.t - a[10] / 10;
+      const wasOut = P.out; P.out = !!a[11]; P.ghost = !!a[12];
+      b.carrying = a[13] ? { key: a[13][0], name: a[13][1] } : null; b.buffs = a[14] || {}; b.mode = a[15] || null; b.modeT = a[16] / 10; b.punchAnim = a[17] / 100;
+      b.braceHeld = !!a[18]; b.fakeSleep = !!a[19]; b.stagger = a[20] / 10; b.hitFlash = a[21] / 10;
+      P.prompt = a[22] ? { label: a[22], act: a[23] } : null; P.aim = a[24]; P.tricks = a[26];
+      if (a[25]) P.result = { cause: a[25], text: a[28] || '' }; b.drinkCount = a[29] || 0; b.confessCD = (a[30] || 0) / 10;
+      if (mine) { g.prompt = P.prompt; g.aim = P.aim; MP.myObs = a[27] || null; if (!wasOut && P.out) mpOnOut(); }
+    });
+    for (const [seq, i, e] of (snap.ev || [])) { if (seq > MP.seen) { MP.seen = seq; if (i === MP.me) G.events.push(e); } }
+    MP.scores = snap.sc || MP.scores;
+  }
+  // ---- 1 コマ
+  function mpFrame(dt, t, li) {
+    const g = G, paused = state === 'pause';
+    if (paused) li = { yaw: li.yaw, pitch: li.pitch };
+    const meP = g.players[MP.me];
+    if (MP.isHost) {
+      const inputs = MP.players.map((p, i) => p.cpu ? null : i === MP.me ? li : mpRemoteInput(i));
+      if (!g.over) SW.updateMulti(g, dt, inputs);
+      g.players.forEach((P, i) => { if (i !== MP.me && P.events.length) { for (const e of P.events) MP.evRing.push([++MP.seq, i, e]); P.events.length = 0; } });
+      if (MP.evRing.length > 120) MP.evRing.splice(0, MP.evRing.length - 120);
+      SW.setCtx(g, MP.me);
+      MP.scoreT -= dt;
+      if (MP.scoreT <= 0) { MP.scoreT = 0.5; MP.scores = g.players.map((P, i) => SW.finalScoreOf(g, i).total); SW.setCtx(g, MP.me); }
+      MP.snapT -= dt;
+      if (MP.snapT <= 0) { MP.snapT = 0.2; mpSendSnap(); }
+      if (meP.out && !MP.outShown) mpOnOut();
+      if (g.over && !MP.resSent) {
+        MP.resSent = true; mpSendSnap();
+        const res = SW.standings(g).map((r) => Object.assign(r, { uid: MP.players[r.i].uid }));
+        net().then((N) => N.update(roomP(MP.code) + '/state', { s: 'done', res }));
+      }
+    } else {
+      // 自分の体は手元で動かす（場所だけ送る）
+      g.t += dt; g.phaseT += dt;
+      const b = g.player;
+      b.yaw = inp.yaw; b.pitch = inp.pitch;
+      let mv = false;
+      if (meP.out) { if (MP.ghost || MP.watching) SW.ghostMove(b, li, dt); }
+      else if (b.seat < 0) { b.braceHeld = !!li.brace; mv = SW.movePlayer(g, b, li, dt); }
+      if (li.action) MP.cnt.a++; if (li.punch) MP.cnt.p++; if (li.bracePressed) MP.cnt.bp++; if (li.fakeSleep) MP.cnt.fs++;
+      if (li.skill != null && li.skill >= 0) { MP.cnt.sk++; MP.skIdx = li.skill; }
+      const edge = li.action || li.punch || li.bracePressed || li.fakeSleep || (li.skill != null && li.skill >= 0);
+      MP.sendT -= dt;
+      if (MP.sendT <= 0 || edge) {
+        MP.sendT = 0.1;
+        const v = { pos: [r2(b.x) / 100, r2(b.z) / 100], mv: mv ? 1 : 0, yaw: r2(b.yaw) / 100, pitch: r2(b.pitch) / 100, b: li.brace ? 1 : 0, a: MP.cnt.a, p: MP.cnt.p, bp: MP.cnt.bp, fs: MP.cnt.fs, sk: [MP.cnt.sk, MP.skIdx], gh: MP.ghost ? 1 : 0 };
+        net().then((N) => N.set(roomP(MP.code) + '/inputs/' + MP.uid, v)).catch(() => { });
+      }
+      // ほかの人・乗客をなめらかに動かす
+      const k = Math.min(1, dt * 9);
+      for (const p of g.people) {
+        if (p._tx == null) continue;
+        const dx = p._tx - p.x, dz = p._tz - p.z;
+        const d = Math.hypot(dx, dz);
+        p.x += dx * k; p.z += dz * k;
+        if (d > 0.02 && p.state !== 'seated') p.walkPhase += d * k * 6 * 3;
+        let dr = p._try - p.ry; while (dr > Math.PI) dr -= TAU; while (dr < -Math.PI) dr += TAU; p.ry += dr * k;
+        if (p.bubble) p.bubbleT = 1;
+      }
+      g.players.forEach((P, i) => { if (i !== MP.me && P.pl._tx != null) { P.pl.x += (P.pl._tx - P.pl.x) * k; P.pl.z += (P.pl._tz - P.pl.z) * k; } });
+      for (const P of g.players) P.pl.punchAnim = Math.max(0, P.pl.punchAnim - dt);
+      if (meP.out && !MP.outShown) mpOnOut();
+    }
+  }
+  function mpOnOut() {
+    MP.outShown = true;
+    const P = G.players[MP.me], r = P.result || {};
+    if (r.cause === 'clear') return;
+    const T = { collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', pko: '👊 トドメを刺された', leave: '途中で降りた' }[r.cause] || '脱落…';
+    $('mpOutT').textContent = T;
+    $('mpOutS').textContent = (r.text || '') + ' ここまでの徳は記録に残ります。';
+    $('mpOut').classList.remove('hidden');
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+  function mpShowResult(res) {
+    MP.active = false;
+    $('mpOut').classList.add('hidden'); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden');
+    if (document.pointerLockElement) document.exitPointerLock();
+    state = 'result'; backTo = 'mpres';
+    const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', pko: 'トドメ', leave: '途中で降りた' };
+    let myRank = 0;
+    $('mpResList').innerHTML = res.map((r, k) => {
+      const me = r.uid === MP.uid; if (me) myRank = k + 1;
+      const extra = [causeJa[r.cause] || '', r.pko ? 'トドメ×' + r.pko : '', r.tricks ? 'いたずら×' + r.tricks : ''].filter(Boolean).join('・');
+      return `<div class="mpr ${me ? 'me' : ''}"><span class="n">${k + 1}</span><i style="background:${MPCOL[r.i]}"></i><span class="nm">${esc(r.name)}${r.cpu ? ' 🤖' : ''}${me ? ' <span class="pill">あなた</span>' : ''}<small>${esc(extra)}</small></span><span class="sc">${r.score}</span></div>`;
+    }).join('');
+    $('mpResNote').textContent = myRank === 1 ? '🎉 あなたの勝ち！' : myRank ? 'あなたは ' + myRank + ' 位' : '';
+    $('mpAgain').classList.toggle('hidden', !MP.isHost);
+    if (!MP.isHost) $('mpResNote').textContent += '　（ホストが「もう一回」を押すと、同じ部屋で始まります）';
+    show('mpres');
+    sfx(myRank === 1 ? 'clear' : 'over');
+    track('オンライン：結果 ' + myRank + '位');
+  }
+  async function mpAgain() {
+    if (!MP.isHost) return;
+    const N = await net();
+    await N.update(roomP(MP.code), { state: { s: 'lobby', cpu: $('olCpu').checked } }); // 操作の記録は残っていても、次の試合で最初の値を基準にするので問題ない
+  }
+  async function mpLeave(toMenu) {
+    const code = MP.code, host = MP.isHost;
+    try {
+      const N = await net();
+      if (code) {
+        if (host) await N.remove(roomP(code));
+        else { await N.remove(roomP(code) + '/members/' + MP.uid); await N.remove(roomP(code) + '/inputs/' + MP.uid); }
+      }
+    } catch (e) { }
+    for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); }
+    mpReset();
+    $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden');
+    if (toMenu) openOnline(); else titleScreen();
+  }
+  function mpAbort(msg) {
+    const wasActive = MP.active;
+    for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); }
+    mpReset();
+    $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden');
+    titleScreen();
+    titleToast(msg);
+    if (wasActive) track('オンライン：試合が中断した');
+  }
+  // ---- ほかのプレイヤーの体（色つきの名札）
+  function updateAvatars(g, dt, now) {
+    if (!g.multi || !MP.active) return;
+    g.players.forEach((P, i) => {
+      let A = MP.avatars[i];
+      const show = i !== MP.me && !P.out;
+      if (!show) { if (A) { A.H.root.visible = false; if (A.tag) A.tag.visible = false; } return; }
+      if (!A) {
+        const fp = fakePerson(-10 - i, { female: i % 2, h: i % 2 ? 1.62 : 1.74, look: { top: MPCOL[i], bottom: '#22252c', skin: ['#f1c9a5', '#e8b88f', '#d9a27a', '#f5d6bc'][i], hair: ['#1d1612', '#3a2a1e', '#5a3d25', '#2b2018'][i], hairStyle: ['short', 'bob', 'side', 'pony'][i], glasses: i === 2, mask: false, bag: true, tie: null, topName: '' } });
+        A = MP.avatars[i] = { H: buildHuman(fp), tag: makeSpriteText(P.name, { bg: MPCOL[i], fg: '#fff', noTail: true }) };
+        A.tag.scale.set(0.62, 0.155, 1); scene.add(A.tag);
+      }
+      const b = P.pl, fp = A.H.p;
+      A.H.root.visible = true; A.tag.visible = true;
+      const moved = Math.hypot(b.x - fp.x, b.z - fp.z);
+      if (b.seat >= 0) { const s = g.seats[b.seat]; fp.state = 'seated'; fp.x = s.x; fp.z = s.z; fp.ry = s.side > 0 ? Math.PI : 0; fp.sleep = b.fakeSleep ? 2 : 0; }
+      else { fp.state = moved > 0.004 ? 'walk' : 'stand'; fp.x = b.x; fp.z = b.z; fp.ry = b.yaw + Math.PI; fp.sleep = 0; if (moved > 0.004) fp.walkPhase += moved * 18; fp.speed = 1.6; }
+      fp.expr = b.stamina <= 20 ? 'sick' : b.stamina < 45 ? 'worried' : b.punchAnim > 0 ? 'angry' : 'neutral'; fp.exprT = 1;
+      poseHuman(A.H, g, dt, now);
+      if (b.punchAnim > 0 && b.seat < 0) { A.H.armR.sh.rotation.set(-1.55, 0, 0); A.H.armR.el.rotation.x = -0.1; }
+      if (Math.hypot(b.x - g.player.x, b.z - g.player.z) < 11) faceState(A.H, g, now);
+      A.tag.position.set(fp.x, (b.seat >= 0 ? 1.0 : fp.h * 0.93) + 0.38, fp.z);
+    });
+  }
+  // HUD：みんなのいまの徳
+  function updateMpBoard(g) {
+    if (!g.multi || !MP.active) return;
+    const rows = g.players.map((P, i) => ({ i, P, sc: MP.scores[i] != null ? MP.scores[i] : P.pl.earned })).sort((a, b) => b.sc - a.sc);
+    const html = rows.map((r) => `<div class="${r.P.out ? 'out' : ''} ${r.i === MP.me ? 'me' : ''}"><i style="background:${MPCOL[r.i]}"></i>${esc(r.P.name.slice(0, 7))}<b>${r.sc}</b></div>`).join('');
+    if (html !== MP.boardHtml) { MP.boardHtml = html; $('mpBoard').innerHTML = html; }
+  }
+
   // ================================================================ メインループ
   let lastT = performance.now(), ledT = 0, demoCam = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
     const t = now / 1000;
-    if (state === 'play' && G) {
+    if (MP.active && G && (state === 'play' || state === 'pause')) {
+      const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
+      const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
+      const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
+      inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1;
+      mpFrame(dt, t, li);
+      if (MP.active && G) {
+        handleEvents(G);
+        if (MP.isHost) inp.pitch = G.player.pitch;
+        if (state === 'play') updateHUD(G, dt);
+        updateMpBoard(G);
+        updateWorld(G, dt, t);
+        updateCamera(G, dt, t);
+        updateAudio(G, dt);
+      }
+    } else if (state === 'play' && G) {
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
@@ -1677,5 +2231,5 @@
   }
   if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(boot); else boot();
   // テスト用
-  window.__SW = { inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame() };
+  window.__SW = { mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame() };
 })();
