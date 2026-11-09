@@ -79,6 +79,7 @@
     drunk: { name: '酔っぱらい', female: 0.1, sleepy: 1, watch: 0, idle: ['none'], want: 1, react: 2.0, speed: 0.8 },
     otaku: { name: '推し活オタク', female: 0.4, sleepy: 0.05, watch: 0, idle: ['phone', 'phone'], want: 0.7, react: 0.9, speed: 1.4 },
     ceo: { name: '謎の紳士', female: 0, sleepy: 0, watch: 1, idle: ['none'], want: 1, react: 1.6, speed: 0.8, priority: 200, rare: 1 },
+    thief: { name: '若者', female: 0, sleepy: 0, watch: 0, idle: ['phone'], want: 0, react: 1, speed: 1.5, noLook: 1 },
     alien: { name: '???', female: 0, sleepy: 0, watch: 0, idle: ['none'], want: 1, react: 1.0, speed: 1.0, priority: 150, rare: 1 },
   };
   const BASE_WEIGHTS = { salaryman: 22, ol: 14, student: 12, elderly: 9, pregnant: 2.5, injured: 2, mother: 2.5, obachan: 6, tourist: 4, gamer: 7, yankee: 3, drunk: 2, otaku: 4 };
@@ -149,6 +150,7 @@
     { id: 'score2000', name: '伝説の乗客', desc: 'スコア2000以上' },
     { id: 'endless30', name: '環状線の亡霊', desc: '終点なしモードで30駅', hidden: 1 },
     { id: 'jiji', name: '敬老の日', desc: '全員お年寄りモードで遊ぶ', hidden: 1 },
+    { id: 'thief', name: '泥棒退治', desc: '落とし物泥棒を撃退する' },
     { id: 'hard', name: '満員地獄', desc: '地獄モードで終点まで行く', hidden: 1 },
   ];
 
@@ -195,7 +197,7 @@
       },
       stats: {
         sits: 0, quickSits: 0, gives: 0, chikanKO: 0, counters: 0, delivered: 0, teeth: 0, ceo: 0, alien: 0, alienPunch: 0,
-        brainwash: 0, force: 0, wrongPunch: 0, tanuki: 0, oversleepSteal: 0, braces: 0, braceFail: 0, doorHolds: 0, maxCombo: 0,
+        brainwash: 0, force: 0, wrongPunch: 0, thiefKO: 0, stolen: 0, tanuki: 0, oversleepSteal: 0, braces: 0, braceFail: 0, doorHolds: 0, maxCombo: 0,
         standTime: 0, sitTime: 0, stations: 0, sos: 0, deeds: 0, skillsUsed: 0, bestDeed: null,
       },
       aim: -1, prompt: null, ann: '',
@@ -273,6 +275,7 @@
     let skin = r.pick(SKINS);
     if (type === 'alien') skin = '#8fd18a';
     if (type === 'drunk') skin = '#eaa58a';
+    if (type === 'thief') { top = ['黒', '#26262b']; bottom = ['紺', '#1f2a44']; }
     const hairStyle = female ? r.pick(['long', 'bob', 'pony', 'bun']) : r.pick(['short', 'short', 'side', 'buzz']);
     return {
       top: top[1], topName: top[0], bottom: bottom[1], skin, hair: hairC,
@@ -484,8 +487,8 @@
       return { act: 'stand', label: '立ち上がる' };
     }
     if (pl.carrying && ap && apd < 1.8 && ap.state !== 'ko') return { act: 'deliver', label: pl.carrying.name + 'を渡す', id: ap.id };
-    if (pl.carrying && !person(g, pl.carrying.owner) && g.phase === 'stop' && g.doorsOpen && Math.abs(pl.x - nearestDoor(pl.x)) < 0.7 && Math.sign(pl.z) === g.doorSide && Math.abs(pl.z) > 0.95)
-      return { act: 'staff', label: '駅員に届ける' };
+    if (pl.carrying && atOpenDoor(g)) return { act: 'staff', label: '駅員に' + pl.carrying.name + 'を届ける' };
+    if (pl.carrying && pl.pitch < -0.55) return { act: 'putdown', label: pl.carrying.name + 'を床に置く' };
     for (const it of g.items) if (!it.taken && dist2(it.x, it.z, pl.x, pl.z) < 1.15 && !pl.carrying) return { act: 'pick', label: it.name + 'を拾う', id: it.id };
     const fs = nearestFreeSeat(g);
     if (fs) return { act: 'sit', label: fs.pri ? '優先席に座る' : '座る', id: fs.id };
@@ -496,6 +499,13 @@
       if (dist2(pl.x, pl.z, d + 0.75, side * 1.1) < 0.55 && Math.abs(pl.z) > 0.8) return { act: 'sos', label: g.chikan && g.chikan.stage === 'active' ? '非常通報ボタン（痴漢を通報）' : '非常通報ボタン（いたずら厳禁）' };
     }
     return null;
+  }
+  // 停車中で、開いているドアの近くにいる（駅員に届けられる）
+  function atOpenDoor(g) {
+    const pl = g.player;
+    if (g.phase !== 'stop' || !g.doorsOpen || pl.seat >= 0) return false;
+    const d = nearestDoor(pl.x);
+    return Math.abs(pl.x - d) < 0.95 && Math.sign(pl.z || 1) === g.doorSide && Math.abs(pl.z) > 0.55;
   }
   function priorityNear(g) {
     const pl = g.player; if (pl.seat < 0) return null;
@@ -604,8 +614,18 @@
       }
       case 'staff': {
         const it = pl.carrying; pl.carrying = null;
-        deed(g, Math.round(it.pts * 0.5), it.name + 'を駅員に届けた');
+        const gone = !person(g, it.owner);
+        deed(g, Math.round(it.pts * (gone ? 0.6 : 0.4)), it.name + 'を駅員に届けた');
         g.stats.delivered++;
+        emit(g, { type: 'staffTake' });
+        break;
+      }
+      case 'putdown': {
+        const it = pl.carrying; pl.carrying = null;
+        const fx = pl.x - Math.sin(pl.yaw) * 0.45, fz = pl.z - Math.cos(pl.yaw) * 0.45;
+        [it.x, it.z] = aisleClamp(fx, fz); it.taken = false; it.t0 = g.t; it.noticed = true;
+        g.items.push(it);
+        toast(g, it.name + 'を床に置いた', 'info');
         break;
       }
       case 'door': {
@@ -745,6 +765,24 @@
       return;
     }
     if (ch && p.id === ch.chikanId && ch.stage === 'done') return; // 倒れた相手
+    if (p.role === 'thief' && p.state !== 'ko') {
+      p.thiefHp -= dmgMul; p.stunned = 0.3; p.expr = 'pain'; p.exprT = 0.6; p.pickT = 0; p.thiefGoal = null;
+      emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
+      if (p.thiefHp <= 0) {
+        releaseSlot(g, p); p.state = 'ko'; p.expr = 'ko'; p.exprT = 999; p.koT = 0; p.fleeing = false; p.role = 'thiefKO';
+        g.stats.thiefKO++;
+        const n = p.stolen || 0;
+        deed(g, 50 + 20 * n, n ? '泥棒を撃退！盗まれた物×' + n + 'を取り返した' : '泥棒を撃退！');
+        emit(g, { type: 'sfx', name: 'ko' });
+        return;
+      }
+      if (!p.fleeing) {
+        p.fleeing = true; releaseSlot(g, p); bubble(g, p, 'やべっ！', 1.2);
+        toast(g, '泥棒だ！ 逃がすな！ 追いかけてもう一発', 'warn');
+        const d = nearestDoor(p.x); p.state = 'walk'; p.tx = d + (p.x > d ? 0.3 : -0.3); p.tz = (p.z >= 0 ? 1 : -1) * 0.95; p.then = 'stand'; p.speed = 1.55;
+      }
+      return;
+    }
     // 無関係の人
     if (p.type === 'alien') g.stats.alienPunch++;
     g.stats.wrongPunch++;
@@ -897,6 +935,7 @@
         for (const it of g.items) { const o = person(g, it.owner); if (!o || o.state === 'gone') it.ownerGone = true; }
         if (pl.carrying) { const o = person(g, pl.carrying.owner); if (!o || o.state === 'gone') pl.carrying.ownerGone = true; }
         g.items = g.items.filter(it => g.t - it.t0 < 100);
+        if (pl.carrying && !person(g, pl.carrying.owner) && !pl.carrying.told) { pl.carrying.told = true; toast(g, '持ち主は降りてしまった…次の駅で、開いたドアの近くの駅員に届けよう', 'warn'); }
         emit(g, { type: 'depart' });
         emit(g, { type: 'sfx', name: 'depart' });
         g.ann = '';
@@ -928,6 +967,7 @@
     const d = nearestDoor(p.x);
     p.state = 'exit'; p.tx = d + (g.r() - 0.5) * 0.6; p.tz = g.doorSide * 1.2; p.then = 'out';
     p.packing = false; p.anim = 'none';
+    if (p.role === 'thief' && p.stolen && !p.fleeing) toast(g, '…さっきの若者、盗んだ物を持って降りていった？', 'bad');
     // 落とし物の持ち主が降りる
     const it = g.player.carrying;
     if (it && it.owner === p.id) it.ownerLeaving = true;
@@ -944,12 +984,18 @@
     let i = 0;
     g.boardQueue = [];
     for (; i < n; i++) g.boardQueue.push({ at: g.phaseT + i * 0.32, type: pickType(g, st) });
+    const thiefAboard = g.people.some(p => p.role === 'thief' && p.state !== 'ko');
+    if (!g.endless && st >= 2 && st <= lastStation(g) - 3 && !thiefAboard && !g.jiji && (g.thiefCount || 0) < 2 && g.r.chance(g.hard ? 0.4 : 0.25) && g.boardQueue.length)
+      g.boardQueue.splice(g.r.int(0, g.boardQueue.length - 1), 0, { at: 0, type: 'thief' });
+    if (g.endless && st >= 2 && !thiefAboard && g.r.chance(0.3) && g.boardQueue.length) g.boardQueue.splice(0, 0, { at: 0, type: 'thief' });
+    g.boardQueue.forEach((q, k) => { q.at = g.phaseT + k * 0.32; });
   }
   function updateBoardQueue(g) {
     if (!g.boardQueue || !g.boardQueue.length || g.phase !== 'stop') return;
     while (g.boardQueue.length && g.boardQueue[0].at <= g.phaseT) {
       const q = g.boardQueue.shift();
-      const p = spawn(g, q.type, g.station);
+      const p = spawn(g, q.type, g.station, q.type === 'thief' ? g.station + g.r.int(3, 5) : null);
+      if (q.type === 'thief') { g.thiefCount = (g.thiefCount || 0) + 1; p.role = 'thief'; p.wantSeat = false; p.stolen = 0; p.thiefT = g.r.range(3, 7); p.thiefHp = 3; p.look.mask = g.r.chance(0.4); }
       const d = g.r.pick(DOORS);
       p.x = d + (g.r() - 0.5) * 0.6; p.z = g.doorSide * 1.7;
       g.people.push(p);
@@ -1093,6 +1139,8 @@
           break;
         }
       }
+      if (p.role === 'thief') updateThief(g, p, dt);
+      if (p.robbedAt && g.t > p.robbedAt && p.state !== 'gone') { p.robbedAt = 0; p.sleep = 0; p.oversleep = false; p.expr = 'worried'; p.exprT = 6; bubble(g, p, 'あれ？財布がない…！', 2.5); }
       // 降りる人（席を立って待っている）→ ドアが開いたら出る
       if (p.leaving && g.phase === 'stop' && g.doorsOpen && p.state === 'stand' && p.dest <= g.station) { p.leaving = false; leave(g, p); }
     }
@@ -1117,6 +1165,61 @@
         }
       }
     }
+  }
+
+  // ---------------------------------------------------------------- 落とし物泥棒
+  function updateThief(g, p, dt) {
+    if (p.state === 'ko' || p.state === 'exit' || p.state === 'gone') return;
+    if (p.fleeing) {
+      // 逃げる：ドアが開いていたら降りてしまう
+      if (p.state === 'stand' && g.phase === 'stop' && g.doorsOpen) {
+        p.dest = g.station; releaseSlot(g, p);
+        const d = nearestDoor(p.x); p.state = 'exit'; p.tx = d; p.tz = g.doorSide * 1.2; p.speed = 1.7;
+        if (p.stolen) toast(g, '泥棒は盗んだ物を持って逃げてしまった…', 'bad'); else toast(g, '泥棒は逃げてしまった…', 'bad');
+      }
+      return;
+    }
+    if (p.pickT > 0) {
+      p.pickT -= dt;
+      if (p.pickT <= 0) {
+        const goal = p.thiefGoal; p.thiefGoal = null;
+        if (goal && goal.kind === 'pocket') {
+          const v = person(g, goal.id);
+          if (v && v.state === 'seated' && v.sleep) { p.stolen++; g.stats.stolen++; v.robbedAt = g.t + g.r.range(6, 12); emit(g, { type: 'thiefSteal' }); }
+        }
+        p.thiefT = g.r.range(5, 9);
+      }
+      return;
+    }
+    if (p.state === 'stand' && p.thiefGoal) {
+      const goal = p.thiefGoal;
+      if (goal.kind === 'item') {
+        const it = g.items.find(i => i.id === goal.id);
+        p.thiefGoal = null; p.thiefT = g.r.range(4, 8);
+        if (it && dist2(it.x, it.z, p.x, p.z) < 0.7) {
+          g.items = g.items.filter(i => i !== it); p.stolen++; g.stats.stolen++;
+          bubble(g, p, '（ひょい）', 1.2); emit(g, { type: 'thiefSteal' }); emit(g, { type: 'sfx', name: 'pick' });
+        }
+      } else { p.pickT = 1.6; }
+      return;
+    }
+    if (p.state !== 'stand') return;
+    if (g.r() < dt * 0.5) { p.expr = 'shifty'; p.exprT = g.r.range(1, 3); }
+    p.thiefT -= dt;
+    if (p.thiefT > 0) return;
+    p.thiefT = g.r.range(7, 12);
+    if (p.stolen >= 3) return; // 盗みすぎない
+    const pl = g.player;
+    // 床の落とし物（プレイヤーの近くは避ける）
+    let goal = null, bd = 9;
+    for (const it of g.items) { const d = dist2(it.x, it.z, p.x, p.z); if (d < bd && dist2(it.x, it.z, pl.x, pl.z) > 0.8) { bd = d; goal = { kind: 'item', id: it.id, x: it.x, z: it.z }; } }
+    if (!goal && g.r.chance(0.45)) {
+      const sl = g.people.filter(q => q.state === 'seated' && q.sleep && !q.robbedAt && !q.robbed && dist2(q.x, q.z, p.x, p.z) < 7);
+      if (sl.length) { const v = g.r.pick(sl); v.robbed = true; const s = g.seats[v.seat]; goal = { kind: 'pocket', id: v.id, x: s.x, z: s.fz }; }
+    }
+    if (!goal) return;
+    releaseSlot(g, p);
+    p.thiefGoal = goal; p.state = 'walk'; p.tx = goal.x; p.tz = goal.z; p.then = 'stand';
   }
 
   // ---------------------------------------------------------------- 痴漢
@@ -1237,7 +1340,7 @@
     }
   }
   function dropItem(g) {
-    const cands = g.people.filter(p => (p.state === 'seated' || p.state === 'stand') && p.type !== 'alien');
+    const cands = g.people.filter(p => (p.state === 'seated' || p.state === 'stand') && p.type !== 'alien' && !p.role);
     if (!cands.length) return;
     // 降りる直前の人が落としやすい
     const ns = nextStation(g);
@@ -1288,6 +1391,7 @@
     if (g.endless && s.stations >= 30) add('endless30');
     if (g.jiji) add('jiji');
     if (g.hard && clear) add('hard');
+    if (s.thiefKO) add('thief');
     return out;
   }
 
@@ -1300,6 +1404,11 @@
     if (p.role === 'chikan' && g.chikan && g.chikan.stage !== 'done') out.push('👀 目が泳いでいる…汗だく');
     if (p.role === 'victim') out.push('😣 困った顔で固まっている');
     if (p.role === 'decoy') out.push('📱 スマホに夢中');
+    if (p.role === 'thief') {
+      if (p.fleeing) out.push('🏃 逃げようとしている！');
+      out.push(p.state === 'walk' || p.pickT > 0 ? '🤏 床や寝ている人のまわりをうろうろ' : '👀 キョロキョロしている');
+      if (p.stolen) out.push('🎒 ポケットがふくらんでいる');
+    }
     if (p.state === 'seated') {
       if (p.sleep === 2) out.push('💤 熟睡している');
       else if (p.sleep === 1) out.push('😪 うとうとしている');
@@ -1320,6 +1429,6 @@
   return {
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS,
     create, update, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
-    _internal: { spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
+    _internal: { updateThief, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });

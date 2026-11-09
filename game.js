@@ -594,6 +594,7 @@
       else if (H.strap && anim === 'none' && idle !== 'map' && idle !== 'game') { tgt.shRx = -2.85; tgt.shRz = 0.12; tgt.elR = -0.25; if (idle === 'phone' || idle === 'book') { tgt.shLx = -0.45; tgt.elL = -1.65; tgt.hp = 0.4; } }
       else if (anim === 'none') applyIdle(tgt, idle);
       if (p.priority && p.targetPlayer) { tgt.lean = 0.12; tgt.hp = 0.15; }
+      if (p.role === 'thief' && p.pickT > 0) { tgt.lean = 0.55; tgt.hp = 0.5; tgt.shRx = tgt.shLx = -0.9; tgt.elR = tgt.elL = -0.3; tgt.hipL = tgt.hipR = -0.3; tgt.kneeL = tgt.kneeR = 0.5; }
       if (p.type === 'elderly' && !H.strap) tgt.lean += 0.12;
     }
     if (st === 'walk' || st === 'exit' || st === 'stand') { /* 向きはそのまま */ }
@@ -812,7 +813,7 @@
     // 駅員（停車中のホーム）
     const showStaff = g.phase === 'stop' && g.station > 0;
     staffH.root.visible = showStaff;
-    if (showStaff) { staffH.p.x = 0.9; staffH.p.z = g.doorSide * 2.3; staffH.p.ry = g.doorSide > 0 ? Math.PI : 0; staffH.p.state = 'stand'; poseHuman(staffH, g, dt, now); faceState(staffH, g, now); }
+    if (showStaff) { staffH.p.x = (function () { let b = SW.DOORS[0]; for (const d of SW.DOORS) if (Math.abs(d - g.player.x) < Math.abs(b - g.player.x)) b = d; return b + 0.9; })(); staffH.p.z = g.doorSide * 2.3; staffH.p.ry = g.doorSide > 0 ? Math.PI : 0; staffH.p.state = 'stand'; poseHuman(staffH, g, dt, now); faceState(staffH, g, now); }
     // 駆け込み客
     const R = g.runner;
     runnerH.root.visible = !!(R && R.active && g.phase === 'stop' && !R.held);
@@ -1149,6 +1150,7 @@
     tipsTick(g);
     for (const e of g.events) {
       if (e.type === 'seatFree') { const s = g.seats[e.id]; if (s && Math.hypot(s.x - g.player.x, s.fz - g.player.z) < 3.5 && g.player.seat < 0) tip('seat', '🟩 光っている席は空席！ 近づいてアクションで座れ'); }
+      if (e.type === 'thiefSteal') tip('thief', '落とし物泥棒がいる！ キョロキョロしている人を探してパンチ。逃げたら追いかけてもう一発');
       if (e.type === 'chikan') tip('chikan', '困っている人のそばに痴漢が。照準を合わせて見極めてからパンチ！ 間違えるとカルマ。非常通報ボタンでも助けられる');
       if (e.type === 'drop') tip('drop', '落とし物！ 拾って持ち主に届けよう。持ち主は「あれ？」と探しはじめる');
       switch (e.type) {
@@ -1161,6 +1163,7 @@
         case 'lurch': lurchKick = 1; sfx('lurch'); break;
         case 'brace': if (e.ok) addPop('踏ん張った！'); else addToast('よろけた！ 体力-7', 'bad'); $('warn').classList.add('hidden'); break;
         case 'chikan': addToast('…どこかで困っている人がいる？（痴漢かも）', 'warn'); break;
+        case 'thiefSteal': if (!G.__thiefTold) { G.__thiefTold = true; addToast('…だれかが落とし物をこっそり持っていった？（泥棒かも）', 'warn'); } break;
         case 'rare': { const p = SW.person(g, e.id); if (p) addToast(p.type === 'ceo' ? '金のネクタイの紳士が乗ってきた…' : '…なにか様子のおかしい乗客が乗ってきた', 'warn'); break; }
         case 'arrive': sfx('arrive'); showAnn(g.ann); speak(SW.stationName(g, g.station) + '、' + SW.stationName(g, g.station)); break;
         case 'announce': showAnn(e.text); if (/^次は/.test(e.text)) speak(e.text); break;
