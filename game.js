@@ -37,8 +37,20 @@
   const camera = new T3.PerspectiveCamera(72, 1, 0.05, 200);
   camera.rotation.order = 'YXZ';
   scene.add(camera);
+  // 疑似横向き：スマホが縦のままでも、画面全体を 90 度回して横長で遊ぶ（iPhone など向きを変えられない端末用）
+  let pland = false, pseudoWant = false;
+  const realPortrait = () => window.innerHeight > window.innerWidth;
+  function applyPland() {
+    const on = pseudoWant && realPortrait();
+    document.documentElement.style.setProperty('--pw', window.innerWidth + 'px');
+    document.documentElement.style.setProperty('--ph', window.innerHeight + 'px');
+    if (on !== pland) { pland = on; document.documentElement.classList.toggle('pland', on); }
+  }
+  // 画面の点（指の位置）を、回した画面の中の座標にする
+  const tp = (t) => pland ? { x: t.clientY, y: window.innerWidth - t.clientX } : { x: t.clientX, y: t.clientY };
   function resize() {
-    const w = window.innerWidth, h = window.innerHeight;
+    applyPland();
+    const w = pland ? window.innerHeight : window.innerWidth, h = pland ? window.innerWidth : window.innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.fov = w < h ? 80 : 70;
@@ -961,18 +973,19 @@
   let joyId = null, joyO = null, lookId = null, lookP = null;
   joyEl.addEventListener('touchstart', e => {
     initAudio();
-    const t = e.changedTouches[0]; joyId = t.identifier; joyO = { x: t.clientX, y: t.clientY };
-    joyBase.style.display = 'block'; joyBase.style.left = t.clientX + 'px'; joyBase.style.top = (t.clientY - (window.innerHeight - joyEl.offsetHeight)) + 'px';
+    const t = e.changedTouches[0], q = tp(t); joyId = t.identifier; joyO = q;
+    const H = pland ? window.innerWidth : window.innerHeight;
+    joyBase.style.display = 'block'; joyBase.style.left = q.x + 'px'; joyBase.style.top = (q.y - (H - joyEl.offsetHeight)) + 'px';
     joyKnob.style.transform = ''; $('joyHint').style.display = 'none'; e.preventDefault();
   }, { passive: false });
   window.addEventListener('touchmove', e => {
     for (const t of e.changedTouches) {
       if (t.identifier === joyId) {
-        let dx = t.clientX - joyO.x, dy = t.clientY - joyO.y; const l = Math.hypot(dx, dy), m = 48;
+        const q = tp(t); let dx = q.x - joyO.x, dy = q.y - joyO.y; const l = Math.hypot(dx, dy), m = 48;
         if (l > m) { dx *= m / l; dy *= m / l; }
         inp.joyX = dx / m; inp.joyY = dy / m; joyKnob.style.transform = `translate(${dx}px,${dy}px)`;
       } else if (t.identifier === lookId) {
-        const dx = t.clientX - lookP.x, dy = t.clientY - lookP.y; lookP = { x: t.clientX, y: t.clientY };
+        const q = tp(t), dx = q.x - lookP.x, dy = q.y - lookP.y; lookP = q;
         inp.yaw -= dx * 0.0062; inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch - dy * 0.0062));
       }
     }
@@ -989,7 +1002,7 @@
     initAudio();
     if (state !== 'play') return;
     const t = e.changedTouches[0];
-    if (lookId == null) { lookId = t.identifier; lookP = { x: t.clientX, y: t.clientY }; }
+    if (lookId == null) { lookId = t.identifier; lookP = tp(t); }
     e.preventDefault();
   }, { passive: false });
   function holdBtn(el, down, up) {
@@ -1345,11 +1358,12 @@
   document.addEventListener('webkitfullscreenchange', () => { updateFsButtons(); resize(); });
 
   // ---------------------------------------------------------------- 横向き・全画面で遊ぶ
-  const isPortrait = () => window.innerHeight > window.innerWidth;
+  const isPortrait = () => !pland && realPortrait();
   let wantLand = false;
   function updateLand() {
     const fsOn = !!fsElement() || standalone;
-    $('bLand').classList.toggle('landed', !isPortrait() && (fsOn || !fsSupported)); // iPhone は全画面にできないので、横になっていれば十分
+    $('bPort').classList.toggle('hidden', !pland); $('bPort2').classList.toggle('hidden', !pland);
+    $('bLand').classList.toggle('landed', pland || (!isPortrait() && (fsOn || !fsSupported))); // iPhone は全画面にできないので、横になっていれば十分
     if (wantLand && !isPortrait()) { $('rotate').classList.add('hidden'); wantLand = false; }
   }
   async function playLandscape(e) {
@@ -1361,20 +1375,20 @@
     }
     // 2) 横に固定（Android の Chrome など。全画面のときだけできる）
     try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (err) { /* iPhone などはできない */ }
-    // 3) まだ縦なら「横にしてね」
+    // 3) まだ縦なら、画面を回して横長にする（疑似横向き）
     setTimeout(() => {
-      if (isPortrait()) {
-        wantLand = true;
-        $('rotSub').innerHTML = (!fsSupported && isIOS && !standalone)
-          ? '画面の向きのロックがオンなら、オフにしてください<br>iPhone は<b>ホーム画面に追加</b>してアイコンから開くと、全画面で遊べます'
-          : '画面の向きのロックがオンなら、オフにしてください';
-        $('rotate').classList.remove('hidden');
+      if (realPortrait()) {
+        pseudoWant = true; resize();
+        titleToast('📱 スマホを横にして持ってね（画面の上が右側になるように）');
+        track('疑似横向きになった');
       }
       updateLand();
     }, 350);
     track('横向き・全画面で遊ぶを押した');
   }
   $('bLand').addEventListener('click', playLandscape);
+  const backPortrait = () => { pseudoWant = false; resize(); updateLand(); };
+  $('bPort').addEventListener('click', backPortrait); $('bPort2').addEventListener('click', backPortrait);
   $('rotClose').addEventListener('click', () => { wantLand = false; $('rotate').classList.add('hidden'); });
   window.addEventListener('resize', updateLand);
   window.addEventListener('orientationchange', () => setTimeout(updateLand, 300));
