@@ -1356,7 +1356,8 @@
   const copyUrl = (el) => { const u = SHARE_URL.split('?')[0]; try { const p = navigator.clipboard.writeText(u); if (p && p.then) p.then(() => { el.textContent = 'コピーしました'; }, () => { el.textContent = u; }); } catch (e) { el.textContent = u; } };
   $('a2hsCopy').addEventListener('click', () => copyUrl($('a2hsCopy')));
   // タイトルに「ブラウザで開いてね」の帯を出す（アプリの中のとき）
-  $('inappText').innerHTML = '⚠ <b>アプリの中のブラウザ</b>です。' + (isIOS ? '「…」→「Safari で開く」' : '「⋮」→「ブラウザで開く」') + 'で開き直すと、全画面・ホーム画面に追加ができます';
+  const APP_NAME = /Twitter/i.test(navigator.userAgent) ? 'X' : /Instagram/i.test(navigator.userAgent) ? 'Instagram' : /Line\//.test(navigator.userAgent) ? 'LINE' : /TikTok|musical_ly|Bytedance/i.test(navigator.userAgent) ? 'TikTok' : 'アプリ';
+  $('inappText').innerHTML = '⚠ <b>' + (APP_NAME === 'アプリ' ? 'アプリ' : APP_NAME + ' ') + 'の中のブラウザ</b>です。右の「URL」でコピーして、' + (isIOS ? 'Safari' : 'Chrome') + ' で開き直してね！<br><small>（このままでも遊べますが、' + APP_NAME + 'を閉じると記録が消えることがあります）</small>';
   $('inappCopy').addEventListener('click', () => copyUrl($('inappCopy')));
   $('inappClose').addEventListener('click', () => { $('inapp').classList.add('hidden'); try { sessionStorage.setItem('sw-inapp-closed', '1'); } catch (e) { } });
   function showInapp(on) { let closed = false; try { closed = sessionStorage.getItem('sw-inapp-closed') === '1'; } catch (e) { } const v = on && INAPP && !closed; $('inapp').classList.toggle('hidden', !v); document.body.classList.toggle('inapp', v); }
