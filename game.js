@@ -1603,6 +1603,11 @@
     $('achList').innerHTML = SW.ACHIEVEMENTS.map(a => got[a.id]
       ? `<div class="ach"><b>🎖 ${a.name}</b>${a.desc}</div>`
       : `<div class="ach lock"><b>🔒 ${a.hidden ? '？？？' : a.name}</b>${a.hidden ? 'ひみつ' : a.desc}</div>`).join('');
+    // 乗客タイプ図鑑
+    const ty = profile.types || {}, tn = SW.PTYPES.filter((d) => ty[d.key]).length;
+    $('achList').innerHTML += `<h3 style="grid-column:1/-1;margin:10px 0 2px">🪪 乗客タイプ図鑑 <span class="pill">${tn} / ${SW.PTYPES.length}</span></h3>` + SW.PTYPES.map((d) => ty[d.key]
+      ? `<div class="ach"><b>${d.icon} ${d.name}</b>${d.desc}</div>`
+      : `<div class="ach lock"><b>❔ ？？？</b>まだ診断されていない</div>`).join('');
   }
 
   // ================================================================ 結果
@@ -1631,18 +1636,16 @@
     const lv1 = SW.levelOf(profile.xp).lv;
     const xpMsg = lv1 > lv0 ? `⬆ Lv.${lv1} に上がった！ タイトルの「📊」でステータスを割り振ろう` : `経験値 +${xpGot}（Lv.${lv1}）`;
     if (lv1 > lv0) track('レベルアップ：Lv' + lv1);
+    const dg = SW.diagnose(g);
+    profile.types = profile.types || {};
+    const dgNew = !profile.types[dg.key]; profile.types[dg.key] = profile.types[dg.key] || Date.now();
+    track('診断：' + dg.name);
     profile.history = (profile.history || []).concat([{ s: sc.total, t: sc.title, m: mode, d: Date.now() }]).sort((a, b) => b.s - a.s).slice(0, 20);
     saveProfile();
     const causeTxt = { clear: '🎉 終点到着！', collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行' }[r.cause];
     const stName = SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g)));
-    const flavor = {
-      clear: g.endless ? '' : 'やっと座れ橋に着いた。' + (s.sits === 0 ? 'ずっと立っていた。鉄人だ。' : 'おつかれさまでした。'),
-      collapse: stName + 'の手前で、床に座りこんでしまった。',
-      ko: stName + 'の手前で、床に沈んだ。',
-      arrest: '「ちょっと事務室まで来てもらえますか」（' + stName + '）',
-    }[r.cause];
     $('rCause').textContent = causeTxt; $('rCause').className = 'res-cause ' + (r.cause === 'clear' ? 'good' : 'bad');
-    $('rText').textContent = flavor + (g.endless ? '（' + s.stations + '駅）' : '');
+    $('rText').innerHTML = `<b class="dg">${dg.icon} あなたは「${dg.name}」タイプ${dgNew ? ' <span class="pill">NEW</span>' : ''}</b><br><span style="color:var(--sub)" title="${dg.desc}">${dg.why}${g.endless ? '（' + s.stations + '駅）' : ''}</span>`;
     $('rScore').textContent = sc.total;
     $('rTitle').textContent = '称号「' + sc.title + '」' + (newBest ? ' 🆕自己ベスト！' : '');
     $('rBrk').innerHTML = `<span>集めた徳</span><span>${sc.earned}</span><span>駅ボーナス（${s.stations}駅）</span><span>+${sc.stationBonus}</span><span>完走ボーナス</span><span>+${sc.clearBonus}</span><span>カルマ</span><span>−${sc.karmaPen}</span>`;
@@ -1654,7 +1657,7 @@
     $('rLv').classList.toggle('up', lv1 > lv0); $('rLv').title = xpMsg;
     updateLvBadge();
     $('rRank').textContent = ''; $('rMiniBox').classList.add('hidden'); $('rMini').innerHTML = '';
-    lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text };
+    lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text, dg };
     {
       const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行' }[r.cause] || r.cause;
       const band = sc.total >= 2000 ? '2000〜' : sc.total >= 1000 ? '1000〜1999' : sc.total >= 500 ? '500〜999' : sc.total >= 200 ? '200〜499' : '0〜199';
@@ -1671,7 +1674,8 @@
     const s = R.stats;
     const modeTxt = R.mode === 'daily' ? '【今日のダイヤ】' : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '痴漢に返り討ちにされた…') : '駅員に連行された…';
-    return `${modeTxt}スワリタイ！で ${R.sc.total}点\n称号「${R.sc.title}」\n${how}\n譲った席${s.gives}・撃退した痴漢${s.chikanKO}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #降りる人を見極めろ #バカゲー`;
+    const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
+    return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
   }
   $('bShareX').addEventListener('click', () => {
     track('X でシェアを押した');
@@ -1705,14 +1709,16 @@
     c.strokeStyle = '#ddd'; c.lineWidth = 6; for (let x = 80; x < 1200; x += 110) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, 40); c.stroke(); c.beginPath(); c.arc(x, 58, 18, 0, TAU); c.stroke(); }
     c.fillStyle = 'rgba(10,12,18,.82)'; roundRect(c, 80, 110, 1040, 430, 36); c.fill();
     c.textAlign = 'center';
-    c.fillStyle = '#fff'; c.font = 'bold 64px ' + FONT; c.fillText('スワリタイ！', 600, 190);
-    c.fillStyle = '#ffd447'; c.font = 'bold 30px ' + FONT; c.fillText('〜 降りる人を見極めろ 〜', 600, 235);
-    c.fillStyle = R.cause === 'clear' ? '#5fe08a' : '#ff6b5e'; c.font = 'bold 40px ' + FONT; c.fillText(R.causeTxt, 600, 300);
-    c.fillStyle = '#ffd447'; c.font = 'bold 110px ' + FONT; c.fillText(R.sc.total + '点', 600, 410);
-    c.fillStyle = '#fff'; c.font = 'bold 36px ' + FONT; c.fillText('称号「' + R.sc.title + '」', 600, 465);
+    const fit = (txt, size, maxW) => { let fs = size; c.font = 'bold ' + fs + 'px ' + FONT; while (c.measureText(txt).width > maxW && fs > 20) { fs -= 2; c.font = 'bold ' + fs + 'px ' + FONT; } };
+    c.fillStyle = '#fff'; c.font = 'bold 34px ' + FONT; c.fillText('スワリタイ！　乗客タイプ診断', 600, 168);
+    const dg = R.dg || { icon: '🚃', name: 'ふつうの通勤者', desc: '' };
+    c.fillStyle = '#b8bdc8'; c.font = 'bold 30px ' + FONT; c.fillText('あなたは…', 600, 222);
+    c.fillStyle = '#ffd447'; fit(dg.icon + ' ' + dg.name + ' タイプ', 92, 980); c.fillText(dg.icon + ' ' + dg.name + ' タイプ', 600, 318);
+    c.fillStyle = '#fff'; fit(dg.desc, 34, 960); c.fillText(dg.desc, 600, 378);
+    c.fillStyle = R.cause === 'clear' ? '#5fe08a' : '#ff6b5e'; c.font = 'bold 30px ' + FONT; c.fillText(R.causeTxt + '　' + R.sc.total + '点', 600, 440);
     const s = R.stats;
     c.fillStyle = '#b8bdc8'; c.font = 'bold 26px ' + FONT;
-    c.fillText(`🪑譲った席 ${s.gives}　👊撃退 ${s.chikanKO}　👛落とし物 ${s.delivered}　💺着席 ${s.sits}`, 600, 515);
+    c.fillText(`🪑譲った席 ${s.gives}　👊撃退 ${SW.villainKO(s)}　👛落とし物 ${s.delivered}　💺着席 ${s.sits}`, 600, 500);
     c.fillStyle = '#333'; c.font = 'bold 24px ' + FONT; c.fillText('#スワリタイ', 600, 590);
     return cv;
   }
@@ -2442,5 +2448,5 @@
   }
   if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(boot); else boot();
   // テスト用
-  window.__SW = { mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; } };
+  window.__SW = { mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
 })();

@@ -1644,8 +1644,8 @@
     }
   }
   // テスト用：その場に悪者を出す
-  function spawnVillain(g, v, x, z) {
-    const type = v === 'tuber' ? 'student' : v === 'suri' ? 'salaryman' : v === 'faker' ? 'sick' : v === 'dasher' ? 'dasher' : v === 'emperor' ? 'emperor' : v === 'hench' ? 'henchman' : v === 'hog' ? 'salaryman' : 'ol';
+  function spawnVillain(g, v, x, z, typeOverride) {
+    const type = typeOverride || (v === 'tuber' ? 'student' : v === 'suri' ? 'salaryman' : v === 'faker' ? 'sick' : v === 'dasher' ? 'dasher' : v === 'emperor' ? 'emperor' : v === 'hench' ? 'henchman' : v === 'hog' ? 'salaryman' : 'ol');
     const p = spawn(g, type, g.station);
     p.x = x != null ? x : 0; p.z = z != null ? z : 0;
     g.people.push(p); setupVillain(g, p, v);
@@ -1687,7 +1687,7 @@
   function updateSuri(g, p, dt) {
     const S = p.suri; if (!S || p.state === 'ko' || p.state === 'exit' || p.state === 'gone') return;
     if (S.ph === 'escape') return;
-    const tpos = () => { const T = S.target; if (!T) return null; if (T.kind === 'pl') { const b = bodyOf(g, T.i); return b && b.seat < 0 ? b : null; } const v = person(g, T.id); return v && v.state === 'stand' ? v : null; };
+    const tpos = () => { const T = S.target; if (!T) return null; if (T.kind === 'pl') { const b = bodyOf(g, T.i); return b && b.seat < 0 ? b : null; } const v = person(g, T.id); return v && (v.state === 'stand' || v.state === 'walk') ? v : null; };
     const roam = () => { S.ph = 'roam'; S.t = g.r.range(5, 9); S.target = null; if (p.anim === 'reach') { p.anim = 'none'; p.animT = 0; } if (p.state === 'stand' && p.slot < 0) placeStanding(g, p, false); };
     if (S.ph === 'roam') {
       if (p.state !== 'stand') return;
@@ -2110,6 +2110,33 @@
     return out;
   }
 
+  // 乗客タイプ診断（上から順に当てはまったもの。めずらしいものほど上）
+  const PTYPES = [
+    { key: 'emperor', icon: '👑', name: '帝王キラー', desc: '車内の帝王を倒した伝説の乗客', why: () => '車内の帝王を倒した', test: (s) => s.emperorKO > 0 },
+    { key: 'arrest', icon: '🚨', name: '要注意人物', desc: '駅員さんに顔を覚えられている', why: () => 'カルマがあふれて連行された', test: (s, r) => r === 'arrest' },
+    { key: 'dark', icon: '😈', name: '闇の乗客', desc: '座るためなら手段を選ばない', why: (s, g) => 'カルマ ' + Math.round(g.player.karma), test: (s, r, g) => g.player.karma >= 70 },
+    { key: 'banchou', icon: '👊', name: '車内の番長', desc: '悪者がいる車両には必ずいる', why: (s) => '悪者を ' + villainKO(s) + ' 人撃退', test: (s) => villainKO(s) >= 3 },
+    { key: 'saint', icon: '🙏', name: '聖人', desc: '自分より人の座席を優先する', why: (s) => '席を ' + s.gives + ' 回譲った', test: (s) => s.gives >= 4 },
+    { key: 'lost', icon: '👛', name: '落とし物の守護神', desc: '車内の落とし物は全部この人が届ける', why: (s) => '落とし物を ' + s.delivered + ' 回届けた', test: (s) => s.delivered >= 3 },
+    { key: 'detective', icon: '🕵', name: '車内の名探偵', desc: '仮病もスリも、すべてお見通し', why: () => '仮病やスリを見破った', test: (s) => s.fakerExposed > 0 && s.suriKO > 0 || s.fakerExposed >= 2 },
+    { key: 'tanuki', icon: '💤', name: '狸寝入り名人', desc: '目の前にだれが立っても起きない（ふり）', why: (s) => '狸寝入り ' + Math.round(s.tanuki) + ' 秒', test: (s) => s.tanuki >= 40 },
+    { key: 'ironleg', icon: '🦵', name: '鉄の脚', desc: '座らなくても平気。むしろ立ちたい', why: () => '一度も座らずに終点まで', test: (s, r) => r === 'clear' && s.sits === 0 },
+    { key: 'flash', icon: '⚡', name: '秒速着席', desc: '空いた席には 1 秒で座る', why: (s) => '1 秒以内の着席 ' + s.quickSits + ' 回', test: (s) => s.quickSits >= 3 },
+    { key: 'naive', icon: '🤡', name: 'お人よし', desc: '仮病にもあっさりだまされる、やさしい人', why: () => '仮病の人に席を譲った', test: (s) => s.fooled > 0 },
+    { key: 'hasty', icon: '⚖', name: '早とちり', desc: '正義感が強すぎて、つい手が出る', why: (s) => '関係ない人を ' + s.wrongPunch + ' 回殴った', test: (s) => s.falseAccuse > 0 || s.wrongPunch >= 2 },
+    { key: 'sitter', icon: '💺', name: '着席の達人', desc: '降りる人を見抜く目はプロ級', why: (s) => s.sits + ' 回座れた', test: (s) => s.sits >= 5 },
+    { key: 'brace', icon: '🧘', name: '体幹おばけ', desc: 'どんな揺れでもびくともしない', why: (s) => '揺れを ' + s.braces + ' 回踏ん張った', test: (s) => s.braces >= 8 && s.braceFail === 0 },
+    { key: 'collapse', icon: '🫠', name: 'ひざ笑い', desc: '座りたい気持ちだけは誰にも負けない', why: () => '体力が尽きて倒れた', test: (s, r) => r === 'collapse' },
+    { key: 'ko', icon: '🤕', name: '返り討ち', desc: '勇気はある。腕力はこれから', why: () => 'ケンカに負けた', test: (s, r) => r === 'ko' },
+    { key: 'normal', icon: '🚃', name: 'ふつうの通勤者', desc: '今日もおつかれさまです', why: () => '可もなく不可もなく', test: () => true },
+  ];
+  function villainKO(s) { return (s.chikanKO || 0) + (s.thiefKO || 0) + (s.suriKO || 0) + (s.henchKO || 0) + (s.emperorKO || 0) + (s.brawlKO || 0); }
+  function diagnose(g) {
+    const s = g.stats, res = g.multi ? (g.pi >= 0 ? g.players[g.pi].result : null) : g.result, r = res ? res.cause : '';
+    const t = PTYPES.find((d) => d.test(s, r, g));
+    return { key: t.key, icon: t.icon, name: t.name, desc: t.desc, why: t.why(s, g) };
+  }
+
   // 観察メモ（照準を合わせた人の様子）
   function observe(g, p) {
     const out = [];
@@ -2158,6 +2185,7 @@
   }
 
   return {
+    PTYPES, diagnose, villainKO,
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
     _internal: { sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
