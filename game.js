@@ -1336,9 +1336,9 @@
   }
   // X・Instagram・LINE などのアプリの中のブラウザ（ホーム画面に追加・全画面ができない）
   const INAPP = /FBAN|FBAV|Instagram|Line\/|Twitter|TikTok|musical_ly|BytedanceWebview|Discord|Threads|; wv\)/i.test(navigator.userAgent);
-  const OPEN_IN_BROWSER = isIOS ? '右下（または右上）の<b>「…」や共有ボタン</b>から「<b>Safari で開く</b>」（または「ブラウザで開く」）を選ぶ'
-    : '右上の<b>「⋮」</b>から「<b>ブラウザで開く</b>」（または「Chrome で開く」）を選ぶ';
-  $('a2hsSteps').innerHTML = (INAPP ? ['いまは <b>X などのアプリの中</b>で開いています。' + OPEN_IN_BROWSER + '。見つからなければ下の「URL をコピー」で、Safari / Chrome に貼りつけて開く'] : []).concat(isIOS ? [
+  const MENU_KEY = isIOS ? '「…」' : '「⋮」';
+  const OPEN_IN_BROWSER = (isIOS ? '右下（または右上）の<b>「…」</b>' : '右上の<b>「⋮」</b>') + 'から「<b>ブラウザで開く</b>」を選ぶ（アプリが用意しているボタンです）';
+  $('a2hsSteps').innerHTML = (INAPP ? ['いまは <b>アプリの中のブラウザ</b>で開いています。' + OPEN_IN_BROWSER + '。見つからないときは、下の「URL をコピー」で <b>robit-devworks.github.io/suwaritai</b> をコピーして、ブラウザに貼りつけて開く（同じページです）'] : []).concat(isIOS ? [
     'アドレスバーの右にある<b>共有ボタン</b>（□に↑のマーク）を押す。見つからなければ右下の「…」→「共有」',
     '「<b>表示を増やす</b>」を押して、「<b>ホーム画面に追加</b>」を選ぶ',
     'ホーム画面にできた<b>スワリタイのアイコン</b>から開く',
@@ -1357,10 +1357,9 @@
   $('a2hsCopy').addEventListener('click', () => copyUrl($('a2hsCopy')));
   // タイトルに「ブラウザで開いてね」の帯を出す（アプリの中のとき）
   const APP_NAME = /Twitter/i.test(navigator.userAgent) ? 'X' : /Instagram/i.test(navigator.userAgent) ? 'Instagram' : /Line\//.test(navigator.userAgent) ? 'LINE' : /TikTok|musical_ly|Bytedance/i.test(navigator.userAgent) ? 'TikTok' : 'アプリ';
-  $('inappText').innerHTML = '⚠ <b>' + (APP_NAME === 'アプリ' ? 'アプリ' : APP_NAME + ' ') + 'の中のブラウザ</b>です。右の「URL」でコピーして、ブラウザで開き直してね！<br><small>（このままでも遊べますが、' + APP_NAME + 'を閉じると記録が消えることがあります）</small>';
-  $('inappCopy').addEventListener('click', () => copyUrl($('inappCopy')));
-  $('inappClose').addEventListener('click', () => { $('inapp').classList.add('hidden'); try { sessionStorage.setItem('sw-inapp-closed', '1'); } catch (e) { } });
-  function showInapp(on) { let closed = false; try { closed = sessionStorage.getItem('sw-inapp-closed') === '1'; } catch (e) { } const v = on && INAPP && !closed; $('inapp').classList.toggle('hidden', !v); document.body.classList.toggle('inapp', v); }
+  $('inappText').innerHTML = '📱 ' + (APP_NAME === 'アプリ' ? 'アプリ' : APP_NAME + ' ') + 'の中のブラウザで開いています（<b>このままでも遊べます</b>）。<br><small>全画面やホーム画面に追加したいときは、' + MENU_KEY + '→「ブラウザで開く」がおすすめ</small>';
+  $('inappClose').addEventListener('click', () => { $('inapp').classList.add('hidden'); try { localStorage.setItem('sw-inapp-closed', '1'); } catch (e) { } });
+  function showInapp(on) { let closed = false; try { closed = localStorage.getItem('sw-inapp-closed') === '1'; } catch (e) { } const v = on && INAPP && !closed; $('inapp').classList.toggle('hidden', !v); document.body.classList.toggle('inapp', v); }
   document.querySelectorAll('.fs-btn').forEach(b => {
     b.addEventListener('touchstart', ev => ev.stopPropagation(), { passive: true });
     if (fsSupported) { b.addEventListener('click', toggleFullscreen); return; } // パソコンや Android
