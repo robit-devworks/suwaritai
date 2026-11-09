@@ -1498,6 +1498,7 @@
     if (!lastResult) return;
     try { const p = navigator.clipboard && navigator.clipboard.writeText(shareText(lastResult)); if (p && p.catch) p.catch(() => { }); } catch (e) { }
   });
+  document.querySelectorAll('.dg-link').forEach((a) => a.addEventListener('click', () => track('デストロイ碁へ（' + a.dataset.from + '）')));
   document.querySelectorAll('.follow-x').forEach((a) => a.addEventListener('click', () => track('作者をフォローを押した（' + (a.id === 'bFollow' ? '結果' : a.closest('#title') ? 'タイトル' : a.closest('#mpres') ? 'オンライン結果' : '遊び方') + '）')));
   $('bShareImg').addEventListener('click', async () => {
     track('結果の画像を作った');
