@@ -1263,7 +1263,7 @@
     if (document.pointerLockElement) document.exitPointerLock();
     if (!demo || demo.over) demo = SW.create({ seed: (Math.random() * 1e9) | 0 });
     G = null; clearWorld();
-    show('title');
+    show('title'); showInapp(true);
     const dk = todayKey();
     $('dailyBest').textContent = profile.daily && profile.daily.date === dk ? '今日のベスト ' + profile.daily.score : '未挑戦';
     $('bestLine').textContent = profile.best ? `自己ベスト ${profile.best}点「${profile.bestTitle}」・乗車 ${profile.plays} 回` : '降りる人を見極めて、座って、徳を積め。';
@@ -1294,7 +1294,7 @@
     G = SW.create({ seed, mode });
     G.modeName = mode;
     inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
-    state = 'play'; show(null);
+    state = 'play'; show(null); showInapp(false);
     $('hud').classList.remove('hidden');
     if (isTouch) $('touch').classList.remove('hidden');
     hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = -1;
@@ -1334,7 +1334,11 @@
     $('bFs').textContent = on ? '全画面を終了' : '⛶ 全画面';
     $('bFs2').textContent = on ? '全画面を終了' : '⛶ 全画面';
   }
-  $('a2hsSteps').innerHTML = (isIOS ? [
+  // X・Instagram・LINE などのアプリの中のブラウザ（ホーム画面に追加・全画面ができない）
+  const INAPP = /FBAN|FBAV|Instagram|Line\/|Twitter|TikTok|musical_ly|BytedanceWebview|Discord|Threads|; wv\)/i.test(navigator.userAgent);
+  const OPEN_IN_BROWSER = isIOS ? '右下（または右上）の<b>「…」や共有ボタン</b>から「<b>Safari で開く</b>」（または「ブラウザで開く」）を選ぶ'
+    : '右上の<b>「⋮」</b>から「<b>ブラウザで開く</b>」（または「Chrome で開く」）を選ぶ';
+  $('a2hsSteps').innerHTML = (INAPP ? ['いまは <b>X などのアプリの中</b>で開いています。' + OPEN_IN_BROWSER + '。見つからなければ下の「URL をコピー」で、Safari / Chrome に貼りつけて開く'] : []).concat(isIOS ? [
     'アドレスバーの右にある<b>共有ボタン</b>（□に↑のマーク）を押す。見つからなければ右下の「…」→「共有」',
     '「<b>表示を増やす</b>」を押して、「<b>ホーム画面に追加</b>」を選ぶ',
     'ホーム画面にできた<b>スワリタイのアイコン</b>から開く',
@@ -1346,8 +1350,16 @@
     'Chrome / Edge のアドレスバーの右にある<b>インストールのマーク</b>を押す（なければ右上の「⋮」→「キャスト、保存、共有」→「ページをアプリとしてインストール」）',
     'できた<b>スワリタイのアイコン</b>から開く',
   ]).map(t => `<li>${t}</li>`).join('');
+  $('a2hsCopy').classList.toggle('hidden', !INAPP);
   function openA2hs(e) { if (e) { e.preventDefault(); e.stopPropagation(); } if (state === 'play') pause(); $('a2hs').classList.remove('hidden'); }
   $('a2hsClose').addEventListener('click', () => $('a2hs').classList.add('hidden'));
+  const copyUrl = (el) => { const u = SHARE_URL.split('?')[0]; try { const p = navigator.clipboard.writeText(u); if (p && p.then) p.then(() => { el.textContent = 'コピーしました'; }, () => { el.textContent = u; }); } catch (e) { el.textContent = u; } };
+  $('a2hsCopy').addEventListener('click', () => copyUrl($('a2hsCopy')));
+  // タイトルに「ブラウザで開いてね」の帯を出す（アプリの中のとき）
+  $('inappText').innerHTML = '⚠ <b>アプリの中のブラウザ</b>です。' + (isIOS ? '「…」→「Safari で開く」' : '「⋮」→「ブラウザで開く」') + 'で開き直すと、全画面・ホーム画面に追加ができます';
+  $('inappCopy').addEventListener('click', () => copyUrl($('inappCopy')));
+  $('inappClose').addEventListener('click', () => { $('inapp').classList.add('hidden'); try { sessionStorage.setItem('sw-inapp-closed', '1'); } catch (e) { } });
+  function showInapp(on) { let closed = false; try { closed = sessionStorage.getItem('sw-inapp-closed') === '1'; } catch (e) { } const v = on && INAPP && !closed; $('inapp').classList.toggle('hidden', !v); document.body.classList.toggle('inapp', v); }
   document.querySelectorAll('.fs-btn').forEach(b => {
     b.addEventListener('touchstart', ev => ev.stopPropagation(), { passive: true });
     if (fsSupported) { b.addEventListener('click', toggleFullscreen); return; } // パソコンや Android

@@ -65,6 +65,12 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #pauseBtn,#fsBtn{pointer-events:auto;width:40px;height:40px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:18px}
 #a2hs{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,14,.7)}
 #a2hs ol{padding-left:20px;font-size:14px;line-height:1.8;margin:6px 0}
+#inapp{display:flex;align-items:center;gap:6px;margin:-4px 0 8px;padding:6px 8px;border-radius:10px;background:#5a1d14;color:#fff;font-size:11.5px;line-height:1.45;text-align:left}
+#inapp span{flex:1;min-width:0}
+body.inapp .logo .tag{display:none}
+body.inapp .logo{margin-bottom:6px}
+#inapp button{flex:none;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:800}
+#inapp #inappClose{padding:5px 9px}
 #dailyRow .btn{flex:1}
 .olcodein{flex:1;min-width:0;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:18px;text-align:center;letter-spacing:.2em;user-select:text;-webkit-user-select:text}
 .olcode{text-align:center;font-size:15px;margin:4px 0 8px}
@@ -366,6 +372,8 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <!-- タイトル -->
 <div id="title" class="screen hidden">
   <div class="card">
+    <!-- X などのアプリの中で開いたときの案内 -->
+    <div id="inapp" class="hidden"><span id="inappText"></span><button id="inappCopy">🔗 URL</button><button id="inappClose" aria-label="閉じる">✕</button></div>
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
     <button class="btn land-only" id="bLand">📱 横向き・全画面で遊ぶ <span class="pill">おすすめ</span></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
@@ -523,6 +531,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h2>全画面で遊ぶには</h2>
     <ol id="a2hsSteps"></ol>
     <p class="small">アイコンから開くと、ブラウザのバーが消えて画面いっぱいで遊べます。</p>
+    <button class="btn hidden" id="a2hsCopy">🔗 URL をコピー</button>
     <button class="btn main" id="a2hsClose">わかった</button>
   </div>
 </div>
@@ -565,7 +574,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261109060603"></script>
-<script src="game.js?v=20261109060603"></script>
+<script src="logic.js?v=20261109061707"></script>
+<script src="game.js?v=20261109061707"></script>
 </body>
 </html>
