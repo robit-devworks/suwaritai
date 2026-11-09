@@ -1485,11 +1485,22 @@
       }, done(g) { return g.stats.gives > 0; },
       tick(g) { if (g.player.seat < 0 && !g.stats.gives) { TUT.i--; tutNext(g); } } },
     { t: '⑤ 揺れに踏ん張ろう', d: () => '立っていると電車が揺れる。「⚠ 揺れるぞ！」が出たら' + (isTouch ? '「🛡 踏ん張る」' : '<b>Space</b>') + 'で踏ん張る',
-      start() { TUT.lurch = null; }, done(g) { return g.stats.braces > 0; },
+      start() { TUT.lurch = null; TUT.fails = 0; TUT.ldt = null; }, done(g) { return g.stats.braces > 0; },
       tick(g) {
         if (g.player.seat >= 0) return;
+        const L = TUT.lurch;
+        if (L && L.done && TUT.ldt == null) { // 揺れが終わった
+          TUT.ldt = g.t;
+          if (!g.stats.braces) {
+            TUT.fails++;
+            if (TUT.fails >= 3) { addToast('だいじょうぶ！ 本番で踏ん張ろう', 'good'); tutNext(g); return; }
+            addToast(isTouch ? 'もう一回！「⚠ 揺れるぞ！」が出たら、右下の 🛡 を押す' : 'もう一回！「⚠ 揺れるぞ！」が出たら Space', 'warn');
+          }
+        }
         if (g.phase !== 'travel' || g.phaseT > 19) return;
-        if (!TUT.lurch || TUT.lurch.done) { if (TUT.lurch && TUT.lurch.done && !g.stats.braces) addToast('もう一回！ 予告が出たらすぐ踏ん張る', 'warn'); TUT.lurch = { t: g.phaseT + 2.5, done: false, warned: false }; g.lurchPlan = [TUT.lurch]; }
+        if (L && !L.done) { if (!g.lurchPlan.includes(L)) g.lurchPlan = [L]; return; }
+        if (L && g.t - TUT.ldt < 4) return; // 次の揺れまで少し待つ（音が鳴りっぱなしにならないように）
+        TUT.lurch = { t: g.phaseT + 2.5, done: false, warned: false }; TUT.ldt = null; g.lurchPlan = [TUT.lurch];
       } },
     { t: '⑥ スリをつかまえよう', d: () => 'スリが乗客のポケットに手を入れる瞬間を見て、<b>抜いたあとに' + (isTouch ? '「👊 パンチ」' : 'F（パンチ）') + '</b>。抜く前に殴ると冤罪でカルマ！',
       start(g) {
