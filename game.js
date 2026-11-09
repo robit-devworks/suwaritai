@@ -10,6 +10,13 @@
   if (isTouch) document.body.classList.add('touch');
   const SHARE_URL = window.SUWARITAI_URL || (location.href.split('?')[0].split('#')[0] + '?ref=share');
 
+  // ================================================================ 数える（GoatCounter）
+  // 遊ばれ方の回数だけを数える（個人は分からない）。公開サイトで count.js が読めたときだけ動く
+  function track(name) {
+    try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: 'スワリタイ：' + name, title: 'スワリタイ：' + name, event: true }); } catch (e) { /* 無視 */ }
+  }
+  const MODE_JA = { normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
   let profile = { name: '', best: 0, bestTitle: '', daily: { date: '', score: 0 }, ach: {}, chikanTotal: 0, plays: 0, unlock: {}, sound: true, bests: {} };
@@ -841,7 +848,7 @@
   }
   function tone(freq, dur, type, vol, when, slideTo) {
     const ctx = AU.ctx; if (!ctx || !AU.on) return;
-    const t0 = ctx.currentTime + (when || 0);
+    const t0 = ctx.currentTime + (when || 0) + (AU.tOff || 0);
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t0);
     if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
@@ -850,13 +857,14 @@
   }
   function noise(dur, freq, vol, type, when) {
     const ctx = AU.ctx; if (!ctx || !AU.on || !AU.noise) return;
-    const t0 = ctx.currentTime + (when || 0);
+    const t0 = ctx.currentTime + (when || 0) + (AU.tOff || 0);
     const s = ctx.createBufferSource(); s.buffer = AU.noise;
     const f = ctx.createBiquadFilter(); f.type = type || 'bandpass'; f.frequency.value = freq || 1000;
     const g = ctx.createGain(); g.gain.setValueAtTime(vol || 0.3, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     s.connect(f); f.connect(g); g.connect(AU.master); s.start(t0, Math.random()); s.stop(t0 + dur + 0.05);
   }
   function sfx(name) {
+    if (window.__sfxLog) window.__sfxLog.push([performance.now() / 1000, name]); // 宣伝動画用の記録
     switch (name) {
       case 'coin': tone(988, 0.08, 'square', 0.12); tone(1319, 0.25, 'square', 0.12, 0.07); break;
       case 'hit': noise(0.15, 600, 0.7, 'lowpass'); tone(110, 0.15, 'sine', 0.5, 0, 50); break;
@@ -1007,6 +1015,7 @@
     // スワイプでの上下左右（スマホ用のコナミコマンド）
   });
   function unlock(k, msg) {
+    if (!profile.unlock[k]) track('隠しモード開放：' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' }[k] || k));
     if (!profile.unlock[k]) { profile.unlock[k] = true; saveProfile(); }
     titleToast(msg); sfx('clear'); renderModes();
   }
@@ -1214,7 +1223,13 @@
   }
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { show(backTo); }));
   $('nameIn').value = profile.name || '';
-  $('nameIn').addEventListener('change', () => { profile.name = $('nameIn').value.trim().slice(0, 12); saveProfile(); });
+  // 名前は入力のたびに保存し、少し待ってからランキングの名前も直す
+  let nameTimer = 0;
+  $('nameIn').addEventListener('input', () => {
+    profile.name = $('nameIn').value.trim().slice(0, 12); saveProfile();
+    clearTimeout(nameTimer); nameTimer = setTimeout(() => syncName(), 1200);
+  });
+  $('nameIn').addEventListener('change', () => { clearTimeout(nameTimer); syncName(); });
   $('bSnd').textContent = AU.on ? '🔊' : '🔇';
   $('bSnd').addEventListener('click', () => { AU.on = !AU.on; profile.sound = AU.on; saveProfile(); $('bSnd').textContent = AU.on ? '🔊' : '🔇'; initAudio(); if (AU.master) AU.master.gain.value = AU.on ? 0.6 : 0; if (!AU.on && speechOK) try { speechSynthesis.cancel(); } catch (e) { } });
   function titleScreen() {
@@ -1248,6 +1263,7 @@
     for (const [, m] of itemMeshes) scene.remove(m); itemMeshes.clear();
   }
   function startGame(mode) {
+    track((profile.plays ? '出発した：' : '初めて出発した：') + (MODE_JA[mode] || mode));
     initAudio();
     clearWorld();
     const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
@@ -1275,10 +1291,10 @@
   $('bStart').addEventListener('click', () => startGame('normal'));
   $('bDaily').addEventListener('click', () => startGame('daily'));
   $('bModes').addEventListener('click', () => { backTo = 'title'; renderModes(); show('modes'); });
-  $('bHow').addEventListener('click', () => { backTo = 'title'; show('howto'); });
+  $('bHow').addEventListener('click', () => { backTo = 'title'; show('howto'); track('遊び方を開いた'); });
   $('bHow2').addEventListener('click', () => { backTo = 'pause'; show('howto'); });
   $('bAch').addEventListener('click', () => { backTo = 'title'; renderAch(); show('ach'); });
-  $('bRank').addEventListener('click', () => { backTo = 'title'; show('rank'); loadRanking(rankTab); });
+  $('bRank').addEventListener('click', () => { backTo = 'title'; show('rank'); setRankTab(rankTab); track('ランキングを開いた'); });
   $('pauseBtn').addEventListener('click', () => pause());
   $('pauseBtn').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
   $('bResume').addEventListener('click', () => { state = 'play'; show(null); if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } } });
@@ -1334,8 +1350,16 @@
     $('rStats').innerHTML = statsArr.map(([i, n, v]) => `<div><b>${i} ${v}</b>${n}</div>`).join('');
     const achNames = newAch.map(id => (SW.ACHIEVEMENTS.find(a => a.id === id) || {}).name).filter(Boolean);
     $('rAch').innerHTML = (achNames.length ? '🎖 実績：' + achNames.join('、') : '') + (unlockMsg ? '<br>' + unlockMsg : '') + (s.bestDeed ? `<br><span style="color:var(--sub)">最大の善行：${s.bestDeed.label}（+${s.bestDeed.pts}）</span>` : '');
-    $('rRank').textContent = '';
+    $('rRank').textContent = ''; $('rMiniBox').classList.add('hidden'); $('rMini').innerHTML = '';
     lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless };
+    {
+      const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行' }[r.cause] || r.cause;
+      const band = sc.total >= 2000 ? '2000〜' : sc.total >= 1000 ? '1000〜1999' : sc.total >= 500 ? '500〜999' : sc.total >= 200 ? '200〜499' : '0〜199';
+      track('結果：' + (MODE_JA[mode] || mode) + '：' + causeJa);
+      track('スコア：' + band);
+      if (!g.endless) track('終わった駅：' + Math.min(g.stats.stations, SW.lastStation(g)) + '駅目');
+      for (const a of newAch) { const ach = SW.ACHIEVEMENTS.find(x => x.id === a); if (ach) track('実績：' + ach.name); }
+    }
     $('bShareX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(lastResult));
     show('result');
     submitScore(lastResult);
@@ -1347,10 +1371,12 @@
     return `${modeTxt}スワリタイ！で ${R.sc.total}点\n称号「${R.sc.title}」\n${how}\n譲った席${s.gives}・撃退した痴漢${s.chikanKO}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #降りる人を見極めろ #バカゲー`;
   }
   $('bShareX').addEventListener('click', () => {
+    track('X でシェアを押した');
     if (!lastResult) return;
     try { const p = navigator.clipboard && navigator.clipboard.writeText(shareText(lastResult)); if (p && p.catch) p.catch(() => { }); } catch (e) { }
   });
   $('bShareImg').addEventListener('click', async () => {
+    track('結果の画像を作った');
     if (!lastResult) return;
     const cv = drawShareImage(lastResult);
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
@@ -1424,9 +1450,46 @@
     return fbWait;
   }
   function rankName() {
-    let n = (profile.name || '').trim().slice(0, 12);
-    if (!n || /ROBIT|開発/i.test(n)) n = '名無しの乗客';
-    return n;
+    return (profile.name || '').trim().slice(0, 12) || '名無しの乗客';
+  }
+  // 「ROBIT」「開発」が入った名前は、決まりで開発者の端末しか書けない。断られたら名無しで書き直す
+  let nameRefused = false;
+  async function fbSet(ref, data) {
+    try { await withTimeout(ref.set(data), 10000); nameRefused = false; return data.n; }
+    catch (e) {
+      if (!/ROBIT|開発/.test(data.n)) throw e;
+      nameRefused = true;
+      await withTimeout(ref.set(Object.assign({}, data, { n: '名無しの乗客' })), 10000);
+      return '名無しの乗客';
+    }
+  }
+  function nameNote(text) { const el = $('nameNote'); if (!el) return; el.textContent = text || ''; }
+  // 名前を変えたら、もう載っている記録の名前も変える
+  let nameSync = Promise.resolve();
+  function syncName() {
+    nameSync = nameSync.then(async () => {
+      const name = rankName();
+      try {
+        if (DB && myId) {
+          const ref = DB.doc('scores/' + myId);
+          const snap = await withTimeout(ref.get(), 10000);
+          const od = snap && snap.exists ? (typeof snap.data === 'function' ? snap.data() : snap.data) : null;
+          if (od && od.name !== name) { await withTimeout(ref.set(Object.assign({}, od, { name })), 10000); nameNote('ランキングの名前も「' + name + '」に変えました'); }
+          return;
+        }
+        if (!fbAllowed) return;
+        const F = await firebaseReady(); if (!F) return;
+        let changed = false, used = name;
+        for (const path of ['suwaritai/best/' + F.uid, 'suwaritai/daily/' + todayKey() + '/' + F.uid]) {
+          const ref = F.db.ref(path);
+          const old = (await withTimeout(ref.get(), 10000)).val();
+          if (old && old.n !== name) { used = await fbSet(ref, { n: name, s: old.s, ti: old.ti || '', t: F.TS }); changed = true; }
+        }
+        if (nameRefused) nameNote('「ROBIT」「開発」が入った名前はランキングでは使えません（名無しの乗客になります）');
+        else if (changed) nameNote('ランキングの名前も「' + used + '」に変えました');
+        else nameNote('');
+      } catch (e) { nameNote('ランキングの名前を変えられませんでした（次に遊んだときにもう一度送ります）'); }
+    });
   }
   // 1 件ずつ順番に書く（同じ場所への書きこみを重ねない）
   let submitting = Promise.resolve();
@@ -1438,8 +1501,9 @@
     submitting = submitting.then(async () => {
       try {
         const res = DB ? await submitClaude(R) : await submitFirebase(R);
-        if (state === 'result' && res) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : 'みんなのランキング'}で ${res.rank}位 / ${res.total}人${res.improved ? '（記録更新！）' : ''}` + (profile.name ? '' : '　※タイトルの「乗客名」を入れると名前が載ります');
+        if (state === 'result' && res) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : 'みんなのランキング'}で ${res.rank}位 / ${res.total}人${res.improved ? '（記録更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : profile.name ? '' : '　※タイトルの「乗客名」を入れると名前が載ります');
         else if (state === 'result') $('rRank').textContent = '';
+        if (state === 'result' && res) showMiniBoard(R.mode === 'daily' ? 'daily' : 'normal');
       } catch (e) {
         if (state === 'result') $('rRank').textContent = 'ランキングに記録できませんでした（記録はこの端末に残っています）';
       }
@@ -1452,7 +1516,7 @@
       const ref = F.db.ref(path);
       const old = (await withTimeout(ref.get(), 10000)).val();
       const better = !old || R.sc.total > old.s;
-      if (better || old.n !== name) await withTimeout(ref.set({ n: name, s: better ? R.sc.total : old.s, ti: better ? R.sc.title : old.ti, t: F.TS }), 10000);
+      if (better || old.n !== name) await fbSet(ref, { n: name, s: better ? R.sc.total : old.s, ti: better ? R.sc.title : old.ti, t: F.TS });
       const myS = better ? R.sc.total : old.s;
       const parent = path.slice(0, path.lastIndexOf('/'));
       const above = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(myS + 0.5).limitToFirst(1000).get(), 10000)).numChildren();
@@ -1486,26 +1550,50 @@
     return snap.docs.map(d => { const v = typeof d.data === 'function' ? d.data() : d.data; return Object.assign({ id: d.id }, v || {}); });
   }
   // 表に出す形 [{id, name, score, title}]
+  // 表に出す形 { list:[{id, name, score, title}]（上位）, me:自分の id, mine:{rank, score, name, title} | null, total }
+  const TOP_N = 100;
   async function fetchBoard(tab) {
     const dk = todayKey();
     if (DB) {
-      const list = await fetchClaude();
-      const arr = tab === 'daily' ? list.filter(x => x.dailyDate === dk && x.dailyScore > 0).map(x => ({ id: x.id, name: x.name, score: x.dailyScore, title: x.dailyTitle }))
-        : list.filter(x => x.best > 0).map(x => ({ id: x.id, name: x.name, score: x.best, title: x.title }));
-      return { list: arr.sort((a, b) => b.score - a.score), me: myId };
+      const all = await fetchClaude();
+      const arr = (tab === 'daily' ? all.filter(x => x.dailyDate === dk && x.dailyScore > 0).map(x => ({ id: x.id, name: x.name, score: x.dailyScore, title: x.dailyTitle }))
+        : all.filter(x => x.best > 0).map(x => ({ id: x.id, name: x.name, score: x.best, title: x.title }))).sort((a, b) => b.score - a.score);
+      const i = arr.findIndex(x => x.id === myId);
+      return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length };
     }
     const F = await firebaseReady(); if (!F) return null;
     const path = tab === 'daily' ? 'suwaritai/daily/' + dk : 'suwaritai/best';
-    const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(50).get(), 10000);
+    const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(TOP_N).get(), 10000);
     const arr = [];
     snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: v.n, score: v.s || 0, title: v.ti }); });
-    return { list: arr.sort((a, b) => b.score - a.score), me: F.uid };
+    arr.sort((a, b) => b.score - a.score);
+    let mine = null, total = arr.length;
+    const own = (await withTimeout(F.db.ref(path + '/' + F.uid).get(), 10000)).val();
+    if (own) {
+      const above = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(own.s + 0.5).limitToFirst(5000).get(), 10000)).numChildren();
+      mine = { id: F.uid, rank: above + 1, score: own.s, name: own.n, title: own.ti };
+    }
+    if (arr.length >= TOP_N) total = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(0).limitToFirst(10000).get(), 10000)).numChildren();
+    return { list: arr, me: F.uid, mine, total };
   }
-  document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => {
-    document.querySelectorAll('[data-rt]').forEach(x => x.classList.toggle('on', x === b));
-    rankTab = b.dataset.rt; loadRanking(rankTab);
-  }));
+  document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
+  function setRankTab(tab) {
+    rankTab = tab;
+    document.querySelectorAll('[data-rt]').forEach(x => x.classList.toggle('on', x.dataset.rt === tab));
+    loadRanking(tab);
+  }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  // 同じ点数は同じ順位にする
+  function rankRows(b, limit) {
+    let html = '', prev = null, rank = 0, meShown = false;
+    b.list.slice(0, limit).forEach((x, i) => {
+      if (x.score !== prev) { rank = i + 1; prev = x.score; }
+      const me = x.id === b.me; if (me) meShown = true;
+      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${esc(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
+    });
+    if (b.mine && !meShown) html += `<div class="rk" style="justify-content:center;color:var(--sub)">⋮</div><div class="rk me"><span class="n">${b.mine.rank}</span><span class="nm">${esc(b.mine.name || '名無しの乗客')} <span class="pill">あなた</span><div class="ttl">${esc(b.mine.title)}</div></span><span class="sc">${b.mine.score}</span></div>`;
+    return html;
+  }
   async function loadRanking(tab) {
     const dk = todayKey();
     const listEl = $('rankList');
@@ -1519,10 +1607,20 @@
       const b = await fetchBoard(tab);
       if (!b) throw new Error('none');
       if (rankTab !== tab) return;
-      $('rankNote').textContent = tab === 'daily' ? '今日のダイヤ（' + dk + '）・全員同じ電車' : 'みんなの自己ベスト（上位50人）';
-      listEl.innerHTML = b.list.length ? b.list.slice(0, 50).map((x, i) => `<div class="rk ${x.id === b.me ? 'me' : ''}"><span class="n">${i + 1}</span><span class="nm">${esc(x.name || '名無しの乗客')}<div class="ttl">${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`).join('') : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
+      $('rankNote').textContent = (tab === 'daily' ? '今日のダイヤ（' + dk + '）・全員同じ電車' : 'みんなの自己ベスト') + '・' + b.total + '人' + (b.total > TOP_N ? '（上位' + TOP_N + '人）' : '');
+      listEl.innerHTML = b.list.length ? rankRows(b, TOP_N) : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
     } catch (e) { $('rankNote').textContent = 'オンラインのランキングを読めませんでした。この端末の記録：'; local(); }
   }
+  // 結果画面の小さい順位表（上位 5 人と自分）
+  async function showMiniBoard(tab) {
+    try {
+      const b = await fetchBoard(tab);
+      if (!b || state !== 'result' || !b.list.length) return;
+      $('rMini').innerHTML = rankRows(b, 5);
+      $('rMiniBox').classList.remove('hidden');
+    } catch (e) { /* 出さない */ }
+  }
+  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'daily' ? 'daily' : 'normal'); track('結果からランキングを開いた'); });
 
   // ================================================================ メインループ
   let lastT = performance.now(), ledT = 0, demoCam = 0;
@@ -1576,5 +1674,5 @@
   }
   if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(boot); else boot();
   // テスト用
-  window.__SW = { inp, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame() };
+  window.__SW = { inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame() };
 })();

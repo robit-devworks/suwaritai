@@ -139,11 +139,13 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .tabs button{flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-weight:800;font-size:13px}
 .tabs button.on{background:var(--accent);color:#fff}
 .rk{display:flex;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;align-items:center}
-.rk .n{width:28px;text-align:right;color:var(--sub);font-weight:800}
+.rk .n{width:34px;font-variant-numeric:tabular-nums;text-align:right;color:var(--sub);font-weight:800}
 .rk .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rk .ttl{font-size:11px;color:var(--sub)}
 .rk .sc{font-weight:800;color:var(--toku)}
 .rk.me{background:rgba(255,212,71,.12);border-radius:8px}
+#rMini .rk{padding:3px 8px;font-size:13px}
+#rMini .ttl{display:none}
 .achs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .ach{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:12px}
 .ach b{display:block;font-size:13px}
@@ -212,6 +214,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
     <button class="btn sub2" id="bModes">🔒 そのほかの路線</button>
     <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button></div>
     <div class="namebox">乗客名 <input id="nameIn" maxlength="12" placeholder="名無しの乗客"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button></div>
+    <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
   </div>
 </div>
@@ -263,7 +266,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
       <kbd>Esc</kbd><span>一時停止</span>
     </div>
     <p class="small">スコア ＝ 集めた徳 ＋ 駅ごとのボーナス ＋ 完走ボーナス − カルマ</p>
-    <p class="small">ランキングには「乗客名」とスコアだけを記録します（ログインは不要。端末ごとに自動で番号がつきます）。</p>
+    <p class="small">ランキングには「乗客名」とスコアだけを記録します（ログインは不要。端末ごとに自動で番号がつきます）。遊ばれた回数を GoatCounter で数えています（Cookie なし・個人は分かりません）。</p>
     <button class="btn sub2" data-back>もどる</button>
   </div>
 </div>
@@ -309,14 +312,28 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
     <div class="row"><a class="btn" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn" id="bShareImg">🖼 画像</button></div>
     <div class="row"><button class="btn main" id="bRetry">もう一回乗る</button></div>
     <button class="btn sub2" id="bToTitle">タイトルへ</button>
+    <div id="rMiniBox" class="hidden" style="margin-top:10px"><div id="rMini"></div><button class="btn sub2" id="bRankR" style="margin-top:6px">🏆 みんなのランキングを見る</button></div>
   </div>
 </div>
 
+<!-- アクセス解析（GoatCounter・デストロイ碁と同じ）。Cookie を使わず、個人は分からない（開かれた回数・どこから来たか・端末の種類だけ）。
+     公開しているサイトでだけ数える。開発者とテスト用の端末は数えない -->
+<script>
+  (function () {
+    if (location.hostname !== 'robit-devworks.github.io') return;
+    try {
+      if (localStorage.getItem('destroy-go-dev') === '1' || localStorage.getItem('destroy-go-tester') === '1' || /[?&]tester=1\b/.test(location.search)) { localStorage.setItem('skipgc', 't'); return; }
+    } catch (e) { /* 保存できない環境でも数える */ }
+    var s = document.createElement('script');
+    s.async = true; s.src = 'https://gc.zgo.at/count.js'; s.setAttribute('data-goatcounter', 'https://destroygo.goatcounter.com/count');
+    document.head.appendChild(s);
+  })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261108173438"></script>
-<script src="game.js?v=20261108173438"></script>
+<script src="logic.js?v=20261109002912"></script>
+<script src="game.js?v=20261109002912"></script>
 </body>
 </html>
