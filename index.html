@@ -95,7 +95,8 @@ body.inapp .logo{margin-bottom:6px}
 .mpr .sc{font-size:20px;font-weight:800;color:var(--toku)}
 .mpr.me{outline:2px solid var(--toku)}
 .mpr i{width:12px;height:12px;border-radius:50%;flex:none}
-#bLand{display:none;border-color:var(--toku);color:var(--toku)}
+#bLand{display:none;width:100%;margin:0 0 4px;padding:4px;border:0;background:none;color:var(--toku);font-size:13px;font-weight:800;text-align:center}
+#bLand u{color:var(--sub);font-weight:500;font-size:12px;text-underline-offset:3px}
 body.touch #bLand{display:block}
 #rotate{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(8,10,14,.92);text-align:center;padding:16px}
 #rotate .rot-phone{font-size:72px;animation:rot 1.8s ease-in-out infinite}
@@ -219,6 +220,35 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .pill{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px;color:var(--sub)}
 @media (max-height:700px){ html:not(.pland) .logo h1{font-size:44px} html:not(.pland) .btn{padding:9px;margin:6px 0} html:not(.pland) .btn.main{font-size:17px} }
 @media (max-height:700px) and (orientation: portrait){ html:not(.pland) #result .btn{margin:3px 0;padding:8px} html:not(.pland) #result .stats{margin-top:5px} html:not(.pland) .res-text{margin:2px 0 4px} html:not(.pland) #result .newach{margin-top:4px} html:not(.pland) #result .score{font-size:40px} }
+/* ---------- 縦向きのスマホ（タイトル）：横画面と同じく箱をなくして電車を見せる。上にロゴ、下（親指の届くところ）にボタン ---------- */
+@media (orientation: portrait) and (max-width: 600px) {
+  html:not(.pland) #title{align-items:stretch;background:linear-gradient(180deg,rgba(8,10,14,.78),rgba(8,10,14,.2) 38%,rgba(8,10,14,.35) 55%,rgba(8,10,14,.85));padding:max(10px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  html:not(.pland) #title .card{width:100%;max-height:none;height:100%;background:none;border:0;box-shadow:none;padding:0;display:flex;flex-direction:column;gap:8px;overflow:visible}
+  html:not(.pland) #title .card>*{margin:0}
+  html:not(.pland) #title #inapp{order:0}
+  html:not(.pland) #title .namebox{order:1;justify-content:flex-end;flex-wrap:nowrap;white-space:nowrap}
+  html:not(.pland) #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
+  html:not(.pland) #title .namebox .btn{padding:5px 9px}
+  html:not(.pland) #title .logo{order:2;margin:clamp(6px,4vh,40px) 0 auto}
+  html:not(.pland) #title .logo h1{font-size:clamp(44px,15vw,66px)}
+  html:not(.pland) #title #bLand{order:3}
+  html:not(.pland) #title #bStart{order:4;font-size:clamp(17px,5vw,20px);padding:14px}
+  html:not(.pland) #title #dailyRow{order:5}
+  html:not(.pland) #title #bModes{order:6}
+  html:not(.pland) #title .row:not(#dailyRow){order:7}
+  html:not(.pland) #title #nameNote{order:8}
+  html:not(.pland) #title #bestLine{order:9}
+  html:not(.pland) #title #bPort{order:9}
+  html:not(.pland) #title .card>p.small:last-child{order:10}
+  html:not(.pland) #title .btn{margin:0;padding:9px 6px}
+  html:not(.pland) #title #bStart{padding:14px}
+  html:not(.pland) #title .btn:not(.main), html:not(.pland) #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
+  html:not(.pland) #title .row .btn{white-space:nowrap;font-size:clamp(12px,3.6vw,15px);padding:9px 2px;min-width:0}
+  html:not(.pland) #title #dailyRow .btn{display:flex;flex-direction:column;align-items:center;gap:2px}
+  html:not(.pland) #title .small{margin:0}
+  html:not(.pland) #title .logo .tag{display:none}
+  html:not(.pland) #title #bLand, html:not(.pland) #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
+}
 /* ---------- 横向きのスマホ（高さが低い画面） ---------- */
 @media (orientation: landscape) and (max-height: 520px) {
   #topL{width:min(32vw,250px)}
@@ -246,12 +276,32 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
   .screen{padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left))}
   .card{padding:12px 16px}
   .logo h1{font-size:clamp(32px,7vw,54px)}
-  /* タイトル：左にロゴ、右にボタン */
-  #title .card{width:min(780px,100%);display:grid;grid-template-columns:1fr 1.25fr;column-gap:18px;align-items:center}
-  #title .card>*{grid-column:2}
-  #title .logo{grid-column:1;grid-row:1 / span 9;margin:0}
-  #title .btn{margin:3px 0;padding:6px}
-  #title .btn.main{font-size:16px}
+  /* タイトル（案A）：箱をなくして電車を見せる。左に大きいロゴ、右に大きいボタン、下に遊び方・ランキング・実績 */
+  #title{align-items:stretch;background:linear-gradient(90deg,rgba(8,10,14,.8),rgba(8,10,14,.25) 50%,rgba(8,10,14,.72));padding:max(6px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  #title .card{width:100%;max-width:900px;margin:0 auto;max-height:none;background:none;border:0;box-shadow:none;padding:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto auto 1fr auto auto auto auto;column-gap:24px;row-gap:6px;align-content:center;overflow:visible}
+  #title .card>*{grid-column:2;margin:0}
+  #title #inapp{grid-column:1 / span 2;grid-row:1}
+  #title .namebox{grid-row:2;justify-content:flex-end;margin:0}
+  #title .logo{grid-column:1;grid-row:2 / span 4;align-self:center;text-align:left;margin:0}
+  #title .logo h1{font-size:clamp(40px,8.4vw,72px);transform:rotate(-4deg)}
+  #title .logo p{font-size:clamp(13px,2.2vw,19px)}
+  #title .logo .tag, #title #bestLine, #title #nameNote{display:none}
+  #title #bStart{grid-row:3;align-self:end;font-size:clamp(16px,2.6vw,21px);padding:clamp(9px,1.9vh,14px)}
+  #title #dailyRow{grid-row:4}
+  #title #bModes{grid-row:5}
+  #title #bLand, #title #bPort{grid-column:1;grid-row:6;align-self:end;width:auto;justify-self:start;text-align:left}
+  #title #bPort{padding:4px 10px;font-size:12px}
+  #title .card>p.small:last-child{grid-column:2;grid-row:6;align-self:end;text-align:right;margin:0}
+  #title .row:not(#dailyRow){grid-column:1 / span 2;grid-row:7}
+  #title .btn{margin:0;padding:7px}
+  #title .btn:not(.main), #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
+  #title .namebox .btn{padding:5px 9px}
+  #title .namebox{flex-wrap:nowrap;white-space:nowrap;min-width:0}
+  #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
+  #title #bLand, #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
+  #title #dailyRow .btn, #title #bModes{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,2.1vw,16px);padding:7px 4px}
+  #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #title #dailyRow .pill{font-size:10px;padding:0 5px}
   body.touch #bLand.landed{display:none}
   #online .card>p.small:first-of-type{display:none}
   #online h2{margin-bottom:4px;font-size:17px}
@@ -259,9 +309,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
   .olm{padding:5px 8px;margin:3px 0}
   .olcode{margin:0 0 4px} .olcode b{font-size:24px}
   #online .btn{margin:4px 0;padding:7px}
-  #title #bLand{padding:5px;font-size:13px}
-  #title .namebox{margin-top:3px}
-  #title .small{margin:4px 0}
+  #title #bLand{padding:2px;font-size:12px}
   /* 結果：左に点数、右に内訳とボタン */
   #result .card{width:min(820px,100%);display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-items:start}
   #result .rL,#result .rR{display:block}
@@ -269,7 +317,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
   .stats{margin-top:5px;gap:4px} .stats div{padding:3px} .stats b{font-size:14px} .brk{padding:6px 10px;font-size:12px}
   #result .btn{margin:3px 0;padding:7px}
 }
-/* ---------- 疑似横向き（画面を 90 度回す）。上の「横向きのスマホ」と同じ並びにする ---------- */
+/* ---------- 疑似横向き（画面を 90 度回す）。上の「横向きのスマホ」と同じ並び。横向きの側を直したら python3 suwaritai/pland_css.py suwaritai/index.html で作り直す ---------- */
 html.pland, html.pland body{overflow:hidden}
 html.pland body{position:fixed;top:0;left:0;width:var(--ph);height:var(--pw);transform-origin:0 0;transform:translateX(var(--pw)) rotate(90deg)}
 html.pland #c{width:100%;height:100%}
@@ -303,11 +351,31 @@ html.pland #joyHint{width:76px;height:76px}
 html.pland .screen{padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left))}
 html.pland .card{padding:12px 16px}
 html.pland .logo h1{font-size:clamp(32px,calc(var(--ph) * 7 / 100),54px)}
-html.pland #title .card{width:min(780px,100%);display:grid;grid-template-columns:1fr 1.25fr;column-gap:18px;align-items:center}
-html.pland #title .card>*{grid-column:2}
-html.pland #title .logo{grid-column:1;grid-row:1 / span 9;margin:0}
-html.pland #title .btn{margin:3px 0;padding:6px}
-html.pland #title .btn.main{font-size:16px}
+html.pland #title{align-items:stretch;background:linear-gradient(90deg,rgba(8,10,14,.8),rgba(8,10,14,.25) 50%,rgba(8,10,14,.72));padding:max(6px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+html.pland #title .card{width:100%;max-width:900px;margin:0 auto;max-height:none;background:none;border:0;box-shadow:none;padding:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto auto 1fr auto auto auto auto;column-gap:24px;row-gap:6px;align-content:center;overflow:visible}
+html.pland #title .card>*{grid-column:2;margin:0}
+html.pland #title #inapp{grid-column:1 / span 2;grid-row:1}
+html.pland #title .namebox{grid-row:2;justify-content:flex-end;margin:0}
+html.pland #title .logo{grid-column:1;grid-row:2 / span 4;align-self:center;text-align:left;margin:0}
+html.pland #title .logo h1{font-size:clamp(40px,calc(var(--ph) * 8.4 / 100),72px);transform:rotate(-4deg)}
+html.pland #title .logo p{font-size:clamp(13px,calc(var(--ph) * 2.2 / 100),19px)}
+html.pland #title .logo .tag, html.pland #title #bestLine, html.pland #title #nameNote{display:none}
+html.pland #title #bStart{grid-row:3;align-self:end;font-size:clamp(16px,calc(var(--ph) * 2.6 / 100),21px);padding:clamp(9px,calc(var(--pw) * 1.9 / 100),14px)}
+html.pland #title #dailyRow{grid-row:4}
+html.pland #title #bModes{grid-row:5}
+html.pland #title #bLand, html.pland #title #bPort{grid-column:1;grid-row:6;align-self:end;width:auto;justify-self:start;text-align:left}
+html.pland #title #bPort{padding:4px 10px;font-size:12px}
+html.pland #title .card>p.small:last-child{grid-column:2;grid-row:6;align-self:end;text-align:right;margin:0}
+html.pland #title .row:not(#dailyRow){grid-column:1 / span 2;grid-row:7}
+html.pland #title .btn{margin:0;padding:7px}
+html.pland #title .btn:not(.main), html.pland #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
+html.pland #title .namebox .btn{padding:5px 9px}
+html.pland #title .namebox{flex-wrap:nowrap;white-space:nowrap;min-width:0}
+html.pland #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
+html.pland #title #bLand, html.pland #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
+html.pland #title #dailyRow .btn, html.pland #title #bModes{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,calc(var(--ph) * 2.1 / 100),16px);padding:7px 4px}
+html.pland #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.pland #title #dailyRow .pill{font-size:10px;padding:0 5px}
 html.pland body.touch #bLand.landed{display:none}
 html.pland #online .card>p.small:first-of-type{display:none}
 html.pland #online h2{margin-bottom:4px;font-size:17px}
@@ -316,9 +384,7 @@ html.pland .olm{padding:5px 8px;margin:3px 0}
 html.pland .olcode{margin:0 0 4px}
 html.pland .olcode b{font-size:24px}
 html.pland #online .btn{margin:4px 0;padding:7px}
-html.pland #title #bLand{padding:5px;font-size:13px}
-html.pland #title .namebox{margin-top:3px}
-html.pland #title .small{margin:4px 0}
+html.pland #title #bLand{padding:2px;font-size:12px}
 html.pland #result .card{width:min(820px,100%);display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-items:start}
 html.pland #result .rL, html.pland #result .rR{display:block}
 html.pland .res-cause{font-size:22px}
@@ -375,7 +441,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <!-- X などのアプリの中で開いたときの案内 -->
     <div id="inapp" class="hidden"><span id="inappText"></span><button id="inappCopy">🔗 URL</button><button id="inappClose" aria-label="閉じる">✕</button></div>
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
-    <button class="btn land-only" id="bLand">📱 横向き・全画面で遊ぶ <span class="pill">おすすめ</span></button>
+    <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
     <div class="row" id="dailyRow"><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
     <button class="btn sub2" id="bModes">🔒 そのほかの路線</button>
@@ -574,7 +640,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261109062613"></script>
-<script src="game.js?v=20261109062613"></script>
+<script src="logic.js?v=20261109064205"></script>
+<script src="game.js?v=20261109064205"></script>
 </body>
 </html>
