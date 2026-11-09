@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>スワリタイ！ ポン出し版</title>
+<!-- ポン出し版：ポン出し選手権で 1 発目に出来あがったもの（コミット c7bceeb）を凍結したページ。
+     1 発目から変えたのは、このページの案内・GoatCounter・記録の保存場所（game.js の STORE_KEY）だけ -->
+<meta name="description" content="降りる人を見極めて座れ！善行で徳を積み、カルマに気をつけろ。電車FPSバカゲー。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1116; --panel:rgba(14,18,26,.78); --panel2:rgba(255,255,255,.08); --ink:#f4f1ea; --sub:#b8bdc8;
+  --stam:#4fd17a; --stamLow:#ff5a4f; --karma:#b366ff; --toku:#ffd447; --good:#5fe08a; --bad:#ff6b5e; --warn:#ffb13b;
+  --accent:#ff8a3d; --line:rgba(255,255,255,.14);
+  color-scheme:dark;
+}
+:root[data-theme="light"]{ --bg:#0e1116; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0e1116; } }
+:root[data-theme="dark"]{ --bg:#0e1116; }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'M PLUS Rounded 1c',system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+button{font-family:inherit;color:inherit;cursor:pointer}
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+#topL{position:absolute;left:max(10px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));width:min(46vw,300px)}
+#station{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 10px;backdrop-filter:blur(4px)}
+#stName{font-weight:800;font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stSub{font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stProg{height:3px;background:var(--panel2);border-radius:2px;margin-top:4px;overflow:hidden}
+#stProg i{display:block;height:100%;width:0;background:var(--accent)}
+.bar{margin-top:5px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800}
+.bar b{width:34px;flex:none;text-shadow:0 1px 2px #000}
+.bar .t{flex:1;height:12px;background:rgba(0,0,0,.55);border:1px solid var(--line);border-radius:7px;overflow:hidden;position:relative}
+.bar .t i{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:6px;transition:width .15s}
+#stamF{background:linear-gradient(90deg,#2ea85c,var(--stam))}
+#karmaF{background:linear-gradient(90deg,#6c35b8,var(--karma))}
+.bar .v{width:28px;text-align:right;text-shadow:0 1px 2px #000}
+#karmaBar.danger .t{box-shadow:0 0 0 2px var(--bad);animation:blink .5s infinite alternate}
+#stamBar.danger .t{box-shadow:0 0 0 2px var(--bad);animation:blink .5s infinite alternate}
+@keyframes blink{to{opacity:.55}}
+#buffs{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+.buff{font-size:11px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:1px 6px}
+#topR{position:absolute;right:max(10px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));text-align:right;display:flex;gap:8px;align-items:flex-start}
+#tokuBox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 10px;min-width:84px}
+#tokuBox small{display:block;font-size:10px;color:var(--sub)}
+#toku{font-size:22px;font-weight:800;color:var(--toku);line-height:1.1}
+#combo{font-size:11px;color:var(--accent);font-weight:800;min-height:13px}
+#pauseBtn{pointer-events:auto;width:40px;height:40px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:18px}
+#skills{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));display:flex;gap:6px;pointer-events:auto}
+.sk{position:relative;width:50px;height:54px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:21px;line-height:1;padding:0}
+.sk small{font-size:10px;color:var(--toku);font-weight:800;margin-top:3px}
+.sk kbd{position:absolute;left:4px;top:2px;font-size:9px;color:var(--sub);font-family:inherit}
+.sk.off{opacity:.38}
+.sk.on{box-shadow:0 0 0 2px var(--toku) inset;background:rgba(255,212,71,.18)}
+.sk .cd{position:absolute;left:0;right:0;bottom:0;background:rgba(255,212,71,.35);border-radius:0 0 11px 11px}
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}
+#cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85);box-shadow:0 0 2px #000}
+#cross:before{left:10px;top:3px;width:2px;height:16px}
+#cross:after{top:10px;left:3px;height:2px;width:16px}
+#cross.aim:before,#cross.aim:after{background:var(--toku)}
+#cross.mode:before,#cross.mode:after{background:#ff4fd8}
+#target{position:absolute;left:50%;top:calc(50% + 44px);transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 10px;font-size:12px;max-width:min(88vw,300px);text-align:left}
+#target h4{margin:0 0 2px;font-size:13px;color:var(--toku)}
+#target div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#prompt{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:rgba(0,0,0,.72);border:2px solid var(--toku);border-radius:999px;padding:7px 16px;font-weight:800;font-size:15px;white-space:nowrap}
+#prompt kbd{background:var(--toku);color:#222;border-radius:6px;padding:0 6px;margin-right:6px;font-family:inherit}
+#toasts{position:absolute;left:50%;top:84px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;width:min(92vw,520px)}
+.toast{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 12px;font-size:13px;text-align:center;animation:tin .25s ease-out}
+.toast.good{border-color:var(--good)} .toast.bad{border-color:var(--bad)} .toast.warn{border-color:var(--warn)}
+@keyframes tin{from{transform:translateY(-8px);opacity:0}}
+#pops{position:absolute;left:50%;top:40%;transform:translateX(-50%);width:0;height:0}
+.pop{position:absolute;left:0;transform:translateX(-50%);white-space:nowrap;font-weight:800;font-size:20px;text-shadow:0 2px 3px #000,0 0 8px rgba(0,0,0,.6);animation:popup 1.8s ease-out forwards}
+.pop.k{color:#d79cff;font-size:16px}
+.pop small{display:block;font-size:12px;text-align:center;color:#fff}
+@keyframes popup{0%{transform:translate(-50%,10px) scale(.7);opacity:0}15%{transform:translate(-50%,0) scale(1.1);opacity:1}80%{opacity:1}100%{transform:translate(-50%,-70px) scale(1);opacity:0}}
+#warn{position:absolute;left:50%;top:30%;transform:translateX(-50%);font-size:30px;font-weight:800;color:var(--warn);text-shadow:0 3px 0 #000,0 0 16px rgba(255,177,59,.6);white-space:nowrap;animation:shakeW .12s infinite}
+#warn small{display:block;font-size:14px;color:#fff;text-align:center}
+@keyframes shakeW{50%{transform:translateX(-50%) translateY(2px) rotate(-1deg)}}
+#ann{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);font-size:12px;color:#ffcf8a;background:rgba(0,0,0,.5);padding:3px 10px;border-radius:8px;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:4}
+#hitFlash{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,0,0,.55));opacity:0}
+#sleepFx{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.55),rgba(0,0,0,.96));opacity:0;transition:opacity .4s;display:flex;align-items:center;justify-content:center;font-size:20px;color:#aab}
+#lowFx{position:absolute;inset:0;box-shadow:inset 0 0 120px rgba(255,40,40,.0);transition:box-shadow .3s}
+#pcHint{position:absolute;left:50%;top:58%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.7;text-align:center;pointer-events:none}
+#pcHint b{color:var(--toku)}
+/* ---------- タッチ操作 ---------- */
+#touch{position:fixed;inset:0;z-index:6;pointer-events:none}
+#joy{position:absolute;left:0;bottom:0;width:46%;height:55%;pointer-events:auto}
+#joyBase{position:absolute;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.06);display:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(255,255,255,.35)}
+#joyHint{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));width:96px;height:96px;border-radius:50%;border:2px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,.5)}
+#tbtns{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:190px;height:190px;pointer-events:none}
+.tb{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(20,24,32,.6);font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.15;text-align:center;padding:0}
+.tb span{font-size:22px}
+.tb:active,.tb.down{background:rgba(255,212,71,.35)}
+#bAct{right:0;bottom:0;width:92px;height:92px;border-color:var(--toku);font-size:12px}
+#bAct.dim{opacity:.45}
+#bPunch{right:100px;bottom:4px;width:70px;height:70px}
+#bGuard{right:14px;bottom:100px;width:70px;height:70px}
+#bSleep{right:100px;bottom:84px;width:60px;height:60px;font-size:10px}
+body.touch #skills{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 118px);left:50%}
+body.touch .sk{width:42px;height:46px;font-size:18px}
+body.touch .sk kbd{display:none}
+body.touch #prompt{bottom:auto;top:calc(50% + 128px)}
+body.touch #target{top:calc(50% + 34px);font-size:11px}
+body.touch #ann{display:none!important}
+body.touch #toasts{top:calc(max(8px,env(safe-area-inset-top)) + 172px)}
+body.touch #pcHint{display:none}
+/* ---------- 画面 ---------- */
+.screen{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,14,.55);overflow-y:auto}
+.card{width:min(560px,100%);background:rgba(16,20,28,.92);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);max-height:calc(100% - 8px);overflow-y:auto;touch-action:pan-y}
+.logo{text-align:center;margin:2px 0 10px}
+.logo h1{margin:0;font-size:clamp(40px,12vw,64px);font-weight:800;letter-spacing:.02em;color:#fff;text-shadow:0 4px 0 #c2410c,0 8px 0 rgba(0,0,0,.4);transform:rotate(-3deg)}
+.logo p{margin:6px 0 0;font-size:15px;color:var(--toku);font-weight:800}
+.logo .tag{display:inline-block;margin-top:6px;font-size:11px;color:var(--sub)}
+.btn{display:block;width:100%;margin:8px 0;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);font-size:16px;font-weight:800;text-align:center}
+.btn.main{background:linear-gradient(180deg,#ff9a4d,#e8661c);border-color:#ffb27a;color:#fff;font-size:19px;box-shadow:0 4px 0 #9a3a06}
+.btn.sub2{font-size:14px;padding:10px}
+.row{display:flex;gap:8px}.row .btn{flex:1}
+.small{font-size:12px;color:var(--sub);text-align:center;line-height:1.6}
+.namebox{display:flex;gap:6px;align-items:center;justify-content:center;font-size:13px;margin-top:6px}
+.namebox input{width:150px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:14px;user-select:text;-webkit-user-select:text}
+h2{margin:0 0 10px;font-size:20px;text-align:center}
+h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
+.howto p,.howto li{font-size:13px;line-height:1.7}
+.howto ul{padding-left:18px;margin:4px 0}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:13px}
+.keys kbd{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:0 6px;font-family:inherit;white-space:nowrap}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-weight:800;font-size:13px}
+.tabs button.on{background:var(--accent);color:#fff}
+.rk{display:flex;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;align-items:center}
+.rk .n{width:28px;text-align:right;color:var(--sub);font-weight:800}
+.rk .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk .ttl{font-size:11px;color:var(--sub)}
+.rk .sc{font-weight:800;color:var(--toku)}
+.rk.me{background:rgba(255,212,71,.12);border-radius:8px}
+.achs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ach{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:12px}
+.ach b{display:block;font-size:13px}
+.ach.lock{opacity:.45}
+.res-cause{text-align:center;font-size:28px;font-weight:800;margin:0}
+.res-cause.good{color:var(--good)} .res-cause.bad{color:var(--bad)}
+.res-text{text-align:center;color:var(--sub);font-size:13px;margin:4px 0 8px}
+.score{text-align:center;font-size:46px;font-weight:800;color:var(--toku);line-height:1.1}
+.rtitle{text-align:center;font-size:16px;font-weight:800;margin-bottom:8px}
+.brk{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:13px;background:var(--panel2);border-radius:10px;padding:8px 12px}
+.brk span:nth-child(even){text-align:right;font-weight:800}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.stats div{background:var(--panel2);border-radius:10px;padding:6px;text-align:center;font-size:11px;color:var(--sub)}
+.stats b{display:block;font-size:18px;color:var(--ink)}
+.newach{margin-top:8px;font-size:13px;color:var(--good);text-align:center}
+.modeinfo{font-size:12px;color:var(--sub);margin:-4px 0 6px;text-align:center}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;background:var(--bg);font-size:16px;color:var(--sub);text-align:center;padding:20px}
+.pill{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px;color:var(--sub)}
+@media (max-height:700px){ .logo h1{font-size:44px} .btn{padding:9px;margin:6px 0} .btn.main{font-size:17px} }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="loading">電車を待っています…</div>
+
+<div id="fx"><div id="hitFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
+
+<div id="hud" class="hidden">
+  <div id="topL">
+    <div id="station"><div id="stName">—</div><div id="stSub"></div><div id="stProg"><i></i></div></div>
+    <div class="bar" id="stamBar"><b>体力</b><div class="t"><i id="stamF"></i></div><span class="v" id="stamV">100</span></div>
+    <div class="bar" id="karmaBar"><b style="color:#d7a6ff">カルマ</b><div class="t"><i id="karmaF" style="width:0"></i></div><span class="v" id="karmaV">0</span></div>
+    <div id="buffs"></div>
+  </div>
+  <div id="topR">
+    <div id="tokuBox"><small>徳（スコア）</small><div id="toku">0</div><div id="combo"></div></div>
+    <button id="pauseBtn" aria-label="一時停止">Ⅱ</button>
+  </div>
+  <div id="cross"></div>
+  <div id="target" class="hidden"><h4 id="tName"></h4><div id="tNotes"></div></div>
+  <div id="prompt" class="hidden"></div>
+  <div id="toasts"></div>
+  <div id="pops"></div>
+  <div id="warn" class="hidden"><span>⚠ 揺れるぞ！</span><small id="warnSub">[Space] で踏ん張れ！</small></div>
+  <div id="ann" class="hidden"></div>
+  <div id="pcHint" class="hidden"></div>
+  <div id="skills"></div>
+</div>
+
+<div id="touch" class="hidden">
+  <div id="joy"><div id="joyHint">移動</div><div id="joyBase"><div id="joyKnob"></div></div></div>
+  <div id="tbtns">
+    <button class="tb" id="bAct"><span>✋</span><em id="bActL" style="font-style:normal">アクション</em></button>
+    <button class="tb" id="bPunch"><span>👊</span>パンチ</button>
+    <button class="tb" id="bGuard"><span>🛡</span>踏ん張る</button>
+    <button class="tb hidden" id="bSleep"><span style="font-size:18px">😪</span>狸寝入り</button>
+  </div>
+</div>
+
+<!-- タイトル -->
+<div id="title" class="screen hidden">
+  <div class="card">
+    <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
+    <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
+    <button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button>
+    <button class="btn sub2" id="bModes">🔒 そのほかの路線</button>
+    <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button></div>
+    <div class="namebox">乗客名 <input id="nameIn" maxlength="12" placeholder="名無しの乗客"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button></div>
+    <p class="small" id="bestLine"></p>
+    <p class="small" style="margin:2px 0 0">🧪 これは<b style="color:var(--toku)">ポン出し版</b>（1 発目のまま・記録はこの端末だけ）<br><a href="../" style="color:var(--accent);font-weight:800">▶ 最新版で遊ぶ（みんなのランキングつき）</a></p>
+  </div>
+</div>
+
+<div id="modes" class="screen hidden">
+  <div class="card">
+    <h2>そのほかの路線</h2>
+    <div id="modeList"></div>
+    <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
+<div id="howto" class="screen hidden">
+  <div class="card howto">
+    <h2>遊び方</h2>
+    <p>ここは各駅停車「たちっぱ線」。<b>立っていると体力が減り</b>、0になると倒れて終わり。<br>降りそうな人を見極めて<b>前に立ち、空いた瞬間に座れ！</b> 終点「やっと座れ橋」をめざそう。</p>
+    <h3>降りる人のサイン</h3>
+    <ul>
+      <li>🪧 電光掲示板を何度もチラ見する人は、もうすぐ降りる</li>
+      <li>⌚ 時計を見る・🎒 荷物をまとめ始めたら、次の駅かも</li>
+      <li>💤 熟睡している人はしばらく降りない……たぶん</li>
+      <li>🗺 観光客はずっと掲示板を見ている（ひっかけ注意）</li>
+      <li>🏫 学生は学園前、👔 サラリーマンはオフィス街……駅にも性格がある</li>
+      <li>人に照準を合わせると「様子」が見える。よく観察しよう</li>
+    </ul>
+    <h3>善行で「徳」をためる</h3>
+    <ul>
+      <li>🪑 お年寄り・妊婦さん・ケガ人・子連れに<b>席を譲る</b>（また立つことになる）</li>
+      <li>👛 <b>落とし物</b>を拾って持ち主へ（拾うと腰にくる）。持ち主のヒントを頼りに</li>
+      <li>👊 <b>痴漢をパンチで撃退</b>（大きな徳。でも反撃される）。相手が構えた瞬間に殴るとカウンター！ 非常通報ボタンなら安全だが徳は少なめ</li>
+      <li>善行を続けると<b>コンボ</b>で徳が増える</li>
+    </ul>
+    <h3>カルマに注意</h3>
+    <ul>
+      <li>関係ない人を殴る・無理やりどかす・洗脳する・譲るべき人を無視すると<b>カルマ</b>がたまる</li>
+      <li>カルマが100になると<b>駅員に連行</b>されて終わり。まわりの目が多いほどたまりやすい（寝ている人は見ていない）</li>
+    </ul>
+    <h3>スキル（徳で買う）</h3>
+    <div id="skillHelp"></div>
+    <h3>操作</h3>
+    <div class="keys">
+      <kbd>WASD</kbd><span>移動（スマホは左下をドラッグ）</span>
+      <kbd>マウス</kbd><span>見回す（スマホは右側をドラッグ）</span>
+      <kbd>E / 左クリック</kbd><span>アクション（座る・譲る・拾う・渡す など）</span>
+      <kbd>F / 右クリック</kbd><span>パンチ</span>
+      <kbd>Space</kbd><span>踏ん張る（揺れ対策）・ガード</span>
+      <kbd>Q</kbd><span>狸寝入り（座っている時）</span>
+      <kbd>1〜7</kbd><span>スキル</span>
+      <kbd>Esc</kbd><span>一時停止</span>
+    </div>
+    <p class="small">スコア ＝ 集めた徳 ＋ 駅ごとのボーナス ＋ 完走ボーナス − カルマ</p>
+    <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
+<div id="rank" class="screen hidden">
+  <div class="card">
+    <h2>ランキング</h2>
+    <div class="tabs"><button data-rt="normal" class="on">たちっぱ線</button><button data-rt="daily">今日のダイヤ</button></div>
+    <div id="rankNote" class="small"></div>
+    <div id="rankList"></div>
+    <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
+<div id="ach" class="screen hidden">
+  <div class="card">
+    <h2>実績 <span id="achCount" class="pill"></span></h2>
+    <div class="achs" id="achList"></div>
+    <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
+<div id="pause" class="screen hidden">
+  <div class="card">
+    <h2>一時停止</h2>
+    <button class="btn main" id="bResume">つづける</button>
+    <button class="btn" id="bHow2">📖 遊び方</button>
+    <button class="btn" id="bQuit">タイトルへ（途中でやめる）</button>
+    <p class="small">PCは画面をクリックするとマウスで見回せます。</p>
+  </div>
+</div>
+
+<div id="result" class="screen hidden">
+  <div class="card">
+    <p class="res-cause" id="rCause"></p>
+    <p class="res-text" id="rText"></p>
+    <div class="score" id="rScore">0</div>
+    <div class="rtitle" id="rTitle"></div>
+    <div class="brk" id="rBrk"></div>
+    <div class="stats" id="rStats"></div>
+    <div class="newach" id="rAch"></div>
+    <p class="small" id="rRank"></p>
+    <div class="row"><a class="btn" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn" id="bShareImg">🖼 画像</button></div>
+    <div class="row"><button class="btn main" id="bRetry">もう一回乗る</button></div>
+    <button class="btn sub2" id="bToTitle">タイトルへ</button>
+  </div>
+</div>
+
+<!-- アクセス解析（GoatCounter）。ページが開かれた回数だけを数える（Cookie なし・個人は分からない） -->
+<script>
+  (function () {
+    if (location.hostname !== 'robit-devworks.github.io') return;
+    try {
+      if (localStorage.getItem('destroy-go-dev') === '1' || localStorage.getItem('destroy-go-tester') === '1' || /[?&]tester=1\b/.test(location.search)) { localStorage.setItem('skipgc', 't'); return; }
+    } catch (e) { /* 保存できない環境でも数える */ }
+    var s = document.createElement('script');
+    s.async = true; s.src = 'https://gc.zgo.at/count.js'; s.setAttribute('data-goatcounter', 'https://destroygo.goatcounter.com/count');
+    document.head.appendChild(s);
+  })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script>
+if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
+</script>
+<script src="logic.js?v=20261109034228"></script>
+<script src="game.js?v=20261109034228"></script>
+</body>
+</html>

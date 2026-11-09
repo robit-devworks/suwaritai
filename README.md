@@ -4,6 +4,8 @@
 
 **▶ 遊ぶ：https://robit-devworks.github.io/suwaritai/**
 
+🧪 ポン出し版（1 発目のまま）：https://robit-devworks.github.io/suwaritai/pondashi/
+
 - 掲示板をチラ見する人はもうすぐ降りる。熟睡している人はしばらく降りない……たぶん
 - 席を譲る・落とし物を届ける・痴漢を撃退して「徳」をためよう。悪いことをするとカルマがたまり、駅員に連行される
 - 今日のダイヤ（毎日同じ電車）とランキングで競えます
