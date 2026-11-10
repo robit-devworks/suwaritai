@@ -250,6 +250,7 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 #spName i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
 #spBar button{font:inherit;font-size:13px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer;flex:0 0 auto}
 body.replay #skills,body.replay #touch,body.replay #prompt{display:none!important}
+#rookieTag{position:fixed;right:10px;top:calc(56px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#fff;background:rgba(46,160,90,.85);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none}
 .nm-dev{color:#5ad8ff!important;text-shadow:0 0 8px rgba(90,216,255,.7);font-weight:800}
 .nm-rare{color:#ffd23f!important;text-shadow:0 0 8px rgba(255,210,63,.7)}
 .nm-legend{background:linear-gradient(90deg,#ff5a5a,#ffd23f,#5affa0,#5ad8ff,#c77dff,#ff5a5a);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;animation:nm-rainbow 3s linear infinite;filter:drop-shadow(0 0 4px rgba(255,255,255,.4))}
@@ -490,6 +491,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpLike">🤍 いいね</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
 <div id="rpEnd" class="hidden"><div class="card"><h3 id="rpEndT"></h3><button class="btn main" id="rpLike2">🤍 いいね</button><button class="btn sub2" id="rpAgain">もう一度見る</button><button class="btn sub2" id="rpBack">ランキングにもどる</button></div></div>
 <div id="hud" class="hidden">
+  <div id="rookieTag" class="hidden" title="ランキングには載りません">🔰 見習い乗車</div>
   <div id="topL">
     <div id="station"><div id="stName">—</div><div id="stSub"></div><div id="stProg"><i></i></div></div>
     <div class="bar" id="stamBar"><b>体力</b><div class="t"><i id="stamF"></i></div><span class="v" id="stamV">100</span></div>
@@ -782,7 +784,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261110092523"></script>
-<script src="game.js?v=20261110092523"></script>
+<script src="logic.js?v=20261110095230"></script>
+<script src="game.js?v=20261110095230"></script>
 </body>
 </html>

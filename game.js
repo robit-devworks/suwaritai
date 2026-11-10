@@ -1624,6 +1624,9 @@
     const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
     G = SW.create({ seed, mode, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = mode;
+    // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
+    G.rookie = mode === 'normal' && !profile.plays && !profile.rookieDone;
+    $('rookieTag').classList.toggle('hidden', !G.rookie);
     inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null); showInapp(false);
     $('hud').classList.remove('hidden');
@@ -1637,8 +1640,9 @@
       if (!noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
     }
     if (isTouch && isPortrait()) setTimeout(() => { if (state === 'play' && isPortrait()) addToast('📱 スマホを横にすると遊びやすいよ', 'warn'); }, 4000);
-    recStart(mode);
-    if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
+    if (!G.rookie) recStart(mode); else REC = null;
+    if (G.rookie) addToast('🔰 見習い乗車：はじめの 1 回は体力がへりにくい（ランキングには載りません）', 'good');
+    else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
   }
   // ================================================================ 全画面（デストロイ碁と同じ仕組み）
@@ -1849,7 +1853,7 @@
   $('tutNo').addEventListener('click', () => { profile.tutDone = true; saveProfile(); track('チュートリアルをスキップした（最初）'); startGame('normal'); });
   $('bTut').addEventListener('click', () => tutBegin('title'));
   // 動画で見る（1 分版・3 分版）。URL は YouTube に上げたら入れる
-  const VIDEO_1MIN = '', VIDEO_3MIN = '';
+  const VIDEO_1MIN = 'https://youtu.be/ErsstCp5flw', VIDEO_3MIN = 'https://youtu.be/OGOFh99BOPc';
   // URL がまだないものは「準備中」と出して押せないようにする
   $('bVideo').classList.remove('hidden');
   for (const [cls, url, nm] of [['.vid1', VIDEO_1MIN, '1分'], ['.vid3', VIDEO_3MIN, '3分']]) {
@@ -1959,6 +1963,7 @@
     const dgNew = !profile.types[dg.key]; profile.types[dg.key] = profile.types[dg.key] || Date.now();
     track('診断：' + dg.name);
     profile.history = (profile.history || []).concat([{ s: sc.total, t: sc.title, m: mode, d: Date.now() }]).sort((a, b) => b.s - a.s).slice(0, 20);
+    if (g.rookie) profile.rookieDone = true;
     saveProfile();
     const causeTxt = { clear: '🎉 終点到着！', collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', broken: '🧠 心が折れた…' }[r.cause];
     const stName = SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g)));
@@ -1975,13 +1980,14 @@
     $('rLv').classList.toggle('up', lv1 > lv0); $('rLv').title = xpMsg;
     updateLvBadge();
     $('rRank').textContent = ''; $('rMiniBox').classList.add('hidden'); $('rMini').innerHTML = '';
-    lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text, dg };
+    lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text, dg, rookie: !!g.rookie };
     {
       const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', broken: '心が折れた' }[r.cause] || r.cause;
       const band = sc.total >= 2000 ? '2000〜' : sc.total >= 1000 ? '1000〜1999' : sc.total >= 500 ? '500〜999' : sc.total >= 200 ? '200〜499' : '0〜199';
       track('結果：' + (MODE_JA[mode] || mode) + '：' + causeJa);
       track('スコア：' + band);
       if (!g.endless) track('終わった駅：' + Math.min(g.stats.stations, SW.lastStation(g)) + '駅目');
+      if (g.rookie) { track('見習い乗車：' + causeJa); track('見習い乗車：終わった駅：' + Math.min(g.stats.stations, SW.lastStation(g)) + '駅目'); }
       for (const a of newAch) { const ach = SW.ACHIEVEMENTS.find(x => x.id === a); if (ach) track('実績：' + ach.name); }
     }
     $('bShareX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(lastResult));
@@ -2123,6 +2129,7 @@
   // 1 件ずつ順番に書く（同じ場所への書きこみを重ねない）
   let submitting = Promise.resolve();
   function submitScore(R) {
+    if (R.rookie) { $('rRank').textContent = '🔰 見習い乗車なので、ランキングには載りません。次から本番！'; return; }
     if (R.mode !== 'normal' && R.mode !== 'daily') return;
     if (!DB && !fbAllowed) return;
     if (DB && !myId) return;

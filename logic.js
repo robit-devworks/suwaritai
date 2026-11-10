@@ -995,6 +995,8 @@
       return;
     }
     // 無関係の人
+    // 見習い乗車（最初の 1 回）：1 回だけ止めて教える
+    if (g.rookie && !g.rookieWarned) { g.rookieWarned = true; toast(g, '🔰 その人は悪者じゃないかも？ 関係ない人を殴るとカルマがたまって連行されます', 'warn'); return; }
     if (p.type === 'alien') g.stats.alienPunch++;
     g.stats.wrongPunch++;
     p.expr = 'angry'; p.exprT = 5; p.angry = 8; bubble(g, p, p.type === 'alien' ? 'ピギャッ!?' : '痛っ！なにするんですか！', 2);
@@ -1067,6 +1069,7 @@
       let drain = C.STAND_DRAIN + C.CROWD_DRAIN * crowd + (moving ? C.WALK_DRAIN : 0) + (pl.braceHeld ? C.BRACE_DRAIN : 0);
       if (g.phase === 'stop') drain *= 0.7;
       if (g.hard) drain *= 1.25;
+      if (g.rookie) drain *= 0.6; // 見習い乗車（最初の 1 回だけ）
       if (g.speaker && g.speaker.on && !g.speaker.broken && dist2(g.speaker.x, g.speaker.z, pl.x, pl.z) < 4) drain += 0.35; // うるさくて疲れる
       if (g.endless && g.station > 11) drain *= 1 + Math.min(2, (g.station - 11) * 0.05);
       drain *= 1 - 0.02 * ST(g, 'hp');
