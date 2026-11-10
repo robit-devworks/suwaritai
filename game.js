@@ -1187,8 +1187,20 @@
     const bl = [];
     for (const k in pl.buffs) { const s = SW.SKILLS.find(s => s.key === k); bl.push(s.icon + ' ' + Math.ceil(pl.buffs[k]) + '秒'); }
     if (pl.mode) bl.push((pl.mode === 'brainwash' ? '🌀' : '💪') + ' 照準中 ' + Math.ceil(pl.modeT) + '秒');
-    if (pl.carrying) bl.push('👜 ' + pl.carrying.name + 'を持っている');
     const bs = bl.join('|');
+    // 落とし物：だれのものかを大きく出す（持ち主の服の色つき）
+    {
+      const it = pl.carrying;
+      let html = '';
+      if (it) {
+        const o = it.owner != null ? SW.person(g, it.owner) : null;
+        const sw = o && o.look && o.look.top ? `<i style="background:${o.look.top}"></i>` : '';
+        const gone = it.ownerGone || (it.owner != null && (!o || o.state === 'gone'));
+        html = `<b>👜 ${esc(it.name)}を持っている</b>` + (gone ? '<span class="cw">持ち主は降りた → 次の駅で、開いたドアの近くの駅員へ</span>'
+          : it.hint ? `<span>持ち主：${sw}<em>${esc(it.hint)}</em></span>` + (it.ownerLeaving ? '<span class="cw">⚠ 持ち主がもうすぐ降りる！</span>' : '') : '');
+      }
+      if (html !== hud.carry) { hud.carry = html; $('carryCard').innerHTML = html; $('carryCard').classList.toggle('hidden', !html); }
+    }
     if (bs !== hud.buffs) { hud.buffs = bs; $('buffs').innerHTML = bl.map(b => `<span class="buff">${b}</span>`).join(''); }
     // スキル
     SW.SKILLS.forEach((s, i) => {
@@ -2713,7 +2725,7 @@
   function plArr(g, P, obs) {
     const b = P.pl, aim = P.aim;
     return [r2(b.x), r2(b.z), r2(b.yaw), r2(b.pitch), b.seat, Math.round(b.stamina * 10) / 10, Math.round(b.karma), b.toku, b.earned, b.combo, Math.round((g.t - b.lastDeedT) * 10),
-        P.out ? 1 : 0, P.ghost ? 1 : 0, b.carrying ? [b.carrying.key, b.carrying.name] : 0, b.buffs, b.mode || '', Math.round(b.modeT * 10), Math.round(b.punchAnim * 100), b.braceHeld ? 1 : 0, b.fakeSleep ? 1 : 0,
+        P.out ? 1 : 0, P.ghost ? 1 : 0, b.carrying ? [b.carrying.key, b.carrying.name, b.carrying.hint || '', b.carrying.owner == null ? -1 : b.carrying.owner, (b.carrying.ownerLeaving ? 1 : 0) | (b.carrying.ownerGone ? 2 : 0)] : 0, b.buffs, b.mode || '', Math.round(b.modeT * 10), Math.round(b.punchAnim * 100), b.braceHeld ? 1 : 0, b.fakeSleep ? 1 : 0,
         Math.round(b.stagger * 10), Math.round(b.hitFlash * 10), P.prompt ? P.prompt.label : '', P.prompt ? P.prompt.act : '', aim, P.result ? P.result.cause : '', P.tricks, obs, P.result ? (P.result.text || '') : '', b.drinkCount, Math.round(b.confessCD * 10), Math.round(b.mind)];
   }
   function mpSendSnap() {
@@ -2762,7 +2774,7 @@
     const b = P.pl;
     b.seat = a[4]; b.stamina = a[5]; b.karma = a[6]; b.toku = a[7]; b.earned = a[8]; b.combo = a[9]; b.lastDeedT = g.t - a[10] / 10;
     P.out = !!a[11]; P.ghost = !!a[12];
-    b.carrying = a[13] ? { key: a[13][0], name: a[13][1] } : null; b.buffs = a[14] || {}; b.mode = a[15] || null; b.modeT = a[16] / 10; b.punchAnim = a[17] / 100;
+    b.carrying = a[13] ? { key: a[13][0], name: a[13][1], hint: a[13][2] || '', owner: a[13][3] >= 0 ? a[13][3] : null, ownerLeaving: !!(a[13][4] & 1), ownerGone: !!(a[13][4] & 2) } : null; b.buffs = a[14] || {}; b.mode = a[15] || null; b.modeT = a[16] / 10; b.punchAnim = a[17] / 100;
     b.braceHeld = !!a[18]; b.fakeSleep = !!a[19]; b.stagger = a[20] / 10; b.hitFlash = a[21] / 10;
     P.prompt = a[22] ? { label: a[22], act: a[23] } : null; P.aim = a[24]; P.tricks = a[26];
     if (a[25]) P.result = { cause: a[25], text: a[28] || '' }; b.drinkCount = a[29] || 0; b.confessCD = (a[30] || 0) / 10; b.mind = a[31] == null ? 100 : a[31];
