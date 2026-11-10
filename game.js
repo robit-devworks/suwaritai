@@ -13,7 +13,7 @@
   // ================================================================ 数える（GoatCounter）
   // 遊ばれ方の回数だけを数える（個人は分からない）。公開サイトで count.js が読めたときだけ動く
   function track(name) {
-    try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: 'スワリタイ：' + name, title: 'スワリタイ：' + name, event: true }); } catch (e) { /* 無視 */ }
+    try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
   const MODE_JA = { tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
