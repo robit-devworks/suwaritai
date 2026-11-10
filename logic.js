@@ -226,6 +226,9 @@
       ignoreT: 0, sitT: 0, st: normStats(null), mind: 100,
     };
   }
+  // フェイントする人：id から決める（乱数を使わない）。およそ 18%
+  const FEINT_OK = { salaryman: 1, ol: 1, student: 1, otaku: 1, obachan: 1, gamer: 1, yankee: 1, tourist: 1 };
+  function feinter(p) { return ((Math.imul(p.id, 2654435761) >>> 0) % 100) < 18; }
   function makeStats() {
     return {
       sits: 0, quickSits: 0, gives: 0, chikanKO: 0, counters: 0, delivered: 0, teeth: 0, ceo: 0, alien: 0, alienPunch: 0,
@@ -1439,6 +1442,13 @@
               const d = nearestDoor(p.x);
               p.state = 'walk'; p.tx = d + (g.r() - 0.5) * 0.6; p.tz = (g.r() < 0.5 ? 1 : -1) * 0.95; p.then = 'stand'; p.leaving = true;
             }
+            // フェイント：降りないのに降りるサイン（掲示板チラ見＋荷物まとめ）を出す人（およそ 18%・1 回の乗車で 1 回）
+            // 乱数は使わない（今日のダイヤの電車が変わらないように）
+            if (rem >= 1 && rem <= 3 && !p.feinted && !p.role && !p.priority && !p.fake && FEINT_OK[p.type] && feinter(p) && travelLeft < 4 + (p.id % 5)) {
+              p.feinted = true; p.feintNow = true; p.packing = true; p.fakePackT = g.t + travelLeft + C.T_STOP + 3;
+              if (p.anim === 'none') { p.anim = 'board'; p.animT = 1.3; } p.looks.push(g.t);
+            }
+            if (p.feintNow && !(p.fakePackT > g.t)) { p.feintNow = false; p.expr = 'surprised'; p.exprT = 2; bubble(g, p, (p.id % 2 ? '…あ、次だった' : '…まだだった'), 2); }
             if (rem > 0 && p.packing && !(p.fakePackT > g.t)) p.packing = false;
           }
           // 眠り：近づくと起きる
@@ -2197,9 +2207,13 @@
       if (p.sleep === 2) out.push('💤 熟睡している');
       else if (p.sleep === 1) out.push('😪 うとうとしている');
     }
+    if (p.packing) {
+      // フェイントの人は、よく見ると分かる（スマホを見たまま）。観察力 5 以上かメガネなら、はっきり分かる
+      out.push(p.feintNow ? '🎒 荷物をまとめている…けど、' + ({ book: '単語帳', game: 'ゲーム', makeup: '鏡', map: '路線図' }[p.idle] || 'スマホ') + 'から目を離さない' : '🎒 荷物をまとめている');
+      if (p.feintNow && (ST(g, 'eye') >= 5 || (g.player.buffs && g.player.buffs.glasses > 0))) out.push('🤔 本当に降りる？ 落ち着きすぎている（' + (g.player.buffs && g.player.buffs.glasses > 0 ? 'メガネ' : '観察力') + '）');
+    }
     if (recentLooks) out.push('🪧 掲示板をチラ見 ×' + recentLooks + '（30秒）');
     if (recentWatch) out.push('⌚ 時計を見た ×' + recentWatch);
-    if (p.packing) out.push('🎒 荷物をまとめている');
     if (p.leaving || p.state === 'exit') out.push('🚪 降りる気まんまん');
     const idleTxt = { phone: '📱 スマホを見ている', book: '📖 単語帳を読んでいる', makeup: '💄 化粧をしている', map: '🗺 路線図を見ている', game: '🎮 ゲームに夢中' }[p.idle];
     if (p.state === 'seated' && p.sleep === 0 && idleTxt && !p.packing && out.length < 3) out.push(idleTxt);
