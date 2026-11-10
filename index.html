@@ -152,6 +152,7 @@ body.touch #bLand{display:block}
 #tbtns{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:190px;height:190px;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(20,24,32,.6);font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.15;text-align:center;padding:0}
 .tb span{font-size:22px}
+.tb *{pointer-events:none}
 .tb:active,.tb.down{background:rgba(255,212,71,.35)}
 #bAct{right:0;bottom:0;width:92px;height:92px;border-color:var(--toku);font-size:12px}
 #bAct.dim{opacity:.45}
@@ -202,8 +203,8 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .achs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 #tut{position:absolute;left:50%;top:84px;transform:translateX(-50%);width:min(92vw,460px);background:rgba(20,24,34,.92);border:2px solid var(--toku);border-radius:12px;padding:6px 10px;text-align:left;pointer-events:auto;z-index:5}
 #tut .tt{display:flex;align-items:center;gap:8px}#tut .tt b{flex:1;color:var(--toku);font-size:15px}
-#tutRetry.blink{color:#1b1200;background:var(--toku);border-color:var(--toku);font-weight:700;animation:lvp .8s ease infinite}
-#tutRetry,#tutSkip{font:inherit;font-size:12px;background:none;border:1px solid var(--line);border-radius:99px;color:var(--sub);padding:2px 10px}
+.btn.soon{opacity:.5;pointer-events:none}
+#tutSkip{font:inherit;font-size:12px;background:none;border:1px solid var(--line);border-radius:99px;color:var(--sub);padding:2px 10px}
 #tutD{font-size:13px;line-height:1.45;margin-top:2px}
 #tutBtns .btn{margin:6px 0 0}
 body.touch #tut{top:calc(max(8px,env(safe-area-inset-top)) + 172px)}
@@ -448,7 +449,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div id="cross"></div>
   <div id="target" class="hidden"><h4 id="tName"></h4><div id="tNotes"></div></div>
   <div id="prompt" class="hidden"></div>
-  <div id="tut" class="hidden"><div class="tt"><b id="tutT"></b><button id="tutRetry">↺ やり直す</button><button id="tutSkip">スキップ ›</button></div><div id="tutD"></div><div id="tutBtns" class="hidden"><button class="btn main" id="tutGo">🚃 出発する（たちっぱ線）</button><button class="btn sub2" id="tutEnd">タイトルへ</button></div></div>
+  <div id="tut" class="hidden"><div class="tt"><b id="tutT"></b><button id="tutSkip">スキップ ›</button></div><div id="tutD"></div><div id="tutBtns" class="hidden"><button class="btn main" id="tutGo">🚃 出発する（たちっぱ線）</button><button class="btn sub2" id="tutEnd">タイトルへ</button></div></div>
   <div id="toasts"></div>
   <div id="pops"></div>
   <div id="warn" class="hidden"><span>⚠ 揺れるぞ！</span><small id="warnSub">[Space] で踏ん張れ！</small></div>
@@ -476,7 +477,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
     <div class="row" id="dailyRow"><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
-    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2" id="bTut2">🎓 チュートリアル</button></div>
+    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo">🎬 動画で見る</button></div>
     <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button><button class="btn sub2" id="bStat">📊 Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox">乗客名 <input id="nameIn" maxlength="12" placeholder="名無しの乗客"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
@@ -497,6 +498,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="howto" class="screen hidden">
   <div class="card howto">
     <h2>遊び方</h2>
+    <div class="row" id="howVideo" style="margin:0 0 4px"><a class="btn sub2 vid1" target="_blank" rel="noopener" style="text-decoration:none">🎬 どんなゲーム？（1 分）</a><a class="btn sub2 vid3" target="_blank" rel="noopener" style="text-decoration:none">📖 くわしい遊び方（3 分）</a></div>
     <button class="btn" id="bTut" style="margin:0 0 6px">🎓 チュートリアルをやる（1 分）</button>
     <p>ここは各駅停車「たちっぱ線」。<b>立っていると体力が減り</b>、0になると倒れて終わり。<br>降りそうな人を見極めて<b>前に立ち、空いた瞬間に座れ！</b> 終点「やっと座れ橋」をめざそう。</p>
     <h3>降りる人のサイン</h3>
@@ -562,6 +564,17 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div class="card">
     <h2>実績 <span id="achCount" class="pill"></span></h2>
     <div class="achs" id="achList"></div>
+    <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
+<div id="videos" class="screen hidden">
+  <div class="card">
+    <h2>🎬 動画で見る</h2>
+    <a class="btn main vid1" target="_blank" rel="noopener" style="text-decoration:none">🎬 どんなゲーム？（1 分）</a>
+    <p class="small" style="color:var(--sub);margin:2px 0 8px">まずはサクッと、雰囲気を知りたい人に</p>
+    <a class="btn vid3" target="_blank" rel="noopener" style="text-decoration:none">📖 くわしい遊び方（3 分）</a>
+    <p class="small" style="color:var(--sub);margin:2px 0 8px">悪者・スキル・やりこみまで、ぜんぶ知りたい人に</p>
     <button class="btn sub2" data-back>もどる</button>
   </div>
 </div>
@@ -699,7 +712,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261109233945"></script>
-<script src="game.js?v=20261109233945"></script>
+<script src="logic.js?v=20261110001405"></script>
+<script src="game.js?v=20261110001405"></script>
 </body>
 </html>

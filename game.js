@@ -1051,9 +1051,14 @@
     e.preventDefault();
   }, { passive: false });
   function holdBtn(el, down, up) {
-    el.addEventListener('touchstart', e => { initAudio(); el.classList.add('down'); down(); e.preventDefault(); e.stopPropagation(); }, { passive: false });
-    el.addEventListener('touchend', e => { el.classList.remove('down'); up && up(); e.preventDefault(); }, { passive: false });
-    el.addEventListener('touchcancel', () => { el.classList.remove('down'); up && up(); });
+    let tid = null;
+    const release = () => { if (tid === null && !el.classList.contains('down')) return; tid = null; el.classList.remove('down'); up && up(); };
+    el.addEventListener('touchstart', e => { initAudio(); tid = e.changedTouches[0].identifier; el.classList.add('down'); down(); e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    el.addEventListener('touchend', e => { release(); e.preventDefault(); }, { passive: false });
+    el.addEventListener('touchcancel', release);
+    // 念のため：画面のどこで離しても、押していた指なら解除する
+    const winEnd = (e) => { if (tid !== null && [...e.changedTouches].some((t) => t.identifier === tid)) release(); };
+    window.addEventListener('touchend', winEnd); window.addEventListener('touchcancel', winEnd);
     el.addEventListener('mousedown', e => { down(); e.stopPropagation(); }); el.addEventListener('mouseup', () => { up && up(); });
   }
   holdBtn($('bAct'), () => { inp.action = true; });
@@ -1167,8 +1172,11 @@
       if (isTouch && ptxt) { $('prompt').classList.remove('hidden'); $('prompt').textContent = '✋ ' + ptxt; }
     }
     $('bSleep').classList.toggle('hidden', pl.seat < 0);
-    $('bSleep').innerHTML = pl.fakeSleep ? '<span style="font-size:18px">👀</span>起きる' : '<span style="font-size:18px">😪</span>狸寝入り';
-    $('bGuard').innerHTML = g.chikan && g.chikan.stage === 'fight' ? '<span>🛡</span>ガード' : '<span>🛡</span>踏ん張る';
+    // ボタンの文字は変わったときだけ書きかえる（押している最中に中身を作り直すと、指を離したのが届かなくなる）
+    const sleepH = pl.fakeSleep ? '<span style="font-size:18px">👀</span>起きる' : '<span style="font-size:18px">😪</span>狸寝入り';
+    if (hud.sleepH !== sleepH) { hud.sleepH = sleepH; $('bSleep').innerHTML = sleepH; }
+    const guardH = g.chikan && g.chikan.stage === 'fight' || g.people.some((p) => p.aggro) ? '<span>🛡</span>ガード' : '<span>🛡</span>踏ん張る';
+    if (hud.guardH !== guardH) { hud.guardH = guardH; $('bGuard').innerHTML = guardH; }
     // 照準
     targetT -= dt;
     const cross = $('cross');
@@ -1289,7 +1297,7 @@
   }
 
   // ================================================================ 画面
-  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'stat', 'tutask', 'pause', 'result', 'online', 'mpres'];
+  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'stat', 'videos', 'tutask', 'pause', 'result', 'online', 'mpres'];
   let backTo = 'title';
   function show(id) {
     for (const s of screens) $(s).classList.toggle('hidden', s !== id);
@@ -1461,7 +1469,7 @@
     if (state !== 'play') return;
     state = 'pause'; backTo = 'pause'; show('pause');
   }
-  $('bStart').addEventListener('click', () => { if (!profile.tutDone && !profile.plays) { show('tutask'); return; } startGame('normal'); });
+  $('bStart').addEventListener('click', () => startGame('normal')); // 最初はまず体験してもらう（チュートリアルは聞かない）
   // ---- チュートリアル
   const I = SW._internal;
   const TUT_STEPS = [
@@ -1482,10 +1490,10 @@
       start(g) {
         const pl = g.player; if (pl.seat < 0) return;
         const s = g.seats[pl.seat], p = I.spawn(g, 'elderly', g.station, g.station + 6);
-        p.x = s.x + 0.25; p.z = s.fz; p.state = 'stand'; p.targetPlayer = true; p.targetSeat = s.id; p.wantSeat = true; g.people.push(p); TUT.eld = p.id; TUT.spawned.push(p.id);
+        p.x = s.x + 0.25; p.z = s.fz; p.state = 'stand'; p.targetPlayer = true; p.targetSeat = s.id; p.wantSeat = false; g.people.push(p); TUT.eld = p.id; TUT.spawned.push(p.id);
       }, done(g) { return g.stats.gives > 0; },
       retry(g) { if (g.player.seat < 0) { TUT.i -= 2; tutNext(g); return; } this.start(g); },
-      tick(g) { if (g.player.seat < 0 && !g.stats.gives) { TUT.i--; tutNext(g); } } },
+      tick(g) { if (g.player.seat < 0 && !g.stats.gives) { const e = SW.person(g, TUT.eld); if (e) { g.people = g.people.filter((p) => p !== e); } addToast('もう一回座ってから、席を譲ろう', 'warn'); TUT.i -= 2; tutNext(g); } } },
     { t: '⑤ 揺れに踏ん張ろう', d: () => '立っていると電車が揺れる。「⚠ 揺れるぞ！」が出たら' + (isTouch ? '「🛡 踏ん張る」' : '<b>Space</b>') + 'で踏ん張る',
       start() { TUT.lurch = null; TUT.failed = false; }, done(g) { return g.stats.braces > 0; },
       tick(g) {
@@ -1515,15 +1523,15 @@
   function tutBegin(after) {
     startGame('tutorial');
     TUT = { i: -1, after: after || 'title', spawned: [] };
-    $('tut').classList.remove('hidden'); $('tutBtns').classList.add('hidden'); $('tutSkip').classList.remove('hidden'); $('tutRetry').classList.remove('hidden');
+    $('tut').classList.remove('hidden'); $('tutBtns').classList.add('hidden'); $('tutSkip').classList.remove('hidden');
     track('チュートリアルを始めた');
     tutNext(G);
   }
   function tutNext(g) {
-    TUT.i++; TUT.failed = false; $('tutRetry').classList.remove('blink');
+    TUT.i++; TUT.failed = false;
     if (TUT.i >= TUT_STEPS.length) {
       $('tutT').textContent = '🎉 チュートリアル完了！'; $('tutD').innerHTML = 'あとは降りる人を見極めて、終点まで座って帰ろう。悪者はほかにもいるよ';
-      $('tutBtns').classList.remove('hidden'); $('tutSkip').classList.add('hidden'); $('tutRetry').classList.add('hidden');
+      $('tutBtns').classList.remove('hidden'); $('tutSkip').classList.add('hidden');
       profile.tutDone = true; saveProfile(); track('チュートリアルを完了した'); sfx('clear');
       tutLayout(); return;
     }
@@ -1533,16 +1541,16 @@
     if (TUT.i > 0) sfx('coin');
     tutLayout();
   }
-  // 失敗：「ブー」を 1 回だけ鳴らして、「↺ やり直す」を光らせて待つ
+  // 失敗：「ブー」を 1 回だけ鳴らして、3 秒後に自動でもう一回
   function tutFail(msg) {
     if (!TUT || TUT.failed) return;
-    TUT.failed = true; sfx('buzzer');
-    $('tutD').innerHTML = '❌ 失敗… ' + msg + '<br><b>「↺ やり直す」でもう一回</b>';
-    $('tutRetry').classList.add('blink'); tutLayout();
+    TUT.failed = true; TUT.failAt = G ? G.t + 3 : 0; sfx('buzzer');
+    $('tutD').innerHTML = '❌ 失敗… ' + msg + '<br><b>3 秒後にもう一回</b>';
+    tutLayout();
   }
   // いまのステップをやり直す（出した人を消して、最初から）
   function tutRetry(g) {
-    TUT && (TUT.failed = false); $('tutRetry').classList.remove('blink');
+    TUT && (TUT.failed = false);
     if (!TUT || TUT.i >= TUT_STEPS.length || !g) return;
     g.people = g.people.filter((p) => { if (TUT.spawned.includes(p.id)) { I.releaseSlot(g, p); return false; } return true; });
     TUT.spawned = []; g.player.carrying = null; g.player.mode = null;
@@ -1554,19 +1562,29 @@
   function tutLayout() { $('toasts').style.marginTop = TUT ? ($('tut').offsetHeight + 6) + 'px' : ''; }
   function tutTick(g, dt) {
     if (!TUT || TUT.i >= TUT_STEPS.length) return;
+    if (TUT.failed && g.t > TUT.failAt) tutRetry(g);
     const S = TUT_STEPS[TUT.i];
     if (S.tick) S.tick(g, dt);
     if (TUT.i < TUT_STEPS.length && TUT_STEPS[TUT.i] === S && S.done(g, dt)) tutNext(g);
   }
   function tutClose() { TUT = null; $('tut').classList.add('hidden'); tutLayout(); }
   $('tutSkip').addEventListener('click', () => { profile.tutDone = true; saveProfile(); track('チュートリアルをスキップした（' + (TUT ? TUT.i + 1 : 0) + '）'); const after = TUT && TUT.after; tutClose(); if (after === 'normal') startGame('normal'); else { state = 'title'; titleScreen(); } });
-  $('tutRetry').addEventListener('click', () => { if (G && TUT) { tutRetry(G); addToast('↺ もう一回！', 'good'); track('チュートリアルをやり直した（' + (TUT.i + 1) + '）'); } });
   $('tutGo').addEventListener('click', () => { tutClose(); startGame('normal'); });
   $('tutEnd').addEventListener('click', () => { tutClose(); state = 'title'; titleScreen(); });
   $('tutYes').addEventListener('click', () => tutBegin('normal'));
   $('tutNo').addEventListener('click', () => { profile.tutDone = true; saveProfile(); track('チュートリアルをスキップした（最初）'); startGame('normal'); });
   $('bTut').addEventListener('click', () => tutBegin('title'));
-  $('bTut2').addEventListener('click', () => { track('ホームからチュートリアル'); tutBegin('title'); });
+  // 動画で見る（1 分版・3 分版）。URL は YouTube に上げたら入れる
+  const VIDEO_1MIN = '', VIDEO_3MIN = '';
+  // URL がまだないものは「準備中」と出して押せないようにする
+  $('bVideo').classList.remove('hidden');
+  for (const [cls, url, nm] of [['.vid1', VIDEO_1MIN, '1分'], ['.vid3', VIDEO_3MIN, '3分']]) {
+    document.querySelectorAll(cls).forEach((a) => {
+      if (url) { a.href = url; a.addEventListener('click', () => track('動画を見た（' + nm + '）')); }
+      else { a.removeAttribute('href'); a.classList.add('soon'); a.textContent += '　準備中'; }
+    });
+  }
+  $('bVideo').addEventListener('click', () => { backTo = 'title'; show('videos'); track('動画で見るを開いた'); });
   $('bDaily').addEventListener('click', () => startGame('daily'));
   $('bModes').addEventListener('click', () => { backTo = 'title'; renderModes(); show('modes'); });
   $('bHow').addEventListener('click', () => { backTo = 'title'; show('howto'); track('遊び方を開いた'); });
