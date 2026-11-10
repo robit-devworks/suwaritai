@@ -1228,7 +1228,8 @@
       const p = g.aim >= 0 && g.aim < SW.PID ? SW.person(g, g.aim) : null;
       let html = '', o = null;
       if (!pl.fakeSleep) {
-        if (MP.active && !MP.isHost) o = MP.myObs;
+        if (RP.active) o = RP.obs;
+        else if (MP.active && !MP.isHost) o = MP.myObs;
         else if (p) o = SW.observe(g, p);
         else if (g.multi && g.aim >= SW.PID) o = playerObs(g, g.aim - SW.PID);
       }
@@ -1425,7 +1426,7 @@
       px('#fff', 4, 6); px('#fff', 7, 6); px(dark, 4, 6); px(dark, 7, 6); px('#fff', 3, 5); px('#fff', 8, 5);
       px('#3a3e48', 4, 7, 4, 2); px('#3a3e48', 5, 9, 2, 1); px('#5a5e68', 4, 7, 4, 1);
     } else { // ロボ
-      const f = ['#a8b0bc', '#c8ccd4', '#8a94a4', '#d0a040'][R(4)];
+      const f = a === 'ROBIT' ? '#d0a040' : ['#a8b0bc', '#c8ccd4', '#8a94a4', '#d0a040'][R(4)]; // 開発者は金色のロボ
       px('#555', 5, 1, 2, 2); px('#ff4a4a', 5, 0, 2, 1); px(f, 2, 3, 8, 8); px('#606a78', 1, 5, 1, 3); px('#606a78', 10, 5, 1, 3);
       px('#2a2e38', 3, 5, 6, 3); px('#5affe0', 4, 6); px('#5affe0', 7, 6);
       px('#2a2e38', 4, 9, 4, 1); px('#c8ccd4', 5, 9); px('#c8ccd4', 7, 9);
@@ -1455,7 +1456,7 @@
     const rank = nameRank(name);
     px(rank === 2 ? '#2a1f4a' : rank === 1 ? '#6b5a1a' : BG[R(BG.length)], 0, 0, 12, 12);
     const base = name.replace(/\d+$/, ''), dark = '#1a1a1a';
-    const animal = AV_ANIMALS.find((w) => base.endsWith(w));
+    const animal = /ROBIT/.test(base) ? 'ROBIT' : AV_ANIMALS.find((w) => base.endsWith(w));
     const eyeForce = /^眼鏡の/.test(base) ? 3 : /^(狸寝入り|寝不足の|ねむい|寝過ごし)/.test(base) ? 2 : -1;
     if (animal) drawAnimal(px, R, animal === '狸' ? 'タヌキ' : animal, eyeForce);
     else {
@@ -1503,7 +1504,7 @@
     return url;
   }
   const avHtml = (n, cls = '') => { const r = nameRank(n); return `<img class="av ${r === 2 ? 'av2' : r === 1 ? 'av1' : ''} ${cls}" src="${avatarUrl(n)}" alt="">`; };
-  const nameHtml = (n, noAv) => { const r = nameRank(n); return `${noAv ? '' : avHtml(n)}<span class="${r === 2 ? 'nm-legend' : r === 1 ? 'nm-rare' : ''}"${r ? ` title="${r === 2 ? '伝説の名前' : 'レアな名前'}"` : ''}>${esc(n)}</span>`; };
+  const nameHtml = (n, noAv) => { const r = nameRank(n); return `${noAv ? '' : avHtml(n)}<span class="${/ROBIT/.test(n) ? 'nm-dev' : r === 2 ? 'nm-legend' : r === 1 ? 'nm-rare' : ''}"${r ? ` title="${r === 2 ? '伝説の名前' : 'レアな名前'}"` : ''}>${esc(n)}</span>`; };
   // 引き直しは 1 日 3 回（Lv20 からは 5 回）。気に入った名前（顔アイコンも名前で決まる）は 3 つまで「キープ」でき、いつでも戻せる（回数は使わない）
   const KEEP_MAX = 3;
   const isAnimalName = (n) => NAME_ANIMAL.some((w) => String(n).replace(/\d+$/, '').endsWith(w));
@@ -1574,6 +1575,13 @@
     const b = e.target.closest('[data-keep]'); if (!b) return;
     const n = keep[+b.dataset.keep]; if (n && n !== profile.name) { setName(n); renderNameGacha(); }
   });
+  // 開発者の名前：一度だけ ?dev=robit をつけて開くと「ROBIT（開発者）」になる（キープにも入る）
+  // ランキングやオンラインに書けるのは、データベースの決まりで開発者の端末だけ（ほかの端末は「名無しの乗客」で送られる）
+  const DEV_NAME = 'ROBIT（開発者）';
+  if (/[?&]dev=robit\b/.test(location.search)) {
+    keepName(DEV_NAME); profile.name = DEV_NAME; profile.nameFix = 1; saveProfile(); // ランキングへは fixName で送る
+    try { history.replaceState(null, '', location.pathname + location.search.replace(/[?&]dev=robit\b/, '').replace(/^&/, '?') + location.hash); } catch (e) { }
+  }
   showName(); setTimeout(fixName, 0);
   $('bSnd').textContent = AU.on ? '🔊' : '🔇';
   $('bSnd').addEventListener('click', () => { AU.on = !AU.on; profile.sound = AU.on; saveProfile(); $('bSnd').textContent = AU.on ? '🔊' : '🔇'; initAudio(); if (AU.master) AU.master.gain.value = AU.on ? 0.6 : 0; if (!AU.on && speechOK) try { speechSynthesis.cancel(); } catch (e) { } });
@@ -1581,6 +1589,7 @@
     state = 'title'; backTo = 'title';
     if (TUT) tutClose();
     $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('mpOut').classList.add('hidden');
+    if (RP.active) { RP.active = false; RP.fr = null; } document.body.classList.remove('replay'); $('rpBar').classList.add('hidden'); $('rpEnd').classList.add('hidden');
     $('sleepFx').style.opacity = 0; $('hitFlash').style.opacity = 0; $('lowFx').style.boxShadow = 'none';
     if (document.pointerLockElement) document.exitPointerLock();
     if (!demo || demo.over) demo = SW.create({ seed: (Math.random() * 1e9) | 0 });
@@ -1628,6 +1637,7 @@
       if (!noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
     }
     if (isTouch && isPortrait()) setTimeout(() => { if (state === 'play' && isPortrait()) addToast('📱 スマホを横にすると遊びやすいよ', 'warn'); }, 4000);
+    recStart(mode);
     if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
   }
@@ -2119,7 +2129,9 @@
     $('rRank').textContent = 'ランキングに記録中…';
     submitting = submitting.then(async () => {
       try {
+        const rec = REC && REC.done ? REC : null; REC = null;
         const res = DB ? await submitClaude(R) : await submitFirebase(R);
+        if (!DB) recUpload(R, res, rec);
         const rk = (x) => x ? x.rank + '位' : '-';
         const main = res && (R.mode === 'daily' ? res.daily : res.day);
         if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${main.rank}位/${main.total}人・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
@@ -2142,7 +2154,7 @@
       const parent = path.slice(0, path.lastIndexOf('/'));
       const above = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(myS + 0.5).limitToFirst(1000).get(), 10000)).numChildren();
       const total = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(0).limitToFirst(5000).get(), 10000)).numChildren();
-      return { rank: above + 1, total, improved: better && !!old };
+      return { rank: above + 1, total, improved: better && !!old, mine: better };
     };
     const best = await put('suwaritai/best/' + F.uid);
     const day = await put('suwaritai/day/' + dk + '/' + F.uid);
@@ -2205,7 +2217,8 @@
       mine = { id: F.uid, rank: above + 1, score: own.s, name: dispName(own.n, F.uid), title: own.ti };
     }
     if (arr.length >= TOP_N) total = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(0).limitToFirst(10000).get(), 10000)).numChildren();
-    return { list: arr, me: F.uid, mine, total };
+    const rp = await fetchRpInfo(F, tab).catch(() => null);
+    return { list: arr, me: F.uid, mine, total, rp };
   }
   document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
   function setRankTab(tab) {
@@ -2220,7 +2233,8 @@
     b.list.slice(0, limit).forEach((x, i) => {
       if (x.score !== prev) { rank = i + 1; prev = x.score; }
       const me = x.id === b.me; if (me) meShown = true;
-      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
+      const rp = b.rp && rank <= RP_TOP && b.rp.has[x.id] === x.score ? b.rp : null;
+      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${esc(x.title)}${rpStats(rp, x.id)}</div></span><span class="sc">${x.score}</span>${rp ? `<button class="rpb" data-rp="${esc(x.id)}" data-kind="${rp.kind}" title="リプレイを見る">▶</button>` : ''}</div>`;
     });
     if (b.mine && !meShown) html += `<div class="rk" style="justify-content:center;color:var(--sub)">⋮</div><div class="rk me"><span class="n">${b.mine.rank}</span><span class="nm">${nameHtml(b.mine.name || '名無しの乗客')} <span class="pill">あなた</span><div class="ttl">${esc(b.mine.title)}</div></span><span class="sc">${b.mine.score}</span></div>`;
     return html;
@@ -2254,6 +2268,169 @@
     } catch (e) { /* 出さない */ }
   }
   $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'daily' ? 'daily' : 'day'); track('結果からランキングを開いた'); });
+
+  // ================================================================ リプレイ（ランキング上位 10 位）
+  // 遊んでいるあいだ 0.2 秒ごとに様子（オンライン対戦と同じ形）を記録しておき、上位 10 位に入ったら gzip して Firebase に送る
+  // suwaritai/rp/{種類}/{uid}：中身　rpi/{種類}/{uid}：目次（点数・日付）　rpv/{uid}：見られた数　rpl/{uid}/{見た人}：いいね
+  const RP_TOP = 10, RP_MAXF = 6000; // 6000 コマ＝20 分まで
+  const RP_KIND = { day: 'day', week: 'week', normal: 'best', daily: 'daily' };
+  let REC = null;
+  const RP = { active: false };
+  function recStart(mode) {
+    REC = null;
+    if ((mode !== 'normal' && mode !== 'daily') || !fbAllowed || typeof CompressionStream === 'undefined') return;
+    REC = { T: { k: 0, sentMax: G.nextId - 1, newIds: [] }, fr: [], acc: 1, ev: [], seed: G.seed, mode, done: false };
+  }
+  function recTick(g, dt) {
+    if (!REC || REC.done) return;
+    for (const e of g.events) REC.ev.push(e);
+    REC.acc += dt;
+    if (REC.acc < 0.2 && !g.over) return;
+    REC.acc = 0; REC.T.k++;
+    const snap = worldSnap(g, REC.T);
+    let obs = 0; if (g.aim >= 0 && g.aim < SW.PID) { const q = SW.person(g, g.aim); if (q) obs = SW.observe(g, q); }
+    snap.pl = [plArr(g, { pl: g.player, aim: g.aim, prompt: g.prompt, out: g.over, ghost: false, result: g.result, tricks: 0 }, obs)];
+    snap.ev = REC.ev.slice(-40); REC.ev = [];
+    REC.fr.push(snap);
+    if (g.over || REC.fr.length >= RP_MAXF) REC.done = true;
+  }
+  async function gz(str) {
+    const buf = await new Response(new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+    let bin = ''; const u = new Uint8Array(buf);
+    for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  async function gunz(b64) {
+    const bin = atob(b64), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  }
+  // 上位 10 位に入ったランキングの種類ぶんだけ送る（res は submitFirebase の結果）
+  async function recUpload(R, res, rec) {
+    if (!rec || !rec.done || !res) return;
+    const kinds = [['best', res.best, 'all'], ['day', res.day, todayKey()], ['week', res.week, weekKey()], ['daily', res.daily, todayKey()]]
+      .filter(([, r]) => r && r.mine && r.rank <= RP_TOP);
+    if (!kinds.length) return;
+    try {
+      const F = await firebaseReady(); if (!F) return;
+      const d = await gz(JSON.stringify({ v: 1, seed: rec.seed, mode: rec.mode, fr: rec.fr }));
+      if (d.length > 900000) return;
+      const name = rankName();
+      for (const [kind, , k] of kinds) {
+        await withTimeout(F.db.ref('suwaritai/rp/' + kind + '/' + F.uid).set({ n: name, s: R.sc.total, k, d, t: F.TS }), 20000);
+        await withTimeout(F.db.ref('suwaritai/rpi/' + kind + '/' + F.uid).set({ n: name, s: R.sc.total, k, t: F.TS }), 10000);
+      }
+      if (state === 'result') addToast('🎬 上位 ' + RP_TOP + ' 位に入ったので、リプレイを載せました', 'good');
+      track('リプレイを載せた');
+    } catch (e) { /* 載せられなくても遊ぶのには困らない */ }
+  }
+  // ランキングの表に出す：リプレイがある行（目次と点数・日付が合う）と、見られた数・いいね
+  async function fetchRpInfo(F, tab) {
+    const kind = RP_KIND[tab]; if (!kind) return null;
+    const key = kind === 'best' ? 'all' : kind === 'week' ? weekKey() : todayKey();
+    const [idx, views, likes] = await Promise.all(['suwaritai/rpi/' + kind, 'suwaritai/rpv', 'suwaritai/rpl'].map((p) => withTimeout(F.db.ref(p).get(), 10000).then((s) => s.val() || {}).catch(() => ({}))));
+    const out = { kind, has: {}, v: {}, l: {} };
+    for (const uid in idx) if (idx[uid] && idx[uid].k === key) out.has[uid] = idx[uid].s;
+    for (const uid in views) out.v[uid] = +views[uid] || 0;
+    for (const uid in likes) out.l[uid] = Object.keys(likes[uid] || {}).length;
+    return out;
+  }
+  const rpStats = (rp, id) => rp ? `<span class="rpst">👁 ${rp.v[id] || 0}　❤️ ${rp.l[id] || 0}</span>` : '';
+  async function playReplay(kind, uid) {
+    const F = await firebaseReady().catch(() => null); if (!F) return;
+    $('rankNote').textContent = 'リプレイを読み込み中…';
+    let data = null, meta = null;
+    try {
+      meta = (await withTimeout(F.db.ref('suwaritai/rp/' + kind + '/' + uid).get(), 20000)).val();
+      if (meta && meta.d) data = JSON.parse(await gunz(meta.d));
+    } catch (e) { data = null; }
+    if (!data || !data.fr || !data.fr.length) { $('rankNote').textContent = 'リプレイを読めませんでした'; return; }
+    // 見られた数（自分のは数えない）
+    if (uid !== F.uid) F.db.ref('suwaritai/rpv/' + uid).transaction((v) => (v || 0) + 1).catch(() => { });
+    track('リプレイを見た');
+    initAudio(); clearWorld();
+    G = SW.create({ seed: data.seed, mode: data.mode });
+    G.modeName = data.mode;
+    const looks = {};
+    for (const f of data.fr) if (f.nw) Object.assign(looks, f.nw);
+    Object.assign(RP, { active: true, fr: data.fr, i: -1, t: 0, t0: data.fr[0].t, speed: 1, paused: false, ended: false, looks, uid, kind, name: dispName(meta.n, uid), score: meta.s, obs: null, liked: false, me: F.uid, P: { pl: G.player, out: false, ghost: false, prompt: null, aim: -1, result: null, tricks: 0 } });
+    G.player.yaw = 0; endT = 0; pendingResult = false; eyeH = 1.6;
+    state = 'play'; show(null);
+    $('hud').classList.remove('hidden'); $('touch').classList.add('hidden');
+    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.mind = -1;
+    $('toasts').innerHTML = ''; $('pops').innerHTML = '';
+    $('rpName').innerHTML = nameHtml(RP.name) + ` <b>${RP.score}</b>点`;
+    $('rpBar').classList.remove('hidden'); $('rpEnd').classList.add('hidden'); document.body.classList.add('replay');
+    rpButtons();
+    // いいね済みか
+    F.db.ref('suwaritai/rpl/' + uid + '/' + F.uid).get().then((s) => { RP.liked = !!s.val(); rpButtons(); }).catch(() => { });
+    F.db.ref('suwaritai/rpl/' + uid).get().then((s) => { RP.likes = s.numChildren(); rpButtons(); }).catch(() => { });
+  }
+  function rpButtons() {
+    $('rpPlay').textContent = RP.paused ? '▶' : '⏸';
+    $('rpSpeed').textContent = RP.speed + '×';
+    const self = RP.uid === RP.me;
+    for (const id of ['rpLike', 'rpLike2']) {
+      const b = $(id); b.disabled = RP.liked || self;
+      b.textContent = (RP.liked ? '❤️ いいね済み' : self ? '❤️ 自分のリプレイ' : '🤍 いいね') + (RP.likes != null ? ' ' + RP.likes : '');
+    }
+  }
+  function rpTick(dt) {
+    const g = G, fr = RP.fr;
+    if (!RP.paused && !RP.ended && state === 'play') RP.t += dt * RP.speed;
+    const now = RP.t0 + RP.t;
+    while (RP.i + 1 < fr.length && fr[RP.i + 1].t <= now) {
+      RP.i++;
+      const f = fr[RP.i], a = f.pl[0], b = g.player;
+      applyWorld(g, f, RP.looks);
+      b._tx = a[0] / 100; b._tz = a[1] / 100; b._tyaw = a[2] / 100; b.pitch = a[3] / 100;
+      if (b._init == null || a[4] !== b.seat) { b.x = b._tx; b.z = b._tz; b.yaw = b._tyaw; b._init = 1; }
+      applyPl(g, RP.P, a);
+      g.aim = RP.P.aim; g.prompt = RP.P.prompt; RP.obs = a[27] || null;
+      if (RP.speed <= 2) for (const e of f.ev || []) g.events.push(e);
+    }
+    // なめらかに動かす
+    const k = Math.min(1, dt * 9 * RP.speed);
+    for (const p of g.people) {
+      if (p._tx == null) continue;
+      const dx = p._tx - p.x, dz = p._tz - p.z, d = Math.hypot(dx, dz);
+      p.x += dx * k; p.z += dz * k;
+      if (d > 0.02 && p.state !== 'seated') p.walkPhase += d * k * 6 * 3;
+      let dr = p._try - p.ry; while (dr > Math.PI) dr -= TAU; while (dr < -Math.PI) dr += TAU; p.ry += dr * k;
+      if (p.bubble) p.bubbleT = 1;
+    }
+    const b = g.player;
+    if (b._tx != null) {
+      b.x += (b._tx - b.x) * k; b.z += (b._tz - b.z) * k;
+      let dr = b._tyaw - b.yaw; while (dr > Math.PI) dr -= TAU; while (dr < -Math.PI) dr += TAU; b.yaw += dr * k;
+    }
+    b.punchAnim = Math.max(0, b.punchAnim - dt);
+    $('rpProg').style.width = Math.min(100, (RP.i + 1) / fr.length * 100) + '%';
+    if (!RP.ended && RP.i >= fr.length - 1) {
+      RP.ended = true;
+      setTimeout(() => { if (RP.active && RP.ended) { $('rpEnd').classList.remove('hidden'); $('rpEndT').innerHTML = nameHtml(RP.name) + ' のリプレイ　<b>' + RP.score + '</b>点'; rpButtons(); } }, 1500);
+    }
+  }
+  function rpStop(toRank) {
+    RP.active = false; RP.fr = null;
+    $('rpBar').classList.add('hidden'); $('rpEnd').classList.add('hidden');
+    titleScreen();
+    if (toRank) { backTo = 'title'; show('rank'); setRankTab(rankTab); }
+  }
+  $('rpPlay').addEventListener('click', () => { RP.paused = !RP.paused; rpButtons(); });
+  $('rpSpeed').addEventListener('click', () => { RP.speed = RP.speed >= 4 ? 1 : RP.speed * 2; rpButtons(); });
+  $('rpClose').addEventListener('click', () => rpStop(true));
+  $('rpBack').addEventListener('click', () => rpStop(true));
+  $('rpAgain').addEventListener('click', () => { const keep = { fr: RP.fr, looks: RP.looks }; clearWorld(); const seed = G.seed, mode = G.mode; G = SW.create({ seed, mode }); RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false }, keep); RP.P.out = false; RP.P.result = null; $('rpEnd').classList.add('hidden'); });
+  for (const id of ['rpLike', 'rpLike2']) $(id).addEventListener('click', async () => {
+    if (RP.liked || RP.uid === RP.me) return;
+    RP.liked = true; RP.likes = (RP.likes || 0) + 1; rpButtons(); sfx('combo');
+    try { const F = await firebaseReady(); await withTimeout(F.db.ref('suwaritai/rpl/' + RP.uid + '/' + F.uid).set(true), 10000); track('リプレイにいいね'); } catch (e) { }
+  });
+  $('rankList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rp]'); if (!b) return;
+    playReplay(b.dataset.kind, b.dataset.rp);
+  });
 
   // ================================================================ オンライン対戦（β・フレンド戦）
   // 部屋を作った人（ホスト）の端末がゲームを進め、ほかの人は操作を送って、様子（スナップショット）を受け取る。
@@ -2316,7 +2493,7 @@
     Object.assign(MP, {
       active: false, code: null, isHost: false, uid: null, hostUid: null, me: -1, offs: [], members: {}, state: null, players: [],
       remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, cnt: { a: 0, p: 0, bp: 0, fs: 0, sk: 0 }, skIdx: -1,
-      seen: 0, looks: {}, newIds: [], sentMax: 0, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
+      seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
     });
   }
   mpReset();
@@ -2332,6 +2509,30 @@
   $('bOnline').addEventListener('click', openOnline);
   $('olCreate').addEventListener('click', () => mpCreate());
   $('olJoin').addEventListener('click', () => mpJoin());
+  $('olWatch').addEventListener('click', () => mpSpectate());
+  $('spNext').addEventListener('click', () => {
+    if (!MP.active || !G) return;
+    MP.me = (MP.me + 1) % G.players.length; SW.setCtx(G, MP.me);
+    const b = G.player; if (b._tx != null) { b.x = b._tx; b.z = b._tz; } spName();
+  });
+  $('spQuit').addEventListener('click', async () => { await mpLeave(false); openOnline(); });
+  function spName() { const P = G && G.players[MP.me]; if (P) $('spName').innerHTML = '<i style="background:' + MPCOL[MP.me] + '"></i>' + nameHtml(P.name) + (P.cpu ? ' 🤖' : ''); }
+  // 観戦：合言葉の部屋の様子を見るだけ（メンバーには入らない・何も送らない）
+  async function mpSpectate() {
+    const code = ($('olCode').value || '').replace(/\D/g, '');
+    if (code.length !== 4) { olNote('合言葉は 4 けたの数字です'); return; }
+    try {
+      const N = await net(); olNote('さがしています…');
+      const r = await N.get(roomP(code));
+      if (!r || !r.host) { olNote('その合言葉の部屋はありません'); return; }
+      MP.spect = true; MP.isHost = false; MP.code = code; MP.uid = N.uid;
+      $('olMenu').classList.add('hidden'); $('olRoom').classList.remove('hidden'); $('olCodeShow').textContent = code; olNote('');
+      MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; mpRenderRoom(); }));
+      MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
+      MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code) mpAbort('部屋がなくなりました'); }));
+      track('オンライン：観戦で部屋に入った');
+    } catch (e) { olNote('見られませんでした（' + (e && e.message || e) + '）'); }
+  }
   $('olCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') mpJoin(); });
   $('olBack').addEventListener('click', () => { if (MP.code) mpLeave(true); else titleScreen(); });
   $('olStart').addEventListener('click', () => mpStart());
@@ -2404,7 +2605,7 @@
     $('olMembers').innerHTML = html;
     $('olCpu').disabled = !MP.isHost; $('olCpu').checked = cpu;
     $('olStart').classList.toggle('hidden', !MP.isHost);
-    $('olWait').textContent = MP.isHost ? (mem.length < 2 && !cpu ? 'ほかの人が入るのを待っています（合言葉を送ってね）' : '') : 'ホストがスタートするのを待っています…';
+    $('olWait').textContent = MP.spect ? '👀 観戦で入っています。試合が始まると見られます' : MP.isHost ? (mem.length < 2 && !cpu ? 'ほかの人が入るのを待っています（合言葉を送ってね）' : '') : 'ホストがスタートするのを待っています…';
   }
   function mpMembersChanged() {
     if (!MP.active || !G) return;
@@ -2433,24 +2634,26 @@
     } catch (e) { olNote('スタートできませんでした（' + (e && e.message || e) + '）'); }
   }
   function mpBegin(st) {
-    const idx = (st.players || []).findIndex((p) => p.uid === MP.uid);
+    let idx = (st.players || []).findIndex((p) => p.uid === MP.uid);
+    if (MP.spect) idx = Math.max(0, (st.players || []).findIndex((p) => !p.cpu)); // 観戦：まず人間のプレイヤーを追いかける
     if (idx < 0) { olNote('始まった試合に入れませんでした'); return; }
-    Object.assign(MP, { active: true, me: idx, players: st.players, remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, seen: 0, newIds: [], ghost: false, watching: false, outShown: false, resSent: false, scores: [], myObs: null });
+    Object.assign(MP, { active: true, me: idx, players: st.players, base: 0, remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, seen: 0, newIds: [], ghost: false, watching: false, outShown: false, resSent: false, scores: [], myObs: null });
     MP.cnt = { a: 0, p: 0, bp: 0, fs: 0, sk: 0 };
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); } MP.avatars = {};
     initAudio(); clearWorld();
     G = SW.create({ seed: st.seed, mode: 'online', players: st.players.map((p) => { const a = String(p.st || '').split(','), o = {}; SW.STATS.forEach((d, k) => { o[d.key] = +a[k] || 0; }); return { name: p.name, cpu: p.cpu, stats: o }; }) });
     G.modeName = 'online';
-    MP.sentMax = G.nextId - 1;
+    MP.sentMax = G.nextId - 1; MP.base = MP.isHost ? G.nextId - 1 : 0;
     SW.setCtx(G, MP.me);
     inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null);
     $('hud').classList.remove('hidden'); $('mpBoard').classList.remove('hidden');
-    if (isTouch) $('touch').classList.remove('hidden');
+    if (isTouch && !MP.spect) $('touch').classList.remove('hidden');
     hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.mind = -1;
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
-    if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
-    addToast('🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
+    if (MP.spect) { document.body.classList.add('replay'); $('spBar').classList.remove('hidden'); spName(); addToast('👀 観戦中。「次の人」で見る人を切りかえ', 'good'); track('オンライン：観戦をはじめた'); }
+    else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
+    if (!MP.spect) addToast('🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
     net().then((N) => {
       if (MP.isHost) MP.offs.push(N.on(roomP(MP.code) + '/inputs', (v) => { MP.remote = v || {}; }));
       else MP.offs.push(N.on(roomP(MP.code) + '/snap', (v) => { if (v) mpApply(v); }));
@@ -2478,35 +2681,46 @@
     const P = g.players[j], s = P.pl.stamina;
     return { name: P.name + '（ライバル）', notes: [s <= 20 ? '🤢 具合が悪そう…（トドメのチャンス？）' : s < 45 ? '😓 ちょっと疲れている' : '💪 まだ元気そう', P.pl.seat >= 0 ? '💺 座っている' : '🧍 立っている'] };
   }
-  function mpSendSnap() {
-    const g = G; MP.k++;
+  // 世界の様子（乗客・座席・アイテムなど）を小さな配列にする。オンライン対戦とリプレイで同じ形を使う
+  // T = { k, sentMax, newIds }：新しく出てきた乗客の見た目（nw）を何コマか続けて入れるための記録
+  function worldSnap(g, T) {
     const pe = g.people.map((p) => [p.id, r2(p.x), r2(p.z), r2(p.ry), STC.indexOf(p.state), p.seat, p.anim === 'board' ? 1 : p.anim === 'watch' ? 2 : 0, p.sleep, p.expr, p.bubble || '',
       (p.packing ? 1 : 0) | (p.leaving ? 2 : 0) | (p.targetPlayer ? 4 : 0) | (p.priority ? 8 : 0) | (p.stunned > 0 ? 16 : 0) | (p.fleeing ? 32 : 0) | (p.pickT > 0 ? 64 : 0) | (p.sleep && p.oversleep ? 128 : 0) | (p.undercover ? 256 : 0) | (p.anim === 'reach' ? 512 : 0) | (p.bfs === 'windup' ? 1024 : 0) | (p.fake ? 2048 : 0) | (p.hogKind === 'bag' ? 4096 : 0) | (p.state === 'fight' && p.brute ? 8192 : 0),
       p.slot, p.idle, p.dest, p.role || '', Math.round((p.speed || 1) * 10)]);
-    for (const p of g.people) if (p.id > MP.sentMax) { MP.newIds.push([p.id, MP.k]); MP.sentMax = Math.max(MP.sentMax, p.id); }
-    MP.newIds = MP.newIds.filter((a) => a[1] > MP.k - 20);
+    for (const p of g.people) if (p.id > T.sentMax) { T.newIds.push([p.id, T.k]); T.sentMax = Math.max(T.sentMax, p.id); }
+    T.newIds = T.newIds.filter((a) => a[1] > T.k - 20);
     const nw = {};
-    for (const [id] of MP.newIds) { const p = SW.person(g, id); if (p) nw[id] = [p.type, p.female, Math.round(p.h * 100), p.look]; }
-    const pl = g.players.map((P, i) => {
-      const b = P.pl, aim = P.aim;
-      let obs = 0;
-      if (!MP.players[i].cpu && i !== MP.me) {
-        if (aim >= SW.PID) obs = playerObs(g, aim - SW.PID);
-        else if (aim >= 0) { const q = SW.person(g, aim); if (q) obs = SW.observe(g, q); }
-      }
-      return [r2(b.x), r2(b.z), r2(b.yaw), r2(b.pitch), b.seat, Math.round(b.stamina * 10) / 10, Math.round(b.karma), b.toku, b.earned, b.combo, Math.round((g.t - b.lastDeedT) * 10),
-        P.out ? 1 : 0, P.ghost ? 1 : 0, b.carrying ? [b.carrying.key, b.carrying.name] : 0, b.buffs, b.mode || '', Math.round(b.modeT * 10), Math.round(b.punchAnim * 100), b.braceHeld ? 1 : 0, b.fakeSleep ? 1 : 0,
-        Math.round(b.stagger * 10), Math.round(b.hitFlash * 10), P.prompt ? P.prompt.label : '', P.prompt ? P.prompt.act : '', aim, P.result ? P.result.cause : '', P.tricks, obs, P.result ? (P.result.text || '') : '', b.drinkCount, Math.round(b.confessCD * 10), Math.round(b.mind)];
-    });
-    const snap = {
-      k: MP.k, t: Math.round(g.t * 100) / 100, ph: g.phase === 'stop' ? 's' : 't', pt: Math.round(g.phaseT * 100) / 100, st: g.station, ds: g.doorSide, nds: g.nextDoorSide || 1, do: g.doorsOpen ? 1 : 0, ann: g.ann || '',
+    for (const [id] of T.newIds) { const p = SW.person(g, id); if (p) nw[id] = [p.type, p.female, Math.round(p.h * 100), p.look]; }
+    // 途中から観戦に来た人のために、ときどき（5 秒ごと）途中で乗ってきた人みんなの見た目も入れる
+    if (T.base && T.k % 25 === 0) for (const p of g.people) if (p.id > T.base && !nw[p.id]) nw[p.id] = [p.type, p.female, Math.round(p.h * 100), p.look];
+    return {
+      k: T.k, t: Math.round(g.t * 100) / 100, ph: g.phase === 'stop' ? 's' : 't', pt: Math.round(g.phaseT * 100) / 100, st: g.station, ds: g.doorSide, nds: g.nextDoorSide || 1, do: g.doorsOpen ? 1 : 0, ann: g.ann || '',
       se: g.seats.map((s) => s.occ === 0 ? 'p' : s.hog ? ((SW.person(g, s.hog) || {}).hogKind === 'bag' ? 'b' : 's') : s.occ > 0 ? 'n' : s.res >= 0 ? 'r' : '-').join(''),
       pe, nw, it: g.items.map((it) => [it.id, it.key, r2(it.x), r2(it.z), it.name]),
       sp: g.speaker && g.speaker.on ? [r2(g.speaker.x), r2(g.speaker.z), g.speaker.broken ? 1 : 0] : 0,
       ch: g.chikan ? [g.chikan.stage, g.chikan.fstate, Math.round(g.chikan.ft * 100), g.chikan.chikanId, g.chikan.victimId] : 0,
       ru: g.runner ? [g.runner.door, g.runner.held ? 1 : 0] : 0,
-      pl, ev: MP.evRing.slice(-60), sc: MP.scores,
     };
+  }
+  // プレイヤー 1 人ぶん（P = { pl, aim, prompt, out, ghost, result, tricks }）
+  function plArr(g, P, obs) {
+    const b = P.pl, aim = P.aim;
+    return [r2(b.x), r2(b.z), r2(b.yaw), r2(b.pitch), b.seat, Math.round(b.stamina * 10) / 10, Math.round(b.karma), b.toku, b.earned, b.combo, Math.round((g.t - b.lastDeedT) * 10),
+        P.out ? 1 : 0, P.ghost ? 1 : 0, b.carrying ? [b.carrying.key, b.carrying.name] : 0, b.buffs, b.mode || '', Math.round(b.modeT * 10), Math.round(b.punchAnim * 100), b.braceHeld ? 1 : 0, b.fakeSleep ? 1 : 0,
+        Math.round(b.stagger * 10), Math.round(b.hitFlash * 10), P.prompt ? P.prompt.label : '', P.prompt ? P.prompt.act : '', aim, P.result ? P.result.cause : '', P.tricks, obs, P.result ? (P.result.text || '') : '', b.drinkCount, Math.round(b.confessCD * 10), Math.round(b.mind)];
+  }
+  function mpSendSnap() {
+    const g = G; MP.k++;
+    const snap = worldSnap(g, MP);
+    snap.pl = g.players.map((P, i) => {
+      let obs = 0;
+      if (!MP.players[i].cpu && i !== MP.me) {
+        if (P.aim >= SW.PID) obs = playerObs(g, P.aim - SW.PID);
+        else if (P.aim >= 0) { const q = SW.person(g, P.aim); if (q) obs = SW.observe(g, q); }
+      }
+      return plArr(g, P, obs);
+    });
+    snap.ev = MP.evRing.slice(-60); snap.sc = MP.scores;
     net().then((N) => N.set(roomP(MP.code) + '/snap', snap)).catch(() => { });
   }
   // ---- 参加者：受け取った様子を手元に写す
@@ -2514,17 +2728,15 @@
     const L = lk || ['salaryman', 0, 172, { top: '#6c7078', bottom: '#1b1b1d', skin: '#e8b88f', hair: '#2b2018', hairStyle: 'short', glasses: false, mask: false, bag: false, tie: null, topName: '灰色' }];
     return { id, type: L[0], female: L[1], h: L[2] / 100, look: L[3], x: 0, z: 0, ry: 0, state: 'stand', seat: -1, slot: -1, anim: 'none', animT: 0, sleep: 0, expr: 'neutral', bubble: null, idle: 'none', dest: 0, role: null, speed: 1, walkPhase: 0, blink: Math.random() * 4, looks: [], watches: [], priority: 0, _new: true };
   }
-  function mpApply(snap) {
-    if (!G || snap.k <= MP.lastK) return;
-    MP.lastK = snap.k;
-    const g = G;
+  function applyWorld(g, snap, looks, strict) {
     g.t = snap.t; g.phase = snap.ph === 's' ? 'stop' : 'travel'; g.phaseT = snap.pt; g.station = snap.st; g.doorSide = snap.ds; g.nextDoorSide = snap.nds; g.doorsOpen = !!snap.do; g.ann = snap.ann;
     for (let k = 0; k < g.seats.length; k++) { const c = snap.se[k]; g.seats[k].occ = c === 'p' ? 0 : c === 'n' || c === 'b' || c === 's' ? 1 : -1; g.seats[k].res = c === 'r' ? 1 : -1; g.seats[k].hog = c === 'b' || c === 's' ? 1 : 0; g.seats[k].hogBag = c === 'b'; }
-    if (snap.nw) for (const id in snap.nw) MP.looks[id] = snap.nw[id];
+    if (snap.nw) for (const id in snap.nw) looks[id] = snap.nw[id];
     const map = new Map(g.people.map((p) => [p.id, p])), next = [];
     for (const a of snap.pe || []) {
       let p = map.get(a[0]);
-      if (!p) { p = mkMirrorPerson(a[0], MP.looks[a[0]]); p.x = a[1] / 100; p.z = a[2] / 100; p.ry = a[3] / 100; }
+      if (!p && strict && !looks[a[0]]) continue; // 見た目がまだ届いていない人は、届くまで出さない（観戦の途中参加）
+      if (!p) { p = mkMirrorPerson(a[0], looks[a[0]]); p.x = a[1] / 100; p.z = a[2] / 100; p.ry = a[3] / 100; }
       p._tx = a[1] / 100; p._tz = a[2] / 100; p._try = a[3] / 100;
       p.state = STC[a[4]] || 'stand'; p.seat = a[5]; p.anim = a[6] === 1 ? 'board' : a[6] === 2 ? 'watch' : 'none'; p.sleep = a[7]; p.expr = a[8]; p.bubble = a[9] || null;
       const f = a[10]; p.packing = !!(f & 1); p.leaving = !!(f & 2); p.targetPlayer = !!(f & 4); p.priority = f & 8 ? 1 : 0; p.stunned = f & 16 ? 0.2 : 0; p.fleeing = !!(f & 32); p.pickT = f & 64 ? 1 : 0; p.oversleep = !!(f & 128); p.undercover = !!(f & 256); if (f & 512) { p.anim = 'reach'; } p.fake = !!(f & 2048); p.hogKind = f & 4096 ? 'bag' : 'spread'; p.bfs = f & 8192 ? (f & 1024 ? 'windup' : 'idle') : null;
@@ -2537,23 +2749,36 @@
     g.chikan = snap.ch ? { stage: snap.ch[0], fstate: snap.ch[1], ft: snap.ch[2] / 100, chikanId: snap.ch[3], victimId: snap.ch[4] } : null;
     g.runner = snap.ru ? { active: true, door: snap.ru[0], held: !!snap.ru[1] } : null;
     g.speaker = snap.sp ? { on: true, x: snap.sp[0] / 100, z: snap.sp[1] / 100, broken: !!snap.sp[2] } : null;
+  }
+  // プレイヤーの数字（体力・徳など）を写す。場所と向きは呼ぶ側で決める
+  function applyPl(g, P, a) {
+    const b = P.pl;
+    b.seat = a[4]; b.stamina = a[5]; b.karma = a[6]; b.toku = a[7]; b.earned = a[8]; b.combo = a[9]; b.lastDeedT = g.t - a[10] / 10;
+    P.out = !!a[11]; P.ghost = !!a[12];
+    b.carrying = a[13] ? { key: a[13][0], name: a[13][1] } : null; b.buffs = a[14] || {}; b.mode = a[15] || null; b.modeT = a[16] / 10; b.punchAnim = a[17] / 100;
+    b.braceHeld = !!a[18]; b.fakeSleep = !!a[19]; b.stagger = a[20] / 10; b.hitFlash = a[21] / 10;
+    P.prompt = a[22] ? { label: a[22], act: a[23] } : null; P.aim = a[24]; P.tricks = a[26];
+    if (a[25]) P.result = { cause: a[25], text: a[28] || '' }; b.drinkCount = a[29] || 0; b.confessCD = (a[30] || 0) / 10; b.mind = a[31] == null ? 100 : a[31];
+  }
+  function mpApply(snap) {
+    if (!G || snap.k <= MP.lastK) return;
+    MP.lastK = snap.k;
+    const g = G;
+    applyWorld(g, snap, MP.looks, MP.spect);
     (snap.pl || []).forEach((a, i) => {
       const P = g.players[i]; if (!P) return;
-      const b = P.pl, mine = i === MP.me;
+      const b = P.pl, mine = i === MP.me && !MP.spect;
       const prevSeat = b.seat;
       if (!mine || a[4] >= 0 || prevSeat >= 0 || a[11]) {
         if (mine && (a[4] >= 0 || prevSeat >= 0)) {
           if (a[4] >= 0 || prevSeat !== a[4]) { b.x = a[0] / 100; b.z = a[1] / 100; }
           if (prevSeat !== a[4]) { inp.yaw = a[2] / 100; inp.pitch = 0; }
-        } else if (!mine) { b._tx = a[0] / 100; b._tz = a[1] / 100; if (b._init == null) { b.x = b._tx; b.z = b._tz; b._init = 1; } b.yaw = a[2] / 100; b.pitch = a[3] / 100; }
+        } else if (!mine) { b._tx = a[0] / 100; b._tz = a[1] / 100; b._tyaw = a[2] / 100; if (b._init == null || a[4] !== prevSeat) { b.x = b._tx; b.z = b._tz; b.yaw = b._tyaw; b._init = 1; } b.pitch = a[3] / 100; }
       }
-      b.seat = a[4]; b.stamina = a[5]; b.karma = a[6]; b.toku = a[7]; b.earned = a[8]; b.combo = a[9]; b.lastDeedT = g.t - a[10] / 10;
-      const wasOut = P.out; P.out = !!a[11]; P.ghost = !!a[12];
-      b.carrying = a[13] ? { key: a[13][0], name: a[13][1] } : null; b.buffs = a[14] || {}; b.mode = a[15] || null; b.modeT = a[16] / 10; b.punchAnim = a[17] / 100;
-      b.braceHeld = !!a[18]; b.fakeSleep = !!a[19]; b.stagger = a[20] / 10; b.hitFlash = a[21] / 10;
-      P.prompt = a[22] ? { label: a[22], act: a[23] } : null; P.aim = a[24]; P.tricks = a[26];
-      if (a[25]) P.result = { cause: a[25], text: a[28] || '' }; b.drinkCount = a[29] || 0; b.confessCD = (a[30] || 0) / 10; b.mind = a[31] == null ? 100 : a[31];
+      const wasOut = P.out;
+      applyPl(g, P, a);
       if (mine) { g.prompt = P.prompt; g.aim = P.aim; MP.myObs = a[27] || null; if (!wasOut && P.out) mpOnOut(); }
+      else if (MP.spect && i === MP.me) { g.prompt = P.prompt; g.aim = P.aim; MP.myObs = null; }
     });
     for (const [seq, i, e] of (snap.ev || [])) { if (seq > MP.seen) { MP.seen = seq; if (i === MP.me) G.events.push(e); } }
     MP.scores = snap.sc || MP.scores;
@@ -2580,18 +2805,20 @@
         net().then((N) => N.update(roomP(MP.code) + '/state', { s: 'done', res }));
       }
     } else {
-      // 自分の体は手元で動かす（場所だけ送る）
       g.t += dt; g.phaseT += dt;
       const b = g.player;
-      b.yaw = inp.yaw; b.pitch = inp.pitch;
+      if (MP.spect) li = {};
+      else { b.yaw = inp.yaw; b.pitch = inp.pitch; }
+      // 自分の体は手元で動かす（場所だけ送る）
       let mv = false;
-      if (meP.out) { if (MP.ghost || MP.watching) SW.ghostMove(b, li, dt); }
+      if (MP.spect) { /* 観戦：動かさない */ }
+      else if (meP.out) { if (MP.ghost || MP.watching) SW.ghostMove(b, li, dt); }
       else if (b.seat < 0) { b.braceHeld = !!li.brace; mv = SW.movePlayer(g, b, li, dt); }
       if (li.action) MP.cnt.a++; if (li.punch) MP.cnt.p++; if (li.bracePressed) MP.cnt.bp++; if (li.fakeSleep) MP.cnt.fs++;
       if (li.skill != null && li.skill >= 0) { MP.cnt.sk++; MP.skIdx = li.skill; }
       const edge = li.action || li.punch || li.bracePressed || li.fakeSleep || (li.skill != null && li.skill >= 0);
       MP.sendT -= dt;
-      if (MP.sendT <= 0 || edge) {
+      if (!MP.spect && (MP.sendT <= 0 || edge)) {
         MP.sendT = 0.1;
         const v = { pos: [r2(b.x) / 100, r2(b.z) / 100], mv: mv ? 1 : 0, yaw: r2(b.yaw) / 100, pitch: r2(b.pitch) / 100, b: li.brace ? 1 : 0, a: MP.cnt.a, p: MP.cnt.p, bp: MP.cnt.bp, fs: MP.cnt.fs, sk: [MP.cnt.sk, MP.skIdx], gh: MP.ghost ? 1 : 0 };
         net().then((N) => N.set(roomP(MP.code) + '/inputs/' + MP.uid, v)).catch(() => { });
@@ -2607,9 +2834,13 @@
         let dr = p._try - p.ry; while (dr > Math.PI) dr -= TAU; while (dr < -Math.PI) dr += TAU; p.ry += dr * k;
         if (p.bubble) p.bubbleT = 1;
       }
-      g.players.forEach((P, i) => { if (i !== MP.me && P.pl._tx != null) { P.pl.x += (P.pl._tx - P.pl.x) * k; P.pl.z += (P.pl._tz - P.pl.z) * k; } });
+      g.players.forEach((P, i) => {
+        if ((i === MP.me && !MP.spect) || P.pl._tx == null) return;
+        P.pl.x += (P.pl._tx - P.pl.x) * k; P.pl.z += (P.pl._tz - P.pl.z) * k;
+        if (P.pl._tyaw != null) { let dr = P.pl._tyaw - P.pl.yaw; while (dr > Math.PI) dr -= TAU; while (dr < -Math.PI) dr += TAU; P.pl.yaw += dr * k; }
+      });
       for (const P of g.players) P.pl.punchAnim = Math.max(0, P.pl.punchAnim - dt);
-      if (meP.out && !MP.outShown) mpOnOut();
+      if (meP.out && !MP.outShown && !MP.spect) mpOnOut();
     }
   }
   function mpOnOut() {
@@ -2623,7 +2854,7 @@
     if (document.pointerLockElement) document.exitPointerLock();
   }
   function mpShowResult(res) {
-    MP.active = false;
+    MP.active = false; $('spBar').classList.add('hidden'); document.body.classList.remove('replay');
     $('mpOut').classList.add('hidden'); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden');
     if (document.pointerLockElement) document.exitPointerLock();
     state = 'result'; backTo = 'mpres';
@@ -2652,19 +2883,19 @@
       const N = await net();
       if (code) {
         if (host) await N.remove(roomP(code));
-        else { await N.remove(roomP(code) + '/members/' + MP.uid); await N.remove(roomP(code) + '/inputs/' + MP.uid); }
+        else if (!MP.spect) { await N.remove(roomP(code) + '/members/' + MP.uid); await N.remove(roomP(code) + '/inputs/' + MP.uid); }
       }
     } catch (e) { }
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); }
     mpReset();
-    $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden');
+    $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('spBar').classList.add('hidden'); document.body.classList.remove('replay');
     if (toMenu) openOnline(); else titleScreen();
   }
   function mpAbort(msg) {
     const wasActive = MP.active;
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); }
     mpReset();
-    $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden');
+    $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('spBar').classList.add('hidden'); document.body.classList.remove('replay');
     titleScreen();
     titleToast(msg);
     if (wasActive) track('オンライン：試合が中断した');
@@ -2707,7 +2938,14 @@
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
     const t = now / 1000;
-    if (MP.active && G && (state === 'play' || state === 'pause')) {
+    if (RP.active && G && (state === 'play' || state === 'pause')) {
+      rpTick(dt);
+      handleEvents(G);
+      updateHUD(G, dt);
+      updateWorld(G, dt, t);
+      updateCamera(G, dt, t);
+      updateAudio(G, dt);
+    } else if (MP.active && G && (state === 'play' || state === 'pause')) {
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
@@ -2728,6 +2966,7 @@
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
       inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1;
       if (!G.over) SW.update(G, dt, li);
+      if (REC) recTick(G, dt);
       if (G.tutorial) tutTick(G, dt);
       handleEvents(G);
       inp.pitch = G.player.pitch;
