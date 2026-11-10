@@ -125,7 +125,7 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 #cross:after{top:10px;left:3px;height:2px;width:16px}
 #cross.aim:before,#cross.aim:after{background:var(--toku)}
 #cross.mode:before,#cross.mode:after{background:#ff4fd8}
-#target{position:absolute;left:50%;top:calc(50% + 44px);transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 10px;font-size:12px;max-width:min(88vw,300px);text-align:left}
+#target{position:absolute;left:50%;top:auto;bottom:132px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 10px;font-size:12px;max-width:min(88vw,300px);text-align:left}
 #target h4{margin:0 0 2px;font-size:13px;color:var(--toku)}
 #target div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #prompt{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:rgba(0,0,0,.72);border:2px solid var(--toku);border-radius:999px;padding:7px 16px;font-weight:800;font-size:15px;white-space:nowrap}
@@ -168,8 +168,8 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 body.touch #skills{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 118px);left:50%}
 body.touch .sk{width:42px;height:46px;font-size:18px}
 body.touch .sk kbd{display:none}
-body.touch #prompt{bottom:auto;top:calc(50% + 128px)}
-body.touch #target{top:calc(50% + 34px);font-size:11px}
+body.touch #prompt{bottom:auto;top:auto;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 192px)}
+body.touch #target{top:auto;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 124px);left:10px;transform:none;max-width:min(64vw,260px);font-size:11px}
 body.touch #ann{display:none!important}
 body.touch #toasts{top:calc(max(8px,env(safe-area-inset-top)) + 172px)}
 body.touch #pcHint{display:none}
@@ -299,7 +299,7 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
   body.touch .sk{width:40px;height:42px;font-size:17px}
   body.touch .sk small{font-size:9px;margin-top:1px}
   body.touch #prompt{top:auto;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 52px);font-size:13px;padding:5px 12px}
-  body.touch #target{top:calc(50% + 22px)}
+  body.touch #target{top:calc(max(6px,env(safe-area-inset-top)) + 104px);bottom:auto;left:max(10px,env(safe-area-inset-left));max-width:min(34vw,260px)}
   body.touch #toasts{top:max(6px,env(safe-area-inset-top));left:calc(50% + 4vw);width:min(34vw,380px)}
   .toast{font-size:12px;padding:3px 10px}
   #warn{top:24%;font-size:24px}
@@ -374,7 +374,7 @@ html.pland body.touch #skills{top:auto;bottom:max(8px,env(safe-area-inset-bottom
 html.pland body.touch .sk{width:40px;height:42px;font-size:17px}
 html.pland body.touch .sk small{font-size:9px;margin-top:1px}
 html.pland body.touch #prompt{top:auto;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 52px);font-size:13px;padding:5px 12px}
-html.pland body.touch #target{top:calc(50% + 22px)}
+html.pland body.touch #target{top:calc(max(6px,env(safe-area-inset-top)) + 104px);bottom:auto;left:max(10px,env(safe-area-inset-left));max-width:min(calc(var(--ph) * 34 / 100),260px)}
 html.pland body.touch #toasts{top:max(6px,env(safe-area-inset-top));left:calc(50% + calc(var(--ph) * 4 / 100));width:min(calc(var(--ph) * 34 / 100),380px)}
 html.pland .toast{font-size:12px;padding:3px 10px}
 html.pland #warn{top:24%;font-size:24px}
@@ -718,7 +718,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261110002212"></script>
-<script src="game.js?v=20261110002212"></script>
+<script src="logic.js?v=20261110015955"></script>
+<script src="game.js?v=20261110015955"></script>
 </body>
 </html>
