@@ -23,6 +23,8 @@
   let profile = { name: '', best: 0, bestTitle: '', daily: { date: '', score: 0 }, ach: {}, chikanTotal: 0, plays: 0, unlock: {}, sound: true, bests: {} };
   try { const s = localStorage.getItem(STORE_KEY); if (s) profile = Object.assign(profile, JSON.parse(s)); } catch (e) { }
   function saveProfile() { try { localStorage.setItem(STORE_KEY, JSON.stringify(profile)); } catch (e) { } }
+  // 今週（月曜はじまり）の月曜の日付
+  function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function dailySeed() { const k = todayKey(); let h = 2166136261; for (const c of k) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
@@ -1819,7 +1821,7 @@
   const FB_VER = '10.12.2';
   const inClaude = !!(window.claude && window.claude.use);
   const fbAllowed = !inClaude && /^https?:$/.test(location.protocol) && !/[?&]rank=off/.test(location.search);
-  let DB = null, myId = null, rankTab = 'normal', fbWait = null;
+  let DB = null, myId = null, rankTab = 'day', fbWait = null;
   (async function initClaude() {
     try {
       if (!inClaude) return;
@@ -1875,7 +1877,7 @@
         if (!fbAllowed) return;
         const F = await firebaseReady(); if (!F) return;
         let changed = false, used = name;
-        for (const path of ['suwaritai/best/' + F.uid, 'suwaritai/daily/' + todayKey() + '/' + F.uid]) {
+        for (const path of ['suwaritai/best/' + F.uid, 'suwaritai/daily/' + todayKey() + '/' + F.uid, 'suwaritai/day/' + todayKey() + '/' + F.uid, 'suwaritai/week/' + weekKey() + '/' + F.uid]) {
           const ref = F.db.ref(path);
           const old = (await withTimeout(ref.get(), 10000)).val();
           if (old && old.n !== name) { used = await fbSet(ref, { n: name, s: old.s, ti: old.ti || '', t: F.TS }); changed = true; }
@@ -1896,9 +1898,11 @@
     submitting = submitting.then(async () => {
       try {
         const res = DB ? await submitClaude(R) : await submitFirebase(R);
-        if (state === 'result' && res) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : 'みんなのランキング'}で ${res.rank}位 / ${res.total}人${res.improved ? '（記録更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : profile.name ? '' : '　※タイトルの「乗客名」を入れると名前が載ります');
+        const rk = (x) => x ? x.rank + '位' : '-';
+        const main = res && (R.mode === 'daily' ? res.daily : res.day);
+        if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${main.rank}位/${main.total}人・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : profile.name ? '' : '　※タイトルの「乗客名」を入れると名前が載ります');
         else if (state === 'result') $('rRank').textContent = '';
-        if (state === 'result' && res) showMiniBoard(R.mode === 'daily' ? 'daily' : 'normal');
+        if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : 'day');
       } catch (e) {
         if (state === 'result') $('rRank').textContent = 'ランキングに記録できませんでした（記録はこの端末に残っています）';
       }
@@ -1919,26 +1923,32 @@
       return { rank: above + 1, total, improved: better && !!old };
     };
     const best = await put('suwaritai/best/' + F.uid);
-    if (R.mode === 'daily') return put('suwaritai/daily/' + dk + '/' + F.uid);
-    return best;
+    const day = await put('suwaritai/day/' + dk + '/' + F.uid);
+    const week = await put('suwaritai/week/' + weekKey() + '/' + F.uid);
+    const daily = R.mode === 'daily' ? await put('suwaritai/daily/' + dk + '/' + F.uid) : null;
+    return { best, day, week, daily };
   }
   async function submitClaude(R) {
     const ref = DB.doc('scores/' + myId);
     const snap = await withTimeout(ref.get(), 10000);
     const od = snap && snap.exists ? (typeof snap.data === 'function' ? snap.data() : snap.data) : null;
-    const cur = Object.assign({ name: '', best: 0, title: '', dailyDate: '', dailyScore: 0, dailyTitle: '', plays: 0 }, od || {});
-    const dk = todayKey();
+    const cur = Object.assign({ name: '', best: 0, title: '', dailyDate: '', dailyScore: 0, dailyTitle: '', dayDate: '', dayScore: 0, dayTitle: '', weekKey: '', weekScore: 0, weekTitle: '', plays: 0 }, od || {});
+    const dk = todayKey(), wk = weekKey();
     const name = rankName();
     let improved = false;
     cur.name = name;
     if (R.sc.total > cur.best) { cur.best = R.sc.total; cur.title = R.sc.title; improved = true; }
     if (R.mode === 'daily' && (cur.dailyDate !== dk || R.sc.total > cur.dailyScore)) { cur.dailyDate = dk; cur.dailyScore = R.sc.total; cur.dailyTitle = R.sc.title; }
+    if (cur.dayDate !== dk || R.sc.total > cur.dayScore) { cur.dayDate = dk; cur.dayScore = R.sc.total; cur.dayTitle = R.sc.title; }
+    if (cur.weekKey !== wk || R.sc.total > cur.weekScore) { cur.weekKey = wk; cur.weekScore = R.sc.total; cur.weekTitle = R.sc.title; }
     cur.plays = (cur.plays || 0) + 1; cur.updated = Date.now();
     await withTimeout(ref.set(cur), 10000);
-    const list = await fetchClaude();
-    const arr = R.mode === 'daily' ? list.filter(x => x.dailyDate === dk).sort((a, b) => b.dailyScore - a.dailyScore) : list.sort((a, b) => b.best - a.best);
-    const idx = arr.findIndex(x => x.id === myId);
-    return idx >= 0 ? { rank: idx + 1, total: arr.length, improved } : null;
+    const out = {};
+    for (const tab of ['normal', 'day', 'week'].concat(R.mode === 'daily' ? ['daily'] : [])) {
+      const b = await fetchBoard(tab);
+      out[tab === 'normal' ? 'best' : tab] = b && b.mine ? { rank: b.mine.rank, total: b.total, improved: tab === 'normal' && improved } : null;
+    }
+    return out;
   }
   async function fetchClaude() {
     const snap = await withTimeout(DB.collection('scores').limit(1000).get(), 10000);
@@ -1951,13 +1961,16 @@
     const dk = todayKey();
     if (DB) {
       const all = await fetchClaude();
+      const wk = weekKey();
       const arr = (tab === 'daily' ? all.filter(x => x.dailyDate === dk && x.dailyScore > 0).map(x => ({ id: x.id, name: x.name, score: x.dailyScore, title: x.dailyTitle }))
+        : tab === 'day' ? all.filter(x => x.dayDate === dk && x.dayScore > 0).map(x => ({ id: x.id, name: x.name, score: x.dayScore, title: x.dayTitle }))
+        : tab === 'week' ? all.filter(x => x.weekKey === wk && x.weekScore > 0).map(x => ({ id: x.id, name: x.name, score: x.weekScore, title: x.weekTitle }))
         : all.filter(x => x.best > 0).map(x => ({ id: x.id, name: x.name, score: x.best, title: x.title }))).sort((a, b) => b.score - a.score);
       const i = arr.findIndex(x => x.id === myId);
       return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length };
     }
     const F = await firebaseReady(); if (!F) return null;
-    const path = tab === 'daily' ? 'suwaritai/daily/' + dk : 'suwaritai/best';
+    const path = tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
     const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(TOP_N).get(), 10000);
     const arr = [];
     snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: v.n, score: v.s || 0, title: v.ti }); });
@@ -1993,7 +2006,8 @@
     const dk = todayKey();
     const listEl = $('rankList');
     const local = () => {
-      const h = (profile.history || []).filter(x => tab === 'daily' ? x.m === 'daily' && new Date(x.d).toDateString() === new Date().toDateString() : (x.m === 'normal' || x.m === 'daily')).slice(0, 10);
+      const wk0 = new Date(weekKey() + 'T00:00:00').getTime(), today = new Date().toDateString();
+      const h = (profile.history || []).filter(x => tab === 'daily' ? x.m === 'daily' && new Date(x.d).toDateString() === today : (x.m === 'normal' || x.m === 'daily') && (tab === 'day' ? new Date(x.d).toDateString() === today : tab === 'week' ? x.d >= wk0 : true)).slice(0, 10);
       listEl.innerHTML = h.length ? h.map((x, i) => `<div class="rk"><span class="n">${i + 1}</span><span class="nm">${esc(profile.name || 'あなた')}<div class="ttl">${esc(x.t)}・${new Date(x.d).toLocaleDateString()}</div></span><span class="sc">${x.s}</span></div>`).join('') : '<p class="small">まだ記録がありません</p>';
     };
     if (!DB && !fbAllowed) { $('rankNote').textContent = 'この端末の記録'; local(); return; }
@@ -2002,7 +2016,8 @@
       const b = await fetchBoard(tab);
       if (!b) throw new Error('none');
       if (rankTab !== tab) return;
-      $('rankNote').textContent = (tab === 'daily' ? '今日のダイヤ（' + dk + '）・全員同じ電車' : 'みんなの自己ベスト') + '・' + b.total + '人' + (b.total > TOP_N ? '（上位' + TOP_N + '人）' : '');
+      const wk = weekKey().slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/');
+      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット' }[tab] || '歴代ランキング（みんなの自己ベスト）') + '・' + b.total + '人' + (b.total > TOP_N ? '（上位' + TOP_N + '人）' : '');
       listEl.innerHTML = b.list.length ? rankRows(b, TOP_N) : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
     } catch (e) { $('rankNote').textContent = 'オンラインのランキングを読めませんでした。この端末の記録：'; local(); }
   }
@@ -2015,7 +2030,7 @@
       $('rMiniBox').classList.remove('hidden');
     } catch (e) { /* 出さない */ }
   }
-  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'daily' ? 'daily' : 'normal'); track('結果からランキングを開いた'); });
+  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'daily' ? 'daily' : 'day'); track('結果からランキングを開いた'); });
 
   // ================================================================ オンライン対戦（β・フレンド戦）
   // 部屋を作った人（ホスト）の端末がゲームを進め、ほかの人は操作を送って、様子（スナップショット）を受け取る。

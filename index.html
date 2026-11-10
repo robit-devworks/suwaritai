@@ -198,6 +198,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .tabs{display:flex;gap:6px;margin-bottom:10px}
 .tabs button{flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-weight:800;font-size:13px}
 .tabs button.on{background:var(--accent);color:#fff}
+#rankTabs button{padding:8px 2px;font-size:12px;white-space:nowrap;min-width:0}
 .rk{display:flex;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;align-items:center}
 .rk .n{width:34px;font-variant-numeric:tabular-nums;text-align:right;color:var(--sub);font-weight:800}
 .rk .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -559,7 +560,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="rank" class="screen hidden">
   <div class="card">
     <h2>ランキング</h2>
-    <div class="tabs"><button data-rt="normal" class="on">たちっぱ線</button><button data-rt="daily">今日のダイヤ</button></div>
+    <div class="tabs" id="rankTabs"><button data-rt="day" class="on">今日</button><button data-rt="week">今週</button><button data-rt="normal">歴代</button><button data-rt="daily">今日のダイヤ</button></div>
     <div id="rankNote" class="small"></div>
     <div id="rankList"></div>
     <button class="btn sub2" data-back>もどる</button>
@@ -718,7 +719,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261110021609"></script>
-<script src="game.js?v=20261110021609"></script>
+<script src="logic.js?v=20261110023019"></script>
+<script src="game.js?v=20261110023019"></script>
 </body>
 </html>
