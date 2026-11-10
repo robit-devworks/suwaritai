@@ -234,7 +234,7 @@
       sits: 0, quickSits: 0, gives: 0, chikanKO: 0, counters: 0, delivered: 0, teeth: 0, ceo: 0, alien: 0, alienPunch: 0,
       brainwash: 0, force: 0, wrongPunch: 0, thiefKO: 0, stolen: 0, tanuki: 0, oversleepSteal: 0, braces: 0, braceFail: 0, doorHolds: 0, maxCombo: 0,
       standTime: 0, sitTime: 0, stations: 0, sos: 0, deeds: 0, skillsUsed: 0, bestDeed: null,
-      suriKO: 0, falseAccuse: 0, fakerExposed: 0, fooled: 0, dashBlock: 0, hush: 0, hogAsk: 0, henchKO: 0, emperorKO: 0, brawlKO: 0, bagThrow: 0, speakerKO: 0,
+      suriKO: 0, falseAccuse: 0, fakerExposed: 0, fooled: 0, dashBlock: 0, hush: 0, hogAsk: 0, henchKO: 0, emperorKO: 0, brawlKO: 0, bagThrow: 0, speakerKO: 0, warns: 0, wrongWarn: 0,
     };
   }
   function create(opts) {
@@ -263,11 +263,15 @@
     }
     // 悪者：どの種類が出るか（ふつうはスリ＋日がわりのゲスト 1 種類。地獄・終点なしは全部）
     g.vr = rng((seed ^ 0x5eed5eed) >>> 0);
-    const GUESTS = ['hog', 'faker', 'dasher', 'caller', 'tuber'];
+    const GUESTS = ['hog', 'faker', 'dasher', 'caller', 'tuber', 'leak', 'pack', 'bento', 'preach', 'door'];
     g.tutorial = mode === 'tutorial';
     if (g.tutorial) { g.nextChikanCheck = 1e9; g.nextItemCheck = 1e9; }
-    g.villainKinds = g.jiji || g.tutorial ? [] : (g.hard || g.endless) ? ['suri'].concat(GUESTS) : ['suri', g.vr.pick(GUESTS)];
+    g.villainKinds = g.jiji || g.tutorial ? [] : ['suri'].concat(GUESTS); // 全部の悪者がランダムに出る（同時に 2 人まで）
     if (opts.villains) g.villainKinds = opts.villains.slice();
+    g.noBoss = !!opts.noBoss || !!opts.villains; // テストで悪者を決めているときはボス駅なし
+    // ボス駅テスト：毎駅がボス駅（1 つをくり返す／全部を順番に）。ほかの悪者は出ない。倒れない
+    if (opts.bossTest) { g.bossTest = opts.bossTest; g.endless = true; g.villainKinds = []; g.noBoss = false; }
+    planBoss(g);
     g.seenVillain = {};
     g.seats = buildSeats();
     g.slots = buildSlots(g.seats);
@@ -280,6 +284,7 @@
 
   function lastStation(g) { return g.endless ? 1e9 : g.online ? 7 : LINE.length - 1; }
   function stationName(g, i) {
+    if (g.bossAt && g.bossAt[i]) return BOSS[g.bossAt[i]].name;
     if (g.online && i >= 7) return LINE[LINE.length - 1].name;
     if (i < LINE.length - (g.endless ? 1 : 0)) return LINE[i].name;
     if (g.endless) {
@@ -632,15 +637,18 @@
     if (pl.mode === 'force' && ap && ap.state === 'seated' && apd < 1.7 && pl.seat < 0) return { act: 'force', label: '無理やりどかす', id: ap.id };
     if (pl.seat >= 0) {
       const pr = priorityNear(g);
+      if (pl.carrying && ap && ap !== pr && apd < 1.8 && ap.state !== 'ko' && !(WARN_ROLES[ap.role] && !ap.warned)) return { act: 'deliver', label: pl.carrying.name + 'を渡す', id: ap.id };
       if (pr) return { act: 'give', label: TYPES[pr.type].name === '???' ? '席を譲る（？）' : TYPES[pr.type].name + 'に席を譲る', id: pr.id };
       if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.2) return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
+      { const wp = warnPrompt(g, ap, apd, true); if (wp) return wp; }
+      { const wp = wrongWarnPrompt(g, ap, apd); if (wp) return wp; }
       return { act: 'stand', label: '立ち上がる' };
     }
-    if (pl.carrying && ap && apd < 1.8 && ap.state !== 'ko') return { act: 'deliver', label: pl.carrying.name + 'を渡す', id: ap.id };
+    // 落とし物を持っていても、注意・座るなどは先に出す（渡すのは、ほかにすることがないとき）
     if (pl.carrying && atOpenDoor(g)) return { act: 'staff', label: '駅員に' + pl.carrying.name + 'を届ける' };
-    if (pl.carrying && pl.pitch < -0.55) return { act: 'putdown', label: pl.carrying.name + 'を床に置く' };
     if (speakerNear(g)) return { act: 'speaker', label: '🔊 スピーカーを壊す（パンチでもOK）' };
     if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.0 && ap.state !== 'ko') return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
+    { const wp = warnPrompt(g, ap, apd, false); if (wp) return wp; }
     if (ap && ap.type === 'sick' && (ap.state === 'stand' || ap.state === 'walk') && ap.role !== 'faked' && !ap.checked && apd < 1.8) return { act: 'expose', label: '「…仮病じゃない？」と指摘する', id: ap.id };
     for (const it of g.items) if (!it.taken && dist2(it.x, it.z, pl.x, pl.z) < 1.15 && !pl.carrying) return { act: 'pick', label: it.name + 'を拾う', id: it.id };
     for (const s of g.seats) if (s.hog && dist2(s.x, s.fz, pl.x, pl.z) < 0.95) {
@@ -648,15 +656,17 @@
       if (q.hogKind === 'bag' && pl.pitch < -0.45) return { act: 'throw', label: '👜 かばんをぶん投げて座る（カルマ+）', id: s.id };
       if (!q.asked) return { act: 'ask', label: q.hogKind === 'bag' ? '「かばん、どけてもらえますか？」と頼む' : '「詰めてもらえますか？」と頼む', id: s.id };
     }
+    if (pl.carrying && pl.pitch < -0.55 && !(ap && apd < 1.8 && ap.state !== 'ko')) return { act: 'putdown', label: pl.carrying.name + 'を床に置く' };
     const fs = nearestFreeSeat(g);
     if (fs) return { act: 'sit', label: fs.pri ? '優先席に座る' : '座る', id: fs.id };
+    if (pl.carrying && ap && apd < 1.8 && ap.state !== 'ko') return { act: 'deliver', label: pl.carrying.name + 'を渡す', id: ap.id };
     if (g.runner && g.runner.active && !g.runner.held) {
       if (Math.abs(pl.x - g.runner.door) < 0.75 && Math.sign(pl.z) === g.doorSide && Math.abs(pl.z) > 0.9) return { act: 'door', label: 'ドアを押さえる' };
     }
     for (const d of DOORS) for (const side of [-1, 1]) {
       if (dist2(pl.x, pl.z, d + 0.75, side * 1.1) < 0.55 && Math.abs(pl.z) > 0.8) return { act: 'sos', label: g.chikan && g.chikan.stage === 'active' ? '非常通報ボタン（痴漢を通報）' : '非常通報ボタン（いたずら厳禁）' };
     }
-    return null;
+    return wrongWarnPrompt(g, ap, apd);
   }
   // 停車中で、開いているドアの近くにいる（駅員に届けられる）
   function atOpenDoor(g) {
@@ -823,6 +833,46 @@
           g.stats.hush++; deed(g, 20, '大声の電話を注意した');
           for (const q of g.people) if (q !== p && q.sleep === 0 && q.state === 'seated' && dist2(q.x, q.z, p.x, p.z) < 3) { q.expr = 'happy'; q.exprT = 2.5; }
         }
+        break;
+      }
+      case 'warn': {
+        const p = person(g, pr.id); if (!p) return;
+        if (p.role === 'bx' && !p.bxDone) { // ボス駅の困った人
+          const X = BX[p.bxk];
+          if (p.scary && gutsWin(g, p)) p.scary = false;
+          if (p.scary) { p.warned = true; bubble(g, p, g.r.pick(['あぁ？ なんか文句あんの？', 'は？ うるせぇな！']), 2.5); angerFight(g, p); p.bxDone = true; break; }
+          p.bxDone = true; p.warned = true; p.expr = p.bxk === 'ninja' ? 'surprised' : 'sad'; p.exprT = 4; bubble(g, p, X.reply, 2.2);
+          if (p.bxk === 'ninja') { p.dispName = '忍者'; p.look.top = '#1c1c22'; p.look.topName = '黒'; p.look.bottom = '#1c1c22'; p.look.costume = 'ninja'; }
+          if (p.bxk === 'animal' || p.bxk === 'cand' || p.bxk === 'ninja') { releaseSlot(g, p); if (p.seat >= 0) { freeSeat(g, g.seats[p.seat], p.id); p.seat = -1; } const d = nearestDoor(p.x); p.state = 'walk'; p.tx = d; p.tz = (p.z >= 0 ? 1 : -1) * 0.95; p.then = 'stand'; }
+          g.stats.warns++; deed(g, X.pts, (p.dispName || '') + '：' + X.label.replace(/^「|」.*$/g, ''));
+          break;
+        }
+        if (!WARN_ROLES[p.role]) { // 人まちがい
+          p.expr = 'surprised'; p.exprT = 3; bubble(g, p, pr.wrong === 'bento' ? 'え？ 何も食べてませんけど…' : pr.wrong === 'ninja' ? 'え？ ただの会社員ですけど…' : 'え？ 私じゃないですけど…', 2.2);
+          g.stats.wrongWarn++; hurtMind(g, 8, '人まちがいで注意した'); emit(g, { type: 'sfx', name: 'buzzer' });
+          break;
+        }
+        p.warned = true;
+        if (p.scary && gutsWin(g, p)) p.scary = false;
+        if (p.scary) {
+          bubble(g, p, g.r.pick(['あぁ？ なんか文句あんの？', 'は？ うるせぇな！', '生意気言うな！']), 2.5);
+          angerFight(g, p);
+          break;
+        }
+        const ok = { leak: ['あ、すみません…（音を下げる）', '音もれを注意した', 20], bento: ['あ…すみません（ふたを閉める）', '車内の弁当を注意した', 20], pack: ['あ、すみません（リュックを前に抱える）', 'リュックを前に抱えてもらった', 15], door: ['あ、すみません（奥に詰める）', 'ドア前の人に詰めてもらった', 15], preach: ['…ふん、最近の若いもんは', '説教おじさんを追いはらった', 25] }[p.role];
+        if (p.role === 'door') { p.state = 'walk'; p.tx = p.x + (p.x > 0 ? -1.2 : 1.2); p.tz = 0; p.then = 'stand'; }
+        if (p.role === 'preach') { const [tx, tz] = aisleClamp(p.x + (p.x > g.player.x ? 3 : -3), 0); releaseSlot(g, p); p.state = 'walk'; p.tx = tx; p.tz = tz; p.then = 'stand'; }
+        p.role = null; p.expr = 'sad'; p.exprT = 4; bubble(g, p, ok[0], 2.2);
+        g.stats.warns++; deed(g, ok[2], ok[1]);
+        for (const q of g.people) if (q !== p && q.sleep === 0 && q.state === 'seated' && dist2(q.x, q.z, p.x, p.z) < 3) { q.expr = 'happy'; q.exprT = 2.5; }
+        break;
+      }
+      case 'salt': {
+        const p = person(g, pr.id); if (!p) return;
+        emit(g, { type: 'sfx', name: 'whoosh' });
+        if (p.possessed) { p.possessed = false; p.expr = 'surprised'; p.exprT = 3; bubble(g, p, 'はっ…私は何を…？', 2.2); }
+        else { p.bxDone = true; bubble(g, p, 'ぎゃああ…（成仏）', 1.8); p.state = 'gone'; releaseSlot(g, p); if (p.seat >= 0) { freeSeat(g, g.seats[p.seat], p.id); p.seat = -1; } }
+        g.stats.salt = (g.stats.salt || 0) + 1; deed(g, 25, '🧂 塩で除霊した');
         break;
       }
       case 'expose': {
@@ -1064,6 +1114,7 @@
     let moving = false;
     if (input.pos) { if (pl.seat < 0) { [pl.x, pl.z] = aisleClamp(+input.pos[0] || 0, +input.pos[1] || 0); moving = !!input.mv; } }
     else if (pl.seat < 0) moving = movePlayer(g, pl, input, dt);
+    pl.moving = moving;
 
     // 体力
     if (pl.seat >= 0) {
@@ -1091,6 +1142,7 @@
     // うるさいと心がすり減る（爆音スピーカー・大声電話の近く）
     if (g.speaker && g.speaker.on && !g.speaker.broken && dist2(g.speaker.x, g.speaker.z, pl.x, pl.z) < 4) hurtMind(g, 0.6 * dt, '');
     else if (g.people.some((q) => q.role === 'caller' && q.state !== 'ko' && q.state !== 'gone' && dist2(q.x, q.z, pl.x, pl.z) < 3)) hurtMind(g, 0.4 * dt, '');
+    warneeHurt(g, dt); bxHurt(g, dt);
     if (g.tutorial) pl.mind = Math.max(pl.mind, 40);
     if (isOver()) return false;
     // 狸寝入り
@@ -1121,6 +1173,7 @@
     } else pl.ignoreT = 0;
 
     if (g.tutorial) { pl.stamina = Math.max(pl.stamina, 40); pl.karma = Math.min(pl.karma, 60); } // チュートリアルでは負けない
+    if (g.bossTest) { pl.stamina = Math.max(pl.stamina, 15); pl.mind = Math.max(pl.mind, 15); pl.karma = Math.min(pl.karma, 80); } // ボス駅テストでは倒れない
     if (pl.karma >= C.MAX_KARMA) { g.stats.arrestedAt = nextStation(g); gameOver(g, 'arrest'); return false; }
     return !isOver();
   }
@@ -1279,6 +1332,7 @@
         g.ann = stationName(g, g.station) + '、' + stationName(g, g.station) + '。お出口は' + (g.doorSide > 0 ? '右側' : '左側') + 'です。';
         emit(g, { type: 'arrive', station: g.station });
         emit(g, { type: 'sfx', name: 'brake' });
+        withEach(g, () => bossJudge(g));
         if (g.station >= lastStation(g)) {
           if (g.multi) { withEach(g, () => gameOver(g, 'clear')); g.over = true; g.result = { cause: 'end' }; return; }
           gameOver(g, 'clear'); return;
@@ -1286,7 +1340,7 @@
         // 洗脳中の人などを降ろす準備
       }
       // 予告アナウンス
-      if (g.phaseT > C.T_TRAVEL - 9 && !g.annNext) { g.annNext = true; const n = stationName(g, g.station + 1); g.ann = '次は ' + n + '、' + n + '。'; emit(g, { type: 'announce', text: g.ann }); }
+      if (g.phaseT > C.T_TRAVEL - 9 && !g.annNext) { g.annNext = true; const n = stationName(g, g.station + 1); g.ann = '次は ' + n + '、' + n + '。'; emit(g, { type: 'announce', text: g.ann }); bossAnnounce(g); }
     } else {
       if (!g.doorsOpen && g.phaseT >= C.DOOR_OPEN && g.phaseT < g.doorClose) { g.doorsOpen = true; emit(g, { type: 'doors', open: true, side: g.doorSide }); emit(g, { type: 'sfx', name: 'door' }); }
       if (g.phaseT >= C.ALIGHT && !g.alighted) { g.alighted = true; startAlight(g); }
@@ -1373,7 +1427,7 @@
     if (!g.endless && st >= 2 && st <= lastStation(g) - 3 && !thiefAboard && !g.jiji && (g.thiefCount || 0) < 2 && g.r.chance(g.hard ? 0.4 : 0.25) && g.boardQueue.length)
       g.boardQueue.splice(g.r.int(0, g.boardQueue.length - 1), 0, { at: 0, type: 'thief' });
     if (g.endless && st >= 2 && !thiefAboard && g.r.chance(0.3) && g.boardQueue.length) g.boardQueue.splice(0, 0, { at: 0, type: 'thief' });
-    planVillains(g, st);
+    if (!bossBoard(g, st)) planVillains(g, st);
     g.boardQueue.forEach((q, k) => { q.at = g.phaseT + k * 0.32; });
   }
   function updateBoardQueue(g) {
@@ -1545,6 +1599,8 @@
       else if (p.role === 'suri') updateSuri(g, p, dt);
       else if (p.role === 'caller') updateCaller(g, p, dt);
       else if (p.role === 'tuber') updateTuber(g, p, dt);
+      else if (WARN_ROLES[p.role]) updateWarnee(g, p, dt);
+      else if (p.role === 'bx') updateBx(g, p, dt);
       else if (p.role === 'hench' || p.role === 'emperor') updateGang(g, p, dt);
       if (p.fake && p.role !== 'faked' && p.state !== 'seated' && p.state !== 'ko' && g.r() < 0.07 * dt) { p.expr = 'happy'; p.exprT = 0.8; } // 仮病：元気な顔がもれる
       if (p.robbedAt && g.t > p.robbedAt && p.state !== 'gone') { p.robbedAt = 0; p.sleep = 0; p.oversleep = false; p.expr = 'worried'; p.exprT = 6; bubble(g, p, 'あれ？財布がない…！', 2.5); }
@@ -1632,6 +1688,185 @@
 
   // ---------------------------------------------------------------- 悪者（スリ・席占領・仮病・席ダッシュ・大声電話・車内の帝王）
   const SEEKERS = { hog: 1, dasher: 1, caller: 1, emperor: 1 };
+  // ================================================================ ボス駅（初級・中級・最終）とイベント駅
+  // たちっぱ線では 3〜4 駅目・6〜7 駅目・終点の 1〜2 つ手前にボス駅が来る（どの駅になるかは毎回ランダム。今日のダイヤはみんな同じ）
+  // ボス駅で乗ってくる「困った人たち」を、次の駅に着くまでに片付ければボーナス。残っていると精神ダメージ
+  const BOSS = {
+    taiiku: { tier: 1, name: '体育大学前', kind: 'gym', n: [3, 4], msg: '体操部が乗ってくる。つり革で技をする人を注意しよう' },
+    zoo: { tier: 1, name: '動物園前', kind: 'animal', n: [3, 4], msg: '動物が乗ってくる！？ 追い払おう' },
+    tori: { tier: 1, name: '撮り鉄の聖地', kind: 'tori', n: [3, 4], msg: '撮り鉄が通路をふさぐ。注意しよう' },
+    senkyo: { tier: 1, name: '選挙事務所前', kind: 'cand', n: [1, 2], msg: '候補者が車内で演説を始める…' },
+    yuen: { tier: 1, name: '遊園地前', kind: 'balloon', n: [3, 4], msg: '風船を持った子どもたち。割れるとびっくり' },
+    furyo: { tier: 2, name: '不良高校前', kind: 'yanki', n: [4, 5], msg: 'ヤンキーが大勢乗ってくる。床に座りこむ・客にからむ' },
+    hanabi: { tier: 2, name: '花火大会前', kind: 'yukata', n: [11, 13], survive: true, msg: '浴衣の人で超満員！ 次の駅まで倒れずに耐えろ' },
+    keiba: { tier: 2, name: '競馬場前', kind: 'keiba', n: [3, 4], msg: '馬券が外れた人たちが八つ当たり…' },
+    ninja: { tier: 2, name: '忍者の里', kind: 'ninja', n: [3, 3], msg: 'ふつうの乗客にまぎれた忍者を見破れ（人まちがいに注意）' },
+    josei: { tier: 2, name: '女性専用車両の乗換駅', kind: 'lady', n: [9, 11], hands: true, msg: '女性客がどっと乗ってくる。近くを通るときは手を挙げて（踏ん張る）通ろう' },
+    reien: { tier: 3, name: 'うらめし霊園前', kind: 'ghost', n: [3, 4], msg: '幽霊が乗客に乗り移る！ 🧂 塩をまいて除霊しろ。次の駅までに' },
+    shuden: { tier: 3, name: '終電の飲み屋街', kind: 'nomi', n: [5, 6], msg: '酔っぱらいだらけ。からまれる前に声をかけよう' },
+    maou: { tier: 3, name: '魔王城前', maou: true, msg: '「車両の魔王」と手下が乗ってくる…！ 魔王を倒せ' },
+    rojin: { tier: 0, name: 'ほのぼの老人ホーム前', event: true, msg: 'お年寄りがたくさん乗ってくる。席を譲るチャンス' },
+  };
+  // 困った人たち（ボス駅で乗ってくる）：types：見た目のもと、label：注意のことば、near：近くにいるときの効き方
+  const BX = {
+    gym: { types: ['student'], name: '体操部員', look: ['ジャージ', '#1f5fbf'], lines: ['ハッ！ 大車輪！', 'バク転いきまーす！', 'つり革で L 字支持！', '月面宙返り！'], note: '🤸 つり革で技をしている…', label: '「車内で技はやめて…」と注意する', reply: 'あ、すみません！（技をやめる）', pts: 20, scary: 0.1, near: { r: 1.0, sta: 4, mind: 2, cd: 3, why: 'バク転がぶつかった' } },
+    animal: { types: ['student'], names: ['サル', 'ペンギン', 'カピバラ', '子ゾウ'], h: 0.7, looks: [['茶色', '#7a5230'], ['黒', '#26262b'], ['茶色', '#a07850'], ['灰色', '#8a8f96']], lines: { サル: ['ウキーッ！', 'ウキキッ（吊り革にぶら下がる）'], ペンギン: ['ペタペタ…', 'クェッ'], カピバラ: ['…（じっとしている）', '…（温泉を探している）'], 子ゾウ: ['パオーン！', '（鼻で吊り革をつかむ）'] }, note: '🐾 動物が乗ってる…！？', label: '「シッシッ」と追い払う', reply: '（しぶしぶドアのほうへ）', pts: 15, scary: 0, wantSeat: true, near: { r: 1.3, mind: 2, cd: 4, why: '動物にびっくり' } },
+    tori: { types: ['otaku', 'gamer'], name: '撮り鉄', lines: ['パシャパシャパシャ！', 'どいて！ 今いいとこ！', 'この車両レアなんで！'], note: '📸 通路でカメラを構えている', label: '「通路をふさがないで…」と注意する', reply: 'あ、すみません…', pts: 15, scary: 0.25, near: { r: 1.6, cont: 0.5 } },
+    cand: { types: ['salaryman'], name: '候補者', look: ['白', '#f2f2f2'], tie: '#c0392b', lines: ['清き一票をお願いします！', '握手！ 握手！', '〇〇、〇〇でございます！'], note: '🎤 演説しながら握手を求めてくる', label: '「車内での演説はちょっと…」と注意する', reply: '…清き一票を…（去る）', pts: 25, scary: 0.15, approach: true, near: { r: 1.6, cont: 0.9 } },
+    balloon: { types: ['student'], name: '風船を持った子ども', h: 0.75, lines: ['ふうせーん！', 'わーい！'], note: '🎈 風船を持ってはしゃいでいる', label: '「風船、しっかり持っててね」と声をかける', reply: 'はーい！', pts: 15, scary: 0, pop: true },
+    yanki: { types: ['yankee'], name: 'ヤンキー', look: ['黒（学ラン）', '#15161c'], bottom: '#15161c', lines: ['おい、何見てんだよ', 'ここ座っていいっすかぁ？（床に座りこむ）', 'ウェーイ！'], note: '😤 床に座りこんで、まわりにからんでいる', label: '「床に座らないで…」と注意する', reply: '…ちっ、わかったよ', pts: 25, scary: 0.5, near: { r: 2.0, cont: 0.4 } },
+    yukata: { types: ['ol', 'student', 'salaryman'], name: '浴衣の人', looks: [['紺', '#26407a'], ['赤', '#c0392b'], ['ピンク', '#e88aa8'], ['白', '#f2f2f2']], lines: ['花火楽しみ〜！', '押さないで〜！', 'たまや〜！'], note: '👘 浴衣で花火大会へ', noWarn: true, near: { r: 0.8, sta: 3, cd: 2.5, why: '下駄で足をふまれた' } },
+    keiba: { types: ['salaryman', 'drunk'], name: '外れた人', lines: ['くそっ、あと鼻差だったのに！', '（新聞をバサーッと広げる）', 'ちくしょー！'], note: '📰 新聞を広げて八つ当たりしている', label: '「新聞、たたんでもらえますか」と頼む', reply: '…はい（たたむ）', pts: 20, scary: 0.35, near: { r: 2.0, cont: 0.5 } },
+    ninja: { types: ['salaryman', 'ol', 'student'], hidden: true, note: '🥷 …足音がまったくしない', label: '「…忍者ですよね？」と見破る', reply: 'ドロン！ …見破られたでござる', pts: 30, scary: 0.3, lines: ['…ニンニン', '（天井を見上げている）'] },
+    lady: { types: ['ol'], female: true, plain: true },
+    ghost: { types: ['ol', 'salaryman'], name: '幽霊', look: ['白', '#eef2f6'], skin: '#dfe8ee', lines: ['うらめしや…', '…さむい…', 'ひゅ〜どろどろ…'], note: '👻 足が…ない？', salt: true },
+    nomi: { types: ['drunk', 'salaryman'], name: '酔っぱらい', lines: ['もう一軒いこうよぉ〜', 'ういっく…', '部長〜聞いてくださいよ〜'], note: '🍺 べろべろに酔っている', label: '「大丈夫ですか？」と声をかける', reply: '…すみませぇん（寝る）', pts: 20, scary: 0.2, approach: true, near: { r: 1.5, cont: 0.7 } },
+  };
+  const BOSS_PTS = [0, 60, 100, 150];
+  function planBoss(g) {
+    g.bossAt = {};
+    if (g.bossTest) { const all = Object.keys(BOSS); for (let st = 1; st <= 120; st++) g.bossAt[st] = g.bossTest === 'all' ? all[(st - 1) % all.length] : g.bossTest; return; }
+    if (g.tutorial || g.jiji || opts_noBoss(g)) return;
+    const r = rng((g.seed ^ 0xb055b055) >>> 0), last = lastStation(g);
+    const pick = (tier) => r.pick(Object.keys(BOSS).filter((k) => BOSS[k].tier === tier));
+    if (g.endless) { for (let st = 4; st < 400; st += 4) g.bossAt[st] = pick(1 + ((st / 4 - 1) % 3)); return; }
+    if (g.online) { g.bossAt[r.int(2, 3)] = pick(1); g.bossAt[5] = pick(3); return; }
+    g.bossAt[r.int(3, 4)] = pick(1); g.bossAt[r.int(6, 7)] = pick(2); g.bossAt[r.int(last - 2, last - 1)] = pick(3);
+    if (r.chance(0.4)) { const st = r.pick([2, 5].filter((s) => !g.bossAt[s] && !g.bossAt[s + 1] && !g.bossAt[s - 1])); if (st) g.bossAt[st] = 'rojin'; }
+  }
+  function opts_noBoss(g) { return !!g.noBoss; }
+  // ボス駅の予告（次の駅がボス駅のとき）
+  function bossAnnounce(g) {
+    const k = g.bossAt && g.bossAt[g.station + 1]; if (!k) return;
+    const B = BOSS[k];
+    toast(g, (B.event ? '📣 次はイベント駅「' : ['', '⚠ 次は初級ボス駅「', '⚠⚠ 次は中級ボス駅「', '☠ 次は最終ボス駅「'][B.tier]) + B.name + '」…' + B.msg, B.event ? 'info' : 'warn');
+    emit(g, { type: 'sfx', name: 'chime' });
+  }
+  // ボス駅で乗ってくる人を、乗る列に入れる
+  function bossBoard(g, st) {
+    const k = g.bossAt && g.bossAt[st]; if (!k || !g.boardQueue) return false;
+    const B = BOSS[k], r = g.r;
+    g.boss = { key: k, st, deadline: st + 1, ids: [], fail: 0, tier: B.tier };
+    // 乗れる人数をこえないように：ふつうに乗る人を減らして、ボス駅の人を乗せる
+    const alive = g.people.filter((p) => p.state !== 'gone' && p.state !== 'exit').length;
+    const room = () => C.MAX_PEOPLE + 16 - alive - g.boardQueue.length;
+    const put = (arr) => { for (const q of arr) { while (room() <= 0) { const i = g.boardQueue.findIndex((x) => !x.v); if (i < 0) return; g.boardQueue.splice(i, 1); } g.boardQueue.push(q); } };
+    if (B.event) { for (let i = 0; i < 8; i++) put([{ at: 0, type: 'elderly' }]); g.boss = null; return true; }
+    if (B.maou) { put([{ at: 0, type: 'emperor', v: 'emperor' }, { at: 0, type: 'henchman', v: 'hench' }, { at: 0, type: 'henchman', v: 'hench' }, { at: 0, type: 'henchman', v: 'hench' }]); g.boss.maou = true; return true; }
+    const X = BX[B.kind], n = r.int(B.n[0], B.n[1]);
+    for (let i = 0; i < n; i++) put([{ at: 0, type: r.pick(X.types), v: 'bx:' + B.kind }]);
+    if (B.hands) { g.boss.hands = true; g.nextChikanCheck = 4; }
+    if (B.survive) g.boss.survive = true;
+    return true;
+  }
+  function setupBx(g, p, kind) {
+    const X = BX[kind], r = g.r;
+    if (g.boss) g.boss.ids.push(p.id);
+    p.dest = capDest(g, (g.boss ? g.boss.deadline : g.station + 1) + r.int(1, 2));
+    if (X.plain) { if (X.female) { p.female = 1; } p.bxPlain = true; return; } // 女性専用車両：ふつうの乗客
+    p.role = 'bx'; p.bxk = kind; p.wantSeat = !!X.wantSeat; p.sleep = 0; p.scary = r.chance(X.scary || 0); p.bxT = r.range(2, 5);
+    if (X.names) { const i = r.int(0, X.names.length - 1); p.dispName = X.names[i]; if (X.looks) { p.look.top = X.looks[i][1]; p.look.topName = X.looks[i][0]; p.look.bottom = X.looks[i][1]; } }
+    else if (!X.hidden) p.dispName = X.name;
+    if (X.look) { p.look.top = X.look[1]; p.look.topName = X.look[0]; }
+    if (X.bottom) p.look.bottom = X.bottom;
+    if (X.looks && !X.names) { const L = r.pick(X.looks); p.look.top = L[1]; p.look.topName = L[0]; }
+    if (X.skin) p.look.skin = X.skin;
+    if (X.tie) p.look.tie = X.tie;
+    if (X.h) p.h *= X.h;
+    if (kind === 'ghost') { p.look.mask = false; p.possT = r.range(4, 8); }
+    if (kind === 'nomi') p.look.skin = '#e89a7a';
+    // 3D の衣装（見た目）：オンライン対戦の参加者にも届くように look に入れる
+    if (!X.hidden) p.look.costume = kind === 'animal' ? 'animal:' + p.dispName : kind;
+  }
+  // 困った人たちの動き
+  function updateBx(g, p, dt) {
+    if (p.state === 'ko' || p.state === 'exit' || p.state === 'gone' || p.state === 'fight' || p.bxDone) return;
+    const X = BX[p.bxk], pl = g.player;
+    p.bxT -= dt;
+    if (p.bxk === 'ghost') {
+      // 近くの乗客に乗り移る（幽霊は消える）
+      p.possT -= dt;
+      if (p.possT <= 0) {
+        const t = g.people.filter((q) => q !== p && !q.role && !q.possessed && q.state !== 'gone' && q.state !== 'exit' && q.state !== 'ko' && dist2(q.x, q.z, p.x, p.z) < 3.5)[0];
+        if (t) {
+          t.possessed = true; t.expr = 'sleepy'; t.exprT = 99; bubble(g, t, 'ウゥ…（目がうつろ）', 2.2);
+          if (g.boss) g.boss.ids.push(t.id);
+          p.bxDone = true; p.state = 'gone'; releaseSlot(g, p); if (p.seat >= 0) { freeSeat(g, g.seats[p.seat], p.id); p.seat = -1; }
+          toast(g, '👻 幽霊が乗客に乗り移った…！ 🧂 塩をまけ', 'warn');
+          return;
+        }
+        p.possT = 2;
+      }
+    }
+    if (p.bxT <= 0) {
+      p.bxT = g.r.range(4, 8);
+      const L = Array.isArray(X.lines) ? X.lines : (X.lines && X.lines[p.dispName]) || [];
+      if (L.length && (!X.hidden || g.r.chance(0.25))) bubble(g, p, g.r.pick(L), 2);
+      if (X.pop && g.r.chance(0.4)) { // 風船が割れる
+        bubble(g, p, 'パーン！！ うわーん！', 2); emit(g, { type: 'sfx', name: 'hit' });
+        for (const q of g.people) if (q !== p && q.state !== 'gone' && dist2(q.x, q.z, p.x, p.z) < 3.5) { q.expr = 'surprised'; q.exprT = 2; if (q.sleep && !q.oversleep) q.sleep = 0; }
+        if (dist2(p.x, p.z, pl.x, pl.z) < 3) hurtMind(g, 4, '風船が割れてびっくり');
+      }
+      if (X.approach && p.state === 'stand' && dist2(p.x, p.z, pl.x, pl.z) > 1.3) {
+        releaseSlot(g, p); const [tx, tz] = aisleClamp(pl.x + (p.x > pl.x ? 0.7 : -0.7), pl.seat >= 0 ? pl.z * 0.55 : pl.z);
+        p.state = 'walk'; p.tx = tx; p.tz = tz; p.then = 'stand';
+      }
+    }
+  }
+  // 近くにいるときの効き方・女性専用車両の手挙げ（プレイヤーの更新から呼ぶ）
+  function bxHurt(g, dt) {
+    const pl = g.player;
+    for (const q of g.people) {
+      if (q.role !== 'bx' || q.bxDone || q.state === 'ko' || q.state === 'gone' || q.state === 'exit' || q.state === 'fight') continue;
+      const N = BX[q.bxk].near; if (!N) continue;
+      const d = dist2(q.x, q.z, pl.x, pl.z); if (d > N.r) continue;
+      if (N.cont) hurtMind(g, N.cont * dt, '');
+      else if (pl.seat < 0) {
+        q.bumpT = (q.bumpT || 0) - dt;
+        if (q.bumpT <= 0) { q.bumpT = N.cd; if (N.sta) { pl.stamina = Math.max(0.1, pl.stamina - N.sta); pl.hitFlash = 0.25; } if (N.mind) hurtMind(g, N.mind, N.why || ''); else if (N.why) toast(g, N.why, 'bad'); emit(g, { type: 'sfx', name: 'block' }); }
+      }
+    }
+    // 女性専用車両の乗換駅：手を挙げずに女性のすぐ横を通ると、痴漢とまちがえられる
+    if (g.boss && g.boss.hands && pl.seat < 0 && !pl.braceHeld && pl.moving) {
+      g.handT = (g.handT || 0) - dt;
+      if (g.handT <= 0) {
+        const w = g.people.find((q) => q.female && !q.role && q.state !== 'gone' && q.state !== 'exit' && q.state !== 'ko' && dist2(q.x, q.z, pl.x, pl.z) < 0.7);
+        if (w) {
+          g.handT = 2.5; g.boss.fail++;
+          w.expr = 'angry'; w.exprT = 3; bubble(g, w, g.r.pick(['ちょっと！ 今さわった？', 'え、なに？', '…（にらむ）']), 2);
+          hurtMind(g, 4, '痴漢とまちがえられそうになった'); addKarma(g, 3, '手を挙げずに通った');
+          if (!g.handTip) { g.handTip = true; toast(g, '🙋 女性の近くを通るときは、踏ん張る（手を挙げる）で通ろう', 'warn'); }
+        }
+      }
+    }
+  }
+  // 塩をまく（幽霊・乗り移られた人）
+  function saltPrompt(g, ap, apd) {
+    if (!ap || apd > 2.0 || ap.state === 'gone' || ap.state === 'ko') return null;
+    if (ap.possessed || (ap.role === 'bx' && ap.bxk === 'ghost' && !ap.bxDone)) return { act: 'salt', label: '🧂 塩をまいて除霊する', id: ap.id };
+    return null;
+  }
+  // 次の駅に着いたら、ボス駅の結果
+  function bossJudge(g) {
+    const b = g.boss; if (!b || g.station < b.deadline) return;
+    g.boss = null;
+    const B = BOSS[b.key];
+    const alive = (id) => { const p = person(g, id); return p && p.state !== 'gone' && p.state !== 'exit' && p.state !== 'ko' && (p.possessed || (p.role === 'bx' && !p.bxDone)) ? p : null; };
+    let clear;
+    if (b.survive) clear = !g.over;
+    else if (b.hands) clear = b.fail === 0;
+    else if (b.maou) clear = !g.people.some((p) => p.role === 'emperor' && p.state !== 'ko' && p.state !== 'gone' && p.state !== 'exit');
+    else clear = !b.ids.some(alive);
+    if (b.key === 'reien') {
+      const left = b.ids.map(alive).filter((p) => p && p.possessed);
+      for (const p of left) { p.possessed = false; leave(g, p); bubble(g, p, '…（ふらふらと降りていく）', 2); }
+      if (left.length) hurtMind(g, Math.min(30, 10 * left.length), '取りつかれたまま降りていった');
+    }
+    for (const id of b.ids) { const p = alive(id); if (p) { p.bxDone = true; p.dest = Math.min(p.dest, g.station + 1); } }
+    if (clear) { deed(g, BOSS_PTS[b.tier], '🏆 ' + B.name + '（ボス駅）クリア！'); g.stats.bossClear = (g.stats.bossClear || 0) + 1; emit(g, { type: 'sfx', name: 'clear' }); }
+    else { hurtMind(g, 12, 'ボス駅をクリアできなかった'); toast(g, '😵 ' + B.name + '…クリアならず', 'bad'); }
+  }
+
   const VILLAIN_MSG = {
     suri: '⚠ スリが乗ってきた…！ 財布を抜く瞬間を見逃すな（抜く前に殴ると冤罪）',
     hog: '⚠ 席を2人分使う人が乗ってきた（頼めば詰めてくれる…かも）',
@@ -1640,13 +1875,19 @@
     caller: '⚠ 大声で電話する人が乗ってきた…寝ている人が起きちゃう',
     tuber: '⚠ 迷惑YouTuberが乗ってきた！ 床のスピーカーを壊せ（下を見てパンチ）',
     emperor: '👑 車内の帝王が乗ってきた…！ 子分を倒さないと近づけない',
+    leak: '⚠ どこからかシャカシャカ音が…音もれの人を探して注意しよう（人まちがいに注意）',
+    pack: '⚠ 大きなリュックを背負ったままの人が乗ってきた。ぶつかると痛い',
+    bento: '⚠ においのきつい弁当を食べている人がいる…離れるか、注意するか',
+    preach: '⚠ 説教したそうなおじさんが乗ってきた…目が合うと長いぞ',
+    door: '⚠ ドアの前から動かない人がいる。乗り降りのじゃま',
   };
+  const WARN_ROLES = { leak: 1, pack: 1, bento: 1, preach: 1, door: 1 };
   function capDest(g, d) { return Math.min(d, lastStation(g)); }
   function villainCount(g) {
     let n = g.chikan ? 1 : 0;
     for (const p of g.people) {
       if (p.state === 'gone' || p.state === 'exit' || p.state === 'ko') continue;
-      if (p.role === 'thief' || p.role === 'suri' || p.role === 'hog' || p.role === 'caller') n++;
+      if (p.role === 'thief' || p.role === 'suri' || p.role === 'hog' || p.role === 'caller' || WARN_ROLES[p.role]) n++;
       else if (p.role === 'dasher' && p.state !== 'seated') n++;
       else if (p.fake && p.role !== 'faked') n++;
       else if (p.role === 'emperor') n += 2;
@@ -1668,11 +1909,14 @@
     const w = {}; for (const k of g.villainKinds) w[k] = k === 'suri' ? 2 : 1;
     const v = weighted(vr, w);
     if (v === 'tuber' && g.speaker && g.speaker.on && !g.speaker.broken) return;
-    const type = v === 'suri' ? vr.pick(['salaryman', 'student', 'ol']) : v === 'hog' ? vr.pick(['salaryman', 'yankee', 'obachan', 'otaku']) : v === 'faker' ? 'sick' : v === 'dasher' ? 'dasher' : v === 'tuber' ? vr.pick(['student', 'yankee']) : vr.pick(['salaryman', 'ol', 'obachan', 'yankee']);
+    const type = v === 'leak' ? vr.pick(['student', 'ol', 'salaryman', 'gamer']) : v === 'pack' ? vr.pick(['student', 'tourist', 'otaku']) : v === 'bento' ? vr.pick(['salaryman', 'obachan', 'otaku']) : v === 'preach' ? 'salaryman' : v === 'door' ? vr.pick(['salaryman', 'ol', 'gamer']) :
+      v === 'suri' ? vr.pick(['salaryman', 'student', 'ol']) : v === 'hog' ? vr.pick(['salaryman', 'yankee', 'obachan', 'otaku']) : v === 'faker' ? 'sick' : v === 'dasher' ? 'dasher' : v === 'tuber' ? vr.pick(['student', 'yankee']) : vr.pick(['salaryman', 'ol', 'obachan', 'yankee']);
     put([{ at: 0, type, v }]);
   }
   function setupVillain(g, p, v) {
     const r = g.r, st = g.station;
+    if (v.startsWith('bx:')) { setupBx(g, p, v.slice(3)); return; }
+    if (g.boss && g.boss.maou && (v === 'emperor' || v === 'hench')) p.maouGang = true;
     if (!g.seenVillain[v] && VILLAIN_MSG[v] && !g.tutorial) { g.seenVillain[v] = true; toast(g, VILLAIN_MSG[v], 'warn'); }
     if (v === 'suri') { p.role = 'suri'; p.wantSeat = false; p.sleep = 0; p.suri = { ph: 'roam', t: r.range(4, 8) }; p.hp = 2; p.dest = capDest(g, st + r.int(3, 5)); }
     else if (v === 'hog') { p.role = 'hog'; p.wantSeat = true; p.react = 0.25; p.scary = p.tough || r.chance(0.3); p.hogKind = p.type === 'obachan' || p.type === 'otaku' || p.female ? 'bag' : 'spread'; p.dest = capDest(g, st + r.int(3, 6)); }
@@ -1680,16 +1924,22 @@
     else if (v === 'dasher') { p.role = 'dasher'; p.wantSeat = true; p.dest = capDest(g, st + r.int(2, 4)); }
     else if (v === 'caller') { p.role = 'caller'; p.idle = 'call'; p.scary = p.tough || r.chance(0.3); p.callT = r.range(2, 4); p.dest = capDest(g, st + r.int(3, 5)); }
     else if (v === 'tuber') { p.role = 'tuber'; p.wantSeat = false; p.idle = 'phone'; p.tubT = r.range(1, 2); p.dest = capDest(g, st + r.int(3, 5)); g.speaker = { owner: p.id, x: p.x, z: 0, hp: 2, on: false, broken: false }; }
+    else if (v === 'leak') { p.look.costume = 'leak'; p.role = 'leak'; p.idle = 'phone'; p.scary = p.tough || r.chance(0.2); p.leakT = r.range(3, 6); p.dest = capDest(g, st + r.int(3, 5)); }
+    else if (v === 'pack') { p.look.costume = 'pack'; p.role = 'pack'; p.wantSeat = false; p.look.bag = true; p.scary = p.tough || r.chance(0.2); p.bumpT = 0; p.dest = capDest(g, st + r.int(3, 5)); }
+    else if (v === 'bento') { p.look.costume = 'bento'; p.role = 'bento'; p.idle = 'none'; p.scary = p.tough || r.chance(0.2); p.eatT = r.range(3, 6); p.dest = capDest(g, st + r.int(3, 5)); }
+    else if (v === 'preach') { p.role = 'preach'; p.wantSeat = false; p.scary = r.chance(0.45); p.prT = r.range(2, 4); p.speed *= 0.85; p.dest = capDest(g, st + r.int(3, 5)); }
+    else if (v === 'door') { p.role = 'door'; p.wantSeat = false; p.doorX = nearestDoor(p.x); p.doorZ = r.chance(0.5) ? 0.95 : -0.95; p.dest = capDest(g, st + r.int(3, 6)); }
     else if (v === 'emperor') { p.role = 'emperor'; p.wantSeat = true; p.priOK = true; p.brute = { hp: 6, dmg: 18, guard: 0.4 }; p.dest = capDest(g, st + r.int(3, 5)); g.emperorId = p.id; p.menT = r.range(6, 10); }
     else if (v === 'hench') {
       const boss = person(g, g.emperorId);
       p.role = 'hench'; p.wantSeat = false; p.brute = { hp: 3, dmg: 9, guard: 0.25 }; p.boss = g.emperorId; p.dest = boss ? boss.dest : capDest(g, st + 4);
       p.gIdx = g.people.filter(q => q.role === 'hench' && q.boss === g.emperorId).length; p.menT = g.r.range(4, 9);
     }
+    if (p.maouGang) { p.look.costume = p.role === 'emperor' ? 'maou' : 'maouHench'; if (p.role === 'emperor') { p.dispName = '車両の魔王'; p.brute = { hp: 9, dmg: 22, guard: 0.45 }; p.look.top = '#3a1052'; p.look.topName = '紫'; } else { p.dispName = '魔王の手下'; p.brute.hp = 4; } p.dest = capDest(g, st + 2); }
   }
   // テスト用：その場に悪者を出す
   function spawnVillain(g, v, x, z, typeOverride) {
-    const type = typeOverride || (v === 'tuber' ? 'student' : v === 'suri' ? 'salaryman' : v === 'faker' ? 'sick' : v === 'dasher' ? 'dasher' : v === 'emperor' ? 'emperor' : v === 'hench' ? 'henchman' : v === 'hog' ? 'salaryman' : 'ol');
+    const type = typeOverride || (v.startsWith('bx:') ? BX[v.slice(3)].types[0] : v === 'tuber' ? 'student' : v === 'suri' ? 'salaryman' : v === 'faker' ? 'sick' : v === 'dasher' ? 'dasher' : v === 'emperor' ? 'emperor' : v === 'hench' ? 'henchman' : v === 'hog' ? 'salaryman' : 'ol');
     const p = spawn(g, type, g.station);
     p.x = x != null ? x : 0; p.z = z != null ? z : 0;
     g.people.push(p); setupVillain(g, p, v);
@@ -1826,6 +2076,66 @@
       if (q.sleep && !q.oversleep) { q.sleep = 0; q.expr = 'angry'; q.exprT = 3; if (g.r.chance(0.3)) bubble(g, q, 'うるさいなぁ…', 1.5); }
       else if (q.sleep === 0 && q.state !== 'ko' && g.r.chance(0.3)) { q.expr = 'glare'; q.exprT = 2; }
     }
+  }
+
+  // 注意できる悪者（音もれ・リュック・弁当・説教・ドア前）：近くにいると心がすり減る。注意すると徳（こわい人は逆ギレ）
+  function updateWarnee(g, p, dt) {
+    if (p.state === 'ko' || p.state === 'exit' || p.state === 'gone' || p.state === 'fight') return;
+    const pl = g.player;
+    if (p.role === 'leak') {
+      p.leakT -= dt; if (p.leakT > 0) return; p.leakT = g.r.range(5, 9);
+      if (g.r.chance(0.3)) bubble(g, p, '♪', 1.2); // ときどきだけ。だれの音かは近くで見て探す
+      else if (dist2(p.x, p.z, pl.x, pl.z) < 4) toast(g, '🎧 どこからかシャカシャカ音が…', 'info');
+    } else if (p.role === 'bento') {
+      p.eatT -= dt; if (p.eatT > 0) return; p.eatT = g.r.range(5, 8);
+      bubble(g, p, g.r.pick(['もぐもぐ…', 'ずるずるっ', 'うまっ']), 1.6);
+      for (const q of g.people) if (q !== p && q.sleep === 0 && q.state !== 'ko' && dist2(q.x, q.z, p.x, p.z) < 2.5 && g.r.chance(0.3)) { q.expr = 'glare'; q.exprT = 2; }
+    } else if (p.role === 'door') {
+      if (p.state === 'stand' && dist2(p.x, p.z, p.doorX, p.doorZ) > 0.45) { releaseSlot(g, p); p.state = 'walk'; p.tx = p.doorX; p.tz = p.doorZ; p.then = 'stand'; }
+    } else if (p.role === 'preach') {
+      // 自分（プレイヤー）に近づいてきて、説教をはじめる
+      p.prT -= dt; if (p.prT > 0) return; p.prT = g.r.range(1.5, 3);
+      const d = dist2(p.x, p.z, pl.x, pl.z);
+      if (d > 1.3 && p.state === 'stand') { releaseSlot(g, p); const [tx, tz] = aisleClamp(pl.x + (p.x > pl.x ? 0.7 : -0.7), pl.seat >= 0 ? pl.z * 0.55 : pl.z); p.state = 'walk'; p.tx = tx; p.tz = tz; p.then = 'stand'; }
+      else if (d <= 1.6) { p.ry = Math.atan2(pl.x - p.x, pl.z - p.z); bubble(g, p, g.r.pick(['だいたい最近の若いもんは…', '君ねぇ、立ち方がなってない！', 'わしが若いころはなぁ…', 'ちょっと聞きなさい！']), 2.2); p.expr = 'angry'; p.exprT = 2; }
+    }
+  }
+  // 注意できる悪者がまわりにいるとき、心と体力に効く（プレイヤーの更新から呼ぶ）
+  function warneeHurt(g, dt) {
+    const pl = g.player;
+    for (const q of g.people) {
+      if (!WARN_ROLES[q.role] || q.state === 'ko' || q.state === 'gone' || q.state === 'exit' || q.state === 'fight') continue;
+      const d = dist2(q.x, q.z, pl.x, pl.z);
+      if (q.role === 'leak' && d < 2.5) hurtMind(g, 0.3 * dt, '');
+      else if (q.role === 'bento' && d < 3) hurtMind(g, 0.35 * dt, '');
+      else if (q.role === 'preach' && d < 1.7) hurtMind(g, 1.1 * dt, '');
+      else if (q.role === 'pack' && d < 0.85 && pl.seat < 0) {
+        q.bumpT = (q.bumpT || 0) - dt;
+        if (q.bumpT <= 0) { q.bumpT = 3; pl.stamina = Math.max(0.1, pl.stamina - 3); pl.hitFlash = 0.25; hurtMind(g, 3, 'リュックがぶつかった'); emit(g, { type: 'sfx', name: 'block' }); }
+      } else if (q.role === 'door' && d < 0.9 && pl.seat < 0 && g.phase === 'stop') {
+        q.bumpT = (q.bumpT || 0) - dt;
+        if (q.bumpT <= 0) { q.bumpT = 4; hurtMind(g, 3, 'ドア前の人にじゃまされた'); bubble(g, q, '…', 1); }
+      }
+    }
+  }
+  // 音もれ・弁当の人がまわりにいるか（いれば、ふつうの人にも「注意する」が出る＝人まちがいもある）
+  function nearSmellOrLeak(g) {
+    const pl = g.player;
+    return g.people.find((q) => (q.role === 'leak' || q.role === 'bento' || (q.role === 'bx' && q.bxk === 'ninja' && !q.bxDone)) && q.state !== 'ko' && q.state !== 'gone' && q.state !== 'fight' && dist2(q.x, q.z, pl.x, pl.z) < 3.5) || null;
+  }
+  const WARN_LABEL = { leak: '「音、もれてますよ」と注意する', bento: '「においが…」と注意する', pack: '「リュック、前に抱えてもらえますか」と頼む', door: '「奥に詰めてもらえますか」と頼む', preach: '「すみません、ひとりにしてください」と言う' };
+  function warnPrompt(g, ap, apd, seated) {
+    if (!ap || ap.state === 'ko' || ap.state === 'fight' || ap.warned) return null;
+    { const sp = saltPrompt(g, ap, apd); if (sp) return sp; }
+    if (ap.role === 'bx' && !ap.bxDone && BX[ap.bxk].label && apd < 2.2) return { act: 'warn', label: BX[ap.bxk].label, id: ap.id };
+    if (WARN_ROLES[ap.role] && apd < (seated ? 2.0 : 2.2) && !(seated && (ap.role === 'pack' || ap.role === 'door'))) return { act: 'warn', label: WARN_LABEL[ap.role], id: ap.id };
+    return null;
+  }
+  // 人まちがい：音もれ・弁当の人の近くでは、ふつうの人にも注意できてしまう（ほかにすることがないときだけ出す）
+  function wrongWarnPrompt(g, ap, apd) {
+    if (!ap || ap.state === 'ko' || ap.role || ap.priority || ap.warned || apd > 1.8) return null;
+    const nz = nearSmellOrLeak(g);
+    return nz && ap !== nz ? { act: 'warn', label: nz.role === 'bx' ? BX[nz.bxk].label : WARN_LABEL[nz.role], id: ap.id, wrong: nz.role === 'bx' ? nz.bxk : nz.role } : null;
   }
 
   // 迷惑YouTuber：床のスピーカーで音楽を流す。スピーカーを壊すと徳
@@ -2076,7 +2386,7 @@
     g.nextItemCheck -= dt;
     if (g.nextItemCheck <= 0) {
       // 新バランス（お試し）：落とし物は 1 駅に 1 個くらい・同時に 1 個まで
-      g.nextItemCheck = g.bal2 ? g.r.range(30, 45) : g.r.range(10, 18);
+      g.nextItemCheck = g.bal2 ? g.r.range(30, 45) : g.r.range(20, 36); // 落とし物は前の半分くらい（拾ってばかりにならないように）
       if (g.items.length < (g.bal2 ? 1 : 2) && g.r.chance(g.bal2 ? 0.85 : 0.6)) dropItem(g);
     }
     for (const it of g.items) {
@@ -2188,6 +2498,8 @@
   function observe(g, p) {
     const out = [];
     const T = TYPES[p.type];
+    if (p.possessed) out.push('👻 目がうつろ…何かに取りつかれている？');
+    if (p.role === 'bx' && !p.bxDone) { const X = BX[p.bxk]; if (!X.hidden || dist2(p.x, p.z, g.player.x, g.player.z) < 1.6) out.push(X.note); }
     const recentLooks = p.looks.filter(t => g.t - t < 30).length;
     const recentWatch = p.watches.filter(t => g.t - t < 30).length;
     if (p.role === 'chikan' && g.chikan && g.chikan.stage !== 'done') out.push('👀 目が泳いでいる…汗だく');
@@ -2207,6 +2519,11 @@
     if (p.role === 'hog') out.push(p.hogSeat != null ? (p.hogKind === 'bag' ? '👜 となりの席にかばんを置いている' : '🦵 大股開きでとなりの席まで使っている') : '😤 ふんぞり返っている');
     if (p.aggro && p.angryFight) out.push('💢 逆ギレして向かってくる！');
     if (p.role === 'caller') out.push('📞 大声で電話している');
+    if (p.role === 'leak' && dist2(p.x, p.z, g.player.x, g.player.z) < 1.9) out.push('🎧 イヤホンからシャカシャカ音がもれている');
+    if (p.role === 'pack') out.push('🎒 大きなリュックを背負ったまま');
+    if (p.role === 'bento') out.push('🍱 においのきつい弁当を食べている');
+    if (p.role === 'door') out.push('🚪 ドアの前から動かない');
+    if (p.role === 'preach') out.push(dist2(p.x, p.z, g.player.x, g.player.z) < 1.7 ? '🗣 説教が止まらない…' : '🗣 だれかに説教したそうにしている');
     if (p.role === 'tuber') out.push('📹 自撮りで配信中。床のスピーカーから爆音');
     if (p.role === 'tuberSad') out.push('😢 スピーカーが壊れてしょんぼり');
     if (p.role === 'dasher') out.push('🏃 空いた席をすごい目で探している');
@@ -2232,13 +2549,13 @@
     if (p.tough) out.push('😠 ちょっと怖い');
     if (p.type === 'drunk') out.push('🍶 お酒くさい');
     if (!out.length) out.push('…特に変わった様子はない');
-    return { name: T.name, notes: out };
+    return { name: p.dispName || T.name, notes: out };
   }
 
   return {
-    PTYPES, diagnose, villainKO,
+    PTYPES, diagnose, villainKO, BOSS,
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
-    _internal: { sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
+    _internal: { bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });

@@ -17,7 +17,7 @@
   function track(name) {
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
-  const MODE_JA = { tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const MODE_JA = { bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -458,9 +458,211 @@
     }
     if (p.type === 'tourist') { const sc = new T3.Mesh(box(0.38, 0.55, 0.22), lam('#e0a020')); root.add(sc); H.suitcase = sc; }
     if (p.type === 'otaku') { const ub = new T3.Mesh(box(0.22, 0.04, 0.04), new T3.MeshBasicMaterial({ color: '#ff3fa4' })); H.armR.el.add(ub); ub.position.y = -h * 0.17; ub.rotation.z = Math.PI / 2; }
+    if (p.type === 'yankee') yankeeStyle(H, p);
+    H.costume = costumeOf(p);
+    if (H.costume) addCostume(H, p, H.costume);
     root.traverse(o => { if (o.isMesh) o.frustumCulled = true; });
     scene.add(root);
     return H;
+  }
+  // ---------------------------------------------------------------- 衣装（ボス駅・注意できる悪者の 3D の見た目）
+  // p.look.costume で決まる。体の上に部品を足したり、頭を動物に取りかえたりする
+  function costumeOf(p) { return (p.look && p.look.costume) || ''; }
+  function addCostume(H, p, c) {
+    const h = p.h, L = p.look, head = H.headMesh, headP = H.head, torso = H.torso;
+    const M = (col) => lam(col), P = (col, sh) => new T3.MeshPhongMaterial({ color: col, shininess: sh || 30 });
+    const hideHuman = () => { for (const ch of head.children) ch.visible = false; head.material = M(L.skin); };
+    const ball = (mat, sx, sy, sz, x, y, z, parent) => { const m = new T3.Mesh(USPH, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); (parent || head).add(m); return m; };
+    if (c.startsWith('animal:')) {
+      const a = c.slice(7);
+      H.animal = a;
+      if (a === 'サル') {
+        hideHuman(); head.material = M('#7a5230');
+        ball(M('#e8b896'), 0.75, 0.62, 0.4, 0, -0.12, 0.72); // 顔
+        for (const sx of [-1, 1]) { ball(M('#e8b896'), 0.32, 0.36, 0.14, sx * 1.02, 0.05, 0); ball(M('#1a1a1a'), 0.1, 0.12, 0.06, sx * 0.25, 0.08, 1.05); }
+        ball(M('#c98a6a'), 0.32, 0.18, 0.2, 0, -0.38, 1.0); // 口
+        const tail = new T3.Mesh(new T3.TorusGeometry(0.16, 0.025, 6, 12, Math.PI * 1.4), M('#7a5230')); tail.position.set(0, 0.05, -0.12); tail.rotation.y = Math.PI / 2; H.pelvis.add(tail);
+      } else if (a === 'ペンギン') {
+        hideHuman(); head.material = M('#1d2024');
+        ball(M('#f2f2f2'), 0.62, 0.55, 0.3, 0, -0.18, 0.78);
+        for (const sx of [-1, 1]) ball(M('#111'), 0.1, 0.12, 0.06, sx * 0.28, 0.12, 0.98);
+        const beak = new T3.Mesh(new T3.ConeGeometry(0.2, 0.55, 8), M('#f2a03a')); beak.rotation.x = Math.PI / 2; beak.position.set(0, -0.12, 1.2); head.add(beak);
+        const belly = new T3.Mesh(USPH, M('#f2f2f2')); belly.scale.set(h * 0.11, h * 0.16, h * 0.05); belly.position.set(0, h * 0.14, h * 0.07); torso.add(belly);
+        H.waddle = true;
+      } else if (a === 'カピバラ') {
+        // 体ごと横長のカピバラにする（人の体はかくす）
+        for (const o of [H.pelvis, H.torso, H.legL.hp, H.legR.hp]) o.visible = false;
+        const cap = new T3.Group(); H.root.add(cap); H.capy = cap;
+        const fur = M('#a07850');
+        const body = new T3.Mesh(UCAP, fur); body.scale.set(0.42, 0.42, 0.42); body.rotation.x = Math.PI / 2; body.position.y = 0.32; cap.add(body);
+        const hd = new T3.Mesh(box(0.28, 0.26, 0.4), fur); hd.position.set(0, 0.45, 0.45); cap.add(hd);
+        const nose = new T3.Mesh(box(0.26, 0.2, 0.12), M('#6b4a32')); nose.position.set(0, 0.42, 0.68); cap.add(nose);
+        for (const sx of [-1, 1]) { const e = new T3.Mesh(USPH, M('#111')); e.scale.set(0.03, 0.03, 0.03); e.position.set(sx * 0.1, 0.52, 0.6); cap.add(e); const ear = new T3.Mesh(USPH, M('#7a5a40')); ear.scale.set(0.05, 0.05, 0.03); ear.position.set(sx * 0.12, 0.6, 0.32); cap.add(ear); }
+        for (const [x, z] of [[-0.14, 0.3], [0.14, 0.3], [-0.14, -0.25], [0.14, -0.25]]) { const lg = new T3.Mesh(UCAP, fur); lg.scale.set(0.09, 0.12, 0.09); lg.position.set(x, 0.1, z); cap.add(lg); }
+        const towel = new T3.Mesh(box(0.2, 0.04, 0.16), M('#f2f2f2')); towel.position.set(0, 0.6, 0.42); cap.add(towel); // 頭に手ぬぐい
+      } else if (a === '子ゾウ') {
+        hideHuman(); head.material = M('#8a8f96'); head.scale.multiplyScalar(1.25);
+        for (const sx of [-1, 1]) { const ear = new T3.Mesh(new T3.CircleGeometry(0.75, 16), new T3.MeshLambertMaterial({ color: '#7d828a', side: T3.DoubleSide })); ear.position.set(sx * 1.05, 0.05, -0.1); ear.rotation.y = sx * 1.2; head.add(ear); ball(M('#111'), 0.09, 0.11, 0.05, sx * 0.32, 0.18, 0.95); }
+        const trunk = new T3.Group(); trunk.position.set(0, -0.2, 0.9); head.add(trunk); H.trunk = trunk;
+        let par = trunk; for (let i = 0; i < 4; i++) { const seg = new T3.Group(); seg.position.y = i ? -0.32 : 0; par.add(seg); const m = new T3.Mesh(UCAP, M('#8a8f96')); m.scale.set(0.24 - i * 0.03, 0.2, 0.24 - i * 0.03); m.position.y = -0.16; seg.add(m); par = seg; (H.trunkSegs = H.trunkSegs || []).push(seg); }
+      }
+    } else if (c === 'ghost') {
+      H.ghost = true;
+      H.root.traverse((o) => { if (o.isMesh && o.material && !o.material.map) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.55; o.material.depthWrite = false; } });
+      H.legL.hp.visible = H.legR.hp.visible = false;
+      const tri = new T3.Mesh(new T3.ConeGeometry(0.35, 0.5, 3), new T3.MeshBasicMaterial({ color: '#ffffff' })); tri.rotation.set(-0.2, 0, Math.PI); tri.position.set(0, 0.55, 0.75); head.add(tri); // 三角の布
+      const tail = new T3.Mesh(new T3.ConeGeometry(h * 0.1, h * 0.35, 10), new T3.MeshLambertMaterial({ color: '#eef2f6', transparent: true, opacity: 0.45, depthWrite: false })); tail.rotation.x = Math.PI; tail.position.y = -h * 0.15; H.pelvis.add(tail);
+    } else if (c === 'gym') {
+      H.gym = true;
+    } else if (c === 'tori') {
+      const cam = new T3.Group(); const body = new T3.Mesh(box(0.14, 0.09, 0.07), M('#1a1a1a')); cam.add(body);
+      const lens = new T3.Mesh(new T3.CylinderGeometry(0.035, 0.04, 0.12, 10), M('#333')); lens.rotation.x = Math.PI / 2; lens.position.z = 0.08; cam.add(lens);
+      const fl = new T3.Mesh(USPH, new T3.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0 })); fl.scale.set(0.12, 0.12, 0.12); fl.position.set(0, 0.07, 0.05); cam.add(fl); H.flash = fl;
+      cam.position.set(0, h * 0.32, h * 0.1); torso.add(cam); H.camera = cam; H.tori = true;
+    } else if (c === 'cand') {
+      const sash = new T3.Mesh(box(0.08, h * 0.42, 0.012), M('#f2f2f2')); sash.position.set(0, h * 0.17, h * 0.062); sash.rotation.z = 0.75; torso.add(sash);
+      const stripe = new T3.Mesh(box(0.03, h * 0.42, 0.014), M('#c0392b')); stripe.position.copy(sash.position); stripe.rotation.z = 0.75; torso.add(stripe);
+      H.cand = true;
+    } else if (c === 'balloon') {
+      const col = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71'][p.id % 4];
+      // 手（小さく縮めてある）ではなく、ひじから先につける。腕を上げると -y が上になる
+      const bl = new T3.Mesh(USPH, P(col, 80)); bl.scale.set(0.16, 0.2, 0.16); bl.position.set(0, -h * 0.155 - 0.62, 0); H.armR.el.add(bl); H.balloon = bl;
+      const str = new T3.Mesh(new T3.CylinderGeometry(0.004, 0.004, 0.45, 4), M('#eee')); str.position.y = -h * 0.155 - 0.24; H.armR.el.add(str);
+    } else if (c === 'yanki') {
+      H.yanki = true;
+      // 学ラン（長ラン）：金ボタン・つめえり・ひざまである長いすそ
+      const gold = new T3.MeshPhongMaterial({ color: '#e8c25a', shininess: 90 });
+      for (let i = 0; i < 5; i++) { const b = new T3.Mesh(USPH, gold); b.scale.setScalar(h * 0.011); b.position.set(0, h * (0.27 - i * 0.055), h * 0.066); torso.add(b); }
+      const collar = new T3.Mesh(new T3.CylinderGeometry(h * 0.045, h * 0.05, h * 0.05, 12, 1, true), new T3.MeshLambertMaterial({ color: '#15161c', side: T3.DoubleSide })); collar.position.y = h * 0.315; torso.add(collar);
+      const hem = new T3.Mesh(new T3.CylinderGeometry(h * 0.09, h * 0.12, h * 0.3, 12, 1, true), new T3.MeshLambertMaterial({ color: '#15161c', side: T3.DoubleSide })); hem.position.y = -h * 0.12; H.pelvis.add(hem);
+    } else if (c === 'yukata') {
+      const robe = new T3.Mesh(new T3.CylinderGeometry(h * 0.085, h * 0.11, h * 0.47, 12, 1, true), new T3.MeshLambertMaterial({ color: L.top, side: T3.DoubleSide })); robe.position.y = h * 0.235; H.root.add(robe); H.robe = robe;
+      const obi = new T3.Mesh(new T3.CylinderGeometry(h * 0.075, h * 0.075, h * 0.06, 12), M(p.id % 2 ? '#f1c40f' : '#c0392b')); obi.position.y = h * 0.07; torso.add(obi);
+      const uchiwa = new T3.Mesh(new T3.CircleGeometry(0.1, 12), new T3.MeshLambertMaterial({ color: '#f5e6a8', side: T3.DoubleSide })); uchiwa.position.y = -h * 0.17; H.armL.el.add(uchiwa);
+    } else if (c === 'keiba') {
+      const np = new T3.Mesh(box(0.62, 0.42, 0.01), M('#e8e4d8')); np.position.set(0, h * 0.3, h * 0.2); torso.add(np); H.paper = np;
+      const pen = new T3.Mesh(new T3.CylinderGeometry(0.008, 0.008, 0.14, 5), M('#c0392b')); pen.position.set(0.95, 0.15, 0); pen.rotation.x = 1.3; head.add(pen); // 耳に赤ペン
+    } else if (c === 'nomi') {
+      const band = new T3.Mesh(new T3.TorusGeometry(1.0, 0.12, 6, 16), M(L.tie || '#c0392b')); band.rotation.x = Math.PI / 2 - 0.3; band.position.y = 0.45; head.add(band); // ネクタイのはちまき
+      H.drunk = true;
+    } else if (c === 'ninja') {
+      const hood = new T3.Mesh(USPH, M('#1c1c22')); hood.scale.set(1.08, 1.1, 1.08); head.add(hood);
+      const eyes = new T3.Mesh(box(1.4, 0.32, 0.4), M(L.skin)); eyes.position.set(0, 0.12, 0.85); head.add(eyes);
+      for (const sx of [-1, 1]) ball(M('#111'), 0.09, 0.1, 0.05, sx * 0.28, 0.12, 1.06);
+      H.ninja = true;
+    } else if (c === 'maou' || c === 'maouHench') {
+      const big = c === 'maou';
+      for (const sx of [-1, 1]) { const hn = new T3.Mesh(new T3.ConeGeometry(big ? 0.22 : 0.13, big ? 0.8 : 0.4, 8), P('#f2e6c8', 60)); hn.position.set(sx * 0.55, 0.95, 0); hn.rotation.z = -sx * 0.45; head.add(hn); }
+      if (big) { const cape = new T3.Mesh(new T3.PlaneGeometry(h * 0.32, h * 0.62), new T3.MeshLambertMaterial({ color: '#5a0f1e', side: T3.DoubleSide })); cape.position.set(0, h * 0.0, -h * 0.08); cape.rotation.x = 0.12; torso.add(cape); H.cape = cape; }
+    } else if (c === 'leak') {
+      const bandM = M('#222');
+      const band = new T3.Mesh(new T3.TorusGeometry(1.08, 0.08, 6, 16, Math.PI), bandM); band.rotation.z = 0; band.position.y = 0.1; head.add(band);
+      for (const sx of [-1, 1]) { const cup = new T3.Mesh(new T3.CylinderGeometry(0.32, 0.32, 0.2, 12), bandM); cup.rotation.z = Math.PI / 2; cup.position.set(sx * 1.05, 0.05, 0); head.add(cup); }
+      H.leak = true;
+    } else if (c === 'bento') {
+      const bx = new T3.Mesh(box(0.2, 0.06, 0.14), M('#1a1a1a')); bx.position.set(0, h * 0.2, h * 0.17); torso.add(bx);
+      const food = new T3.Mesh(box(0.18, 0.02, 0.12), M('#f5d76e')); food.position.y = 0.035; bx.add(food);
+      const chop = new T3.Mesh(box(0.008, 0.008, 0.2), M('#b5835a')); chop.position.set(0.05, 0.05, 0.02); chop.rotation.x = -0.6; bx.add(chop);
+      H.bento = bx;
+    } else if (c === 'pack') {
+      const bp = new T3.Mesh(box(0.38, 0.5, 0.26), M(['#2c3e50', '#c0392b', '#16a085'][p.id % 3])); bp.position.set(0, h * 0.17, -h * 0.13); torso.add(bp);
+    }
+  }
+  // ヤンキー：リーゼントかパンチパーマ＋グラサン（ふつうのヤンキーも、不良高校前のヤンキーも）
+  function yankeeStyle(H, p) {
+    const head = H.headMesh;
+    for (const ch of head.children) if (ch.material && ch.material.isMeshPhongMaterial) ch.visible = false; // もとの髪をかくす
+    const dyed = p.id % 3 === 0;
+    const hairM = new T3.MeshPhongMaterial({ color: dyed ? '#d9b04a' : '#1a1410', shininess: 70 });
+    if (p.id % 2 === 0) {
+      // リーゼント：前に長くつき出した髪＋なでつけた横と後ろ
+      const top = new T3.Mesh(UCAP, hairM); top.scale.set(0.95, 0.75, 0.95); top.rotation.x = Math.PI / 2 - 0.35; top.position.set(0, 0.85, 0.75); head.add(top);
+      const side = new T3.Mesh(HAIR_CAP, hairM); side.scale.set(1.02, 0.9, 1.02); side.rotation.x = -0.15; side.position.y = 0.05; head.add(side);
+    } else {
+      // パンチパーマ：小さな丸いカールがびっしり
+      const permM = new T3.MeshPhongMaterial({ color: dyed ? '#7a3b2e' : '#1d1612', shininess: 20 });
+      const base = new T3.Mesh(HAIR_CAP, permM); base.scale.set(1.04, 1.0, 1.04); base.rotation.x = -0.2; head.add(base);
+      for (let i = 0; i < 46; i++) {
+        const u = (i * 0.618) % 1, v = Math.min(1, (i + 0.5) / 46);
+        const th = u * TAU, ph = Math.acos(1 - v * 1.15) ; if (ph > 1.45) continue;
+        const r = 1.08, b = new T3.Mesh(USPH, permM);
+        b.scale.setScalar(0.17); b.position.set(Math.sin(ph) * Math.sin(th) * r, Math.cos(ph) * r + 0.02, Math.sin(ph) * Math.cos(th) * r - 0.05);
+        if (b.position.z > 0.55 && b.position.y < 0.55) continue; // おでこは出す
+        head.add(b);
+      }
+    }
+    // グラサン
+    const gl = new T3.MeshPhongMaterial({ color: '#0d0d10', shininess: 120 });
+    for (const sx of [-1, 1]) { const lens = new T3.Mesh(box(0.62, 0.3, 0.08), gl); lens.position.set(sx * 0.36, 0.14, 0.98); lens.rotation.y = sx * 0.18; head.add(lens); }
+    const bridge = new T3.Mesh(box(0.2, 0.06, 0.06), gl); bridge.position.set(0, 0.2, 1.02); head.add(bridge);
+  }
+  // 衣装ごとの動き（ポーズ）。tgt は poseHuman の目標の角度
+  function costumePose(H, p, tgt, now, g) {
+    const st = p.state, standing = st === 'stand', t = now + p.id * 0.7;
+    if (st === 'ko' || st === 'fight') return;
+    if (H.gym && standing && !p.bxDone) {
+      const ph = (t * 0.32) % 3;
+      const crouch = (y) => { tgt.pelvisY = H.h * 0.47 - H.h * 0.17 * y; tgt.hipL = tgt.hipR = -1.0 * y; tgt.kneeL = tgt.kneeR = 1.9 * y; };
+      if (ph < 1) { // バク転：しゃがむ → 腕をふり上げて跳ぶ → ひざを抱えて回る → 着地してしゃがむ → 立つ
+        H.flip = -1; H.flipA = 0; H.flipL = 0; H.flipFast = true; H.gymHang = 0;
+        if (ph < 0.22) { const y = Math.sin(ph / 0.22 * Math.PI / 2); crouch(y); tgt.shLx = tgt.shRx = 0.9 * y; tgt.elL = tgt.elR = 0; } // 腕を後ろに引いてしゃがむ
+        else if (ph < 0.72) {
+          const u = (ph - 0.22) / 0.5, v = Math.min(1, u / 0.82), e = v * v * (3 - 2 * v); // 着地より少し前に回りきる
+          H.flip = u; H.flipA = e * TAU; H.flipL = Math.sin(u * Math.PI) * H.h * 0.32;
+          const tuck = Math.sin(Math.min(1, u * 1.45) * Math.PI); // 回りきる前に足をのばして着地にそなえる
+          tgt.pelvisY = H.h * 0.47; tgt.hipL = tgt.hipR = -2.1 * tuck - (u > 0.7 ? 0.5 : 0); tgt.kneeL = tgt.kneeR = 2.3 * tuck + (u > 0.7 ? 0.8 : 0);
+          tgt.shLx = tgt.shRx = u < 0.25 ? -2.9 : -1.3; tgt.elL = tgt.elR = u < 0.25 ? 0 : -0.6; tgt.hp = -0.3 * tuck;
+        } else { const y = Math.sin((1 - (ph - 0.72) / 0.28) * Math.PI / 2); crouch(y); tgt.shLx = tgt.shRx = -1.6 * y; tgt.shLz = 0.4 * y; tgt.shRz = -0.4 * y; } // 着地（手を広げてバランス）
+      }
+      else if (ph < 1.4) { // 着地のあと「ビシッ」：背すじをのばして両手を V の字に上げる
+        H.flip = -1; H.flipFast = true; H.gymHang = 0;
+        tgt.pelvisY = H.h * 0.47; tgt.hipL = tgt.hipR = 0; tgt.kneeL = tgt.kneeR = 0; tgt.lean = 0; tgt.hp = -0.15;
+        tgt.shLx = tgt.shRx = -2.7; tgt.shLz = -GYM_IN * 1.6; tgt.shRz = GYM_IN * 1.6; tgt.elL = tgt.elR = 0;
+      } else if (ph < 1.62) { // 軽くしゃがんで、つり革へジャンプ（手が輪に届くように costumeAfter で位置を合わせる）
+        H.flip = -1; H.flipFast = true;
+        const u = (ph - 1.4) / 0.22;
+        if (u < 0.35) { crouch(Math.sin(u / 0.35 * Math.PI / 2) * 0.6); tgt.shLx = tgt.shRx = 0.6; tgt.elL = tgt.elR = 0; H.gymHang = 0; }
+        else { const v = (u - 0.35) / 0.65; H.gymHang = Math.min(1, v * 1.5); tgt.shLx = tgt.shRx = -Math.PI; tgt.shLz = GYM_IN; tgt.shRz = -GYM_IN; tgt.elL = tgt.elR = 0; tgt.hipL = tgt.hipR = -1.5 * v; tgt.kneeL = tgt.kneeR = 0.6 * (1 - v); }
+      }
+      else { H.flip = -1; H.flipFast = false; H.gymHang = 1; tgt.shLx = tgt.shRx = -Math.PI; tgt.shLz = GYM_IN; tgt.shRz = -GYM_IN; tgt.elL = tgt.elR = 0; tgt.hipL = tgt.hipR = -1.5; tgt.kneeL = tgt.kneeR = 0; } // つり革で L 字支持
+    } else { H.flip = -1; H.flipFast = false; H.gymHang = 0; }
+    if (H.yanki && standing && !p.bxDone) { tgt.pelvisY = 0.32; tgt.hipL = tgt.hipR = -1.65; tgt.kneeL = tgt.kneeR = 2.5; tgt.splay = 0.35; tgt.lean = 0.25; tgt.shLx = tgt.shRx = -0.6; tgt.elL = tgt.elR = -0.5; tgt.hp = -0.15; } // 床に座りこむ
+    if (H.animal === 'サル' && standing && !p.bxDone) { tgt.shLx = tgt.shRx = -2.95; tgt.elL = tgt.elR = -0.1; tgt.hipL = tgt.hipR = -1.1; tgt.kneeL = tgt.kneeR = 1.7; tgt.yOff = 0.5 + Math.sin(t * 3) * 0.05; tgt.lean = Math.sin(t * 2.2) * 0.2; } // つり革にぶら下がる
+    if (H.waddle && (st === 'stand' || st === 'walk')) { tgt.shLz = 0.55; tgt.shRz = -0.55; tgt.shLx = tgt.shRx = 0; tgt.elL = tgt.elR = 0; tgt.hr = Math.sin(t * 6) * 0.2; }
+    if (H.trunkSegs) H.trunkSegs.forEach((s, i) => { s.rotation.x = 0.25 + Math.sin(t * 2 + i) * 0.25; s.rotation.z = Math.sin(t * 1.3 + i) * 0.2; });
+    if (H.ghost) { tgt.shLx = tgt.shRx = -1.35; tgt.elL = tgt.elR = -0.2; tgt.yOff = 0.12 + Math.sin(t * 1.6) * 0.06; tgt.hp = 0.25; } // うらめしや
+    if (H.tori && !p.bxDone) { tgt.shLx = tgt.shRx = -1.25; tgt.shLz = 0.35; tgt.shRz = -0.35; tgt.elL = tgt.elR = -1.7; tgt.hp = 0.05; if (H.flash) H.flash.material.opacity = (t * 1.3) % 2 < 0.08 ? 0.95 : 0; }
+    if (H.cand && !p.bxDone) { tgt.shRx = -2.6; tgt.shRz = 0.25 + Math.sin(t * 5) * 0.3; tgt.elR = -0.4; } // 手をふる
+    if (H.balloon) { tgt.shRx = -2.2; tgt.elR = -0.3; H.balloon.position.x = Math.sin(t * 1.5) * 0.05; }
+    if (H.paper && !p.bxDone) { tgt.shLx = tgt.shRx = -1.2; tgt.shLz = 0.5; tgt.shRz = -0.5; tgt.elL = tgt.elR = -0.9; } else if (H.paper) H.paper.visible = false;
+    if (H.drunk && !p.bxDone && st !== 'seated') { tgt.lean = Math.sin(t * 1.4) * 0.18; tgt.hr = Math.sin(t * 1.1) * 0.25; }
+    if (H.ninja) { tgt.shLx = tgt.shRx = -1.2; tgt.shLz = -0.45; tgt.shRz = 0.45; tgt.elL = tgt.elR = -1.5; } // ニンニン
+    if (H.bento && st === 'seated' && p.role === 'bento') { tgt.shLx = tgt.shRx = -0.7; tgt.elL = -1.2; tgt.elR = -2.0; tgt.hp = 0.3; }
+    if (H.leak && p.role === 'leak') { tgt.hr = Math.sin(t * 4) * 0.12; } // ノリノリ
+    if (p.role === 'preach' && Math.hypot(p.x - g.player.x, p.z - g.player.z) < 1.8) { tgt.shRx = -1.4; tgt.shRz = 0.1; tgt.elR = -0.2 + Math.sin(t * 6) * 0.25; } // 指をさして説教
+  }
+  // 体ごと回る動き（バク転・カピバラ）は、角度を反映したあとに足す
+  // 体操部：両手のまん中が、いちばん近いつり革の輪に来るように体ごと動かす（gymW でなめらかに）
+  const GYM_IN = 0.36, _v1 = new T3.Vector3(), _v2 = new T3.Vector3(), _v3 = new T3.Vector3();
+  function gymSnap(H, p) { // 人の root は scene の直下なので、ワールド座標のまま足し引きできる
+    const want = H.gymHang || 0;
+    H.gymW = (H.gymW || 0) + (want - (H.gymW || 0)) * (want > (H.gymW || 0) ? 0.35 : 0.12);
+    if (H.gymW < 0.01) { H.gymRing = null; return; }
+    if (!H.gymRing) { let b = null, bd = 1e9; for (const s of straps) { const d = Math.hypot(s.position.x - p.x, s.position.z - p.z); if (d < bd) { bd = d; b = s; } } H.gymRing = b; }
+    if (!H.gymRing) return;
+    H.root.updateMatrixWorld(true);
+    H.armL.hand.getWorldPosition(_v1); H.armR.hand.getWorldPosition(_v2); _v1.add(_v2).multiplyScalar(0.5);
+    H.gymRing.children[1].getWorldPosition(_v3); _v3.y -= 0.02;
+    H.root.position.addScaledVector(_v3.sub(_v1), H.gymW);
+  }
+  function costumeAfter(H, p) {
+    if (H.gym) gymSnap(H, p);
+    if (H.flip >= 0 && H.gym) { // 腰のあたりを中心にうしろへ一回転（足もとを軸にしない）
+      const c = H.h * 0.5, th = -H.flipA, lz = -c * Math.sin(th), ly = c - c * Math.cos(th) + H.flipL, back = -Math.sin(H.flip * Math.PI) * 0.3;
+      H.root.rotation.x = th;
+      H.root.position.x += Math.sin(H.ry) * (lz + back); H.root.position.z += Math.cos(H.ry) * (lz + back); H.root.position.y += ly;
+    }
+    if (H.capy) { H.capy.position.y = p.state === 'seated' ? 0.38 : 0; }
   }
   function disposeHuman(H) {
     scene.remove(H.root);
@@ -640,8 +842,9 @@
       const yaw = angDiff(H.ry, Math.atan2(pl.x - p.x, pl.z - p.z));
       if (Math.abs(yaw) < 1.6) { tgt.hy = yaw * 0.8; tgt.hp = 0; }
     }
+    if (H.costume) costumePose(H, p, tgt, now, g);
     // 補間
-    const k = Math.min(1, dt * (st === 'fight' ? 14 : 7));
+    const k = Math.min(1, dt * (st === 'fight' || H.flipFast ? 14 : 7));
     for (const key in tgt) A[key] = lerp(A[key], tgt[key], key === 'rootTilt' ? Math.min(1, dt * 4) : k);
     H.ry += angDiff(H.ry, faceRy) * Math.min(1, dt * (st === 'walk' || st === 'exit' || st === 'fight' ? 10 : 4));
     // 反映
@@ -662,6 +865,7 @@
     }
     if (H.crutch) H.crutch.position.set(h * 0.17, 0.6, 0.12);
     if (H.suitcase) { if (seated) H.suitcase.position.set(0, 0.28, 0.75); else H.suitcase.position.set(h * 0.2, 0.28, 0.1); }
+    if (H.costume) costumeAfter(H, p);
   }
   function applyIdle(t, idle) {
     if (idle === 'phone' || idle === 'book' || idle === 'game') { t.shLx = -0.45; t.elL = -1.7; t.shRx = -0.45; t.elR = -1.7; t.shLz = 0.15; t.shRz = -0.15; t.hp = idle === 'game' ? 0.55 : 0.42; }
@@ -758,6 +962,7 @@
     for (const p of g.people) {
       alive.add(p.id);
       let H = humans.get(p.id);
+      if (H && H.costume !== costumeOf(p)) { disposeHuman(H); humans.delete(p.id); H = null; } // 衣装が変わった（忍者を見破った など）
       if (!H) { H = buildHuman(p); H.ry = p.ry; humans.set(p.id, H); }
       H.p = p;
       poseHuman(H, g, dt, now);
@@ -1654,6 +1859,13 @@
     $('modeList').innerHTML = list.map(([k, name, desc, cond]) => profile.unlock[k]
       ? `<button class="btn" data-mode="${k}">${name}</button><p class="modeinfo">${desc}${profile.bests[k] ? '・ベスト ' + profile.bests[k] : ''}</p>`
       : `<button class="btn" disabled style="opacity:.45">🔒 ？？？</button><p class="modeinfo">${cond}</p>`).join('');
+    // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
+    if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
+      const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
+      $('modeList').innerHTML += '<h3 style="margin:12px 0 4px">🧪 ボス駅テスト（毎駅がボス駅・倒れない・ランキングなし）</h3><div class="btest">'
+        + '<button class="btn sub2" data-mode="bosstest:all">全部を順番に</button>'
+        + Object.keys(B).sort((a, b) => (B[a].tier || 9) - (B[b].tier || 9)).map((k) => `<button class="btn sub2" data-mode="bosstest:${k}">${tierJ[B[k].tier]}：${B[k].name}</button>`).join('') + '</div>';
+    }
     $('modeList').querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
   }
   function clearWorld() {
@@ -1665,8 +1877,9 @@
     initAudio();
     clearWorld();
     const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
-    G = SW.create({ seed, mode, bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
-    G.modeName = mode;
+    const bossTest = mode.startsWith('bosstest:') ? mode.slice(9) : null; // ボス駅テスト（ランキングには載らない）
+    G = SW.create({ seed, mode: bossTest ? 'endless' : mode, bossTest, bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G.modeName = bossTest ? 'bosstest' : mode;
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
     G.rookie = mode === 'normal' && !profile.plays && !profile.rookieDone;
     $('rookieTag').classList.toggle('hidden', !G.rookie); document.body.classList.toggle('rookie', !!G.rookie);
@@ -2175,7 +2388,7 @@
         for (const path of ['suwaritai/best/' + F.uid, 'suwaritai/daily/' + todayKey() + '/' + F.uid, 'suwaritai/day/' + todayKey() + '/' + F.uid, 'suwaritai/week/' + weekKey() + '/' + F.uid]) {
           const ref = F.db.ref(path);
           const old = (await withTimeout(ref.get(), 10000)).val();
-          if (old && old.n !== name) { used = await fbSet(ref, { n: name, s: old.s, ti: old.ti || '', t: F.TS }); changed = true; }
+          if (old && old.n !== name) { used = await fbSet(ref, Object.assign({ n: name, s: old.s, ti: old.ti || '', t: F.TS }, old.v ? { v: old.v } : {})); changed = true; }
         }
         if (nameRefused) nameNote('「ROBIT」「開発」が入った名前はランキングでは使えません（名無しの乗客になります）');
         else if (changed) nameNote('ランキングの名前も「' + used + '」に変えました');
@@ -2229,6 +2442,9 @@
     }
   }
   const rankTxt = (x) => x && x.rank ? x.rank + '位' + (x.total ? '/' + x.total.toLocaleString() + '人（上位' + Math.max(1, Math.ceil(x.rank / x.total * 100)) + '%）' : '') : x ? '100位より下' : '-';
+  // ランキングの記録に「どの版で出した点か」の印 v をつける（1 = 印なし＝2026-11-11 のアップデート前。ボス駅などを入れた版が 2）
+  const SCORE_VER = 2;
+  const verTag = (x) => x && x.v >= SCORE_VER ? '<span class="vtag" title="アップデート後（ボス駅あり）の記録">新</span>' : '';
   async function submitFirebase(R) {
     const F = await firebaseReady(); if (!F) return null;
     const dk = todayKey(), name = rankName();
@@ -2236,7 +2452,7 @@
       const ref = F.db.ref(path);
       const old = (await withTimeout(ref.get(), 10000)).val();
       const better = !old || R.sc.total > old.s;
-      if (better || old.n !== name) await fbSet(ref, { n: name, s: better ? R.sc.total : old.s, ti: better ? R.sc.title : old.ti, t: F.TS });
+      if (better || old.n !== name) await fbSet(ref, Object.assign({ n: name, s: better ? R.sc.total : old.s, ti: better ? R.sc.title : old.ti, t: F.TS }, better ? { v: SCORE_VER } : old.v ? { v: old.v } : {}));
       const myS = better ? R.sc.total : old.s;
       const parent = path.slice(0, path.lastIndexOf('/'));
       // 点数の分布（50 点ごとの人数）を足し引きしておく（順位と人数を、全員分を読まずに出すため）
@@ -2300,7 +2516,7 @@
     const path = tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
     const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(TOP_N).get(), 10000);
     const arr = [];
-    snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti }); });
+    snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti, v: v.v || 1 }); });
     arr.sort((a, b) => b.score - a.score);
     let mine = null, total = arr.length;
     const own = (await withTimeout(F.db.ref(path + '/' + F.uid).get(), 10000)).val();
@@ -2308,7 +2524,7 @@
       const inTop = arr.findIndex((x) => x.id === F.uid);
       let rank = null;
       if (inTop < 0) { const rt = await rankOf(F, path, own.s); rank = rt.rank || '100+'; if (rt.total) total = rt.total; }
-      mine = { id: F.uid, rank, score: own.s, name: dispName(own.n, F.uid), title: own.ti };
+      mine = { id: F.uid, rank, score: own.s, name: dispName(own.n, F.uid), title: own.ti, v: own.v || 1 };
     }
     if (arr.length >= TOP_N && total === arr.length) {
       // 全員の人数は、点数の分布から数える（全員分は読まない）
@@ -2331,9 +2547,9 @@
       if (x.score !== prev) { rank = i + 1; prev = x.score; }
       const me = x.id === b.me; if (me) meShown = true;
       const rp = b.rp && rank <= RP_TOP && b.rp.has[x.id] === x.score ? b.rp : null;
-      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${esc(x.title)}${rpStats(rp, x.id)}</div></span><span class="sc">${x.score}</span>${rp ? `<button class="rpb" data-rp="${esc(x.id)}" data-kind="${rp.kind}" title="リプレイを見る">▶</button>` : ''}</div>`;
+      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}${rpStats(rp, x.id)}</div></span><span class="sc">${x.score}</span>${rp ? `<button class="rpb" data-rp="${esc(x.id)}" data-kind="${rp.kind}" title="リプレイを見る">▶</button>` : ''}</div>`;
     });
-    if (b.mine && !meShown) html += `<div class="rk" style="justify-content:center;color:var(--sub)">⋮</div><div class="rk me"><span class="n">${b.mine.rank}</span><span class="nm">${nameHtml(b.mine.name || '名無しの乗客')} <span class="pill">あなた</span><div class="ttl">${esc(b.mine.title)}</div></span><span class="sc">${b.mine.score}</span></div>`;
+    if (b.mine && !meShown) html += `<div class="rk" style="justify-content:center;color:var(--sub)">⋮</div><div class="rk me"><span class="n">${b.mine.rank}</span><span class="nm">${nameHtml(b.mine.name || '名無しの乗客')} <span class="pill">あなた</span><div class="ttl">${verTag(b.mine)}${esc(b.mine.title)}</div></span><span class="sc">${b.mine.score}</span></div>`;
     return html;
   }
   async function loadRanking(tab) {
