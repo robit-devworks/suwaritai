@@ -926,6 +926,8 @@
     const g = ctx.createGain(); g.gain.setValueAtTime(vol || 0.3, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     s.connect(f); f.connect(g); g.connect(AU.master); s.start(t0, Math.random()); s.stop(t0 + dur + 0.05);
   }
+  // 心臓の音（ドクン・ドクン）：体力 15 未満で鳴る
+  function heartbeat() { tone(75, 0.3, 'sine', 0.35, 0, 40); tone(62, 0.3, 'sine', 0.25, 0.18, 35); }
   function sfx(name) {
     if (window.__sfxLog) window.__sfxLog.push([performance.now() / 1000, name]); // 宣伝動画用の記録
     switch (name) {
@@ -1167,7 +1169,7 @@
   function updateHUD(g, dt) {
     const pl = g.player;
     const st = Math.ceil(pl.stamina);
-    if (st !== hud.stam) { hud.stam = st; $('stamF').style.width = st + '%'; $('stamV').textContent = st; $('stamBar').classList.toggle('danger', st <= 25); $('stamF').style.background = st <= 25 ? 'linear-gradient(90deg,#b8261d,#ff5a4f)' : ''; }
+    if (st !== hud.stam) { hud.stam = st; $('stamF').style.width = st + '%'; $('stamV').textContent = st; $('stamBar').classList.toggle('danger', st < 30); $('stamF').style.background = st < 30 ? 'linear-gradient(90deg,#b8261d,#ff5a4f)' : st < 50 ? 'linear-gradient(90deg,#c9971c,#f2c23a)' : ''; }
     const ka = Math.floor(pl.karma);
     const mi = Math.ceil(pl.mind == null ? 100 : pl.mind);
     if (mi !== hud.mind) { hud.mind = mi; $('mindF').style.width = mi + '%'; $('mindV').textContent = mi; $('mindBar').classList.toggle('danger', mi <= 25); }
@@ -1187,20 +1189,30 @@
     const bl = [];
     for (const k in pl.buffs) { const s = SW.SKILLS.find(s => s.key === k); bl.push(s.icon + ' ' + Math.ceil(pl.buffs[k]) + '秒'); }
     if (pl.mode) bl.push((pl.mode === 'brainwash' ? '🌀' : '💪') + ' 照準中 ' + Math.ceil(pl.modeT) + '秒');
-    const bs = bl.join('|');
-    // 落とし物：だれのものかを大きく出す（持ち主の服の色つき）
+    // 落とし物の持ち主の表示
+    // PC：画面の上のまん中に大きなカード。スマホ縦：右上のあいているところに小さなカード。スマホ横：左上の小さな表示
     {
-      const it = pl.carrying;
+      const it = pl.carrying, mini = isTouch && isPortrait();
       let html = '';
-      if (it) {
+      if (it && (!isTouch || mini)) {
         const o = it.owner != null ? SW.person(g, it.owner) : null;
         const sw = o && o.look && o.look.top ? `<i style="background:${o.look.top}"></i>` : '';
         const gone = it.ownerGone || (it.owner != null && (!o || o.state === 'gone'));
-        html = `<b>👜 ${esc(it.name)}を持っている</b>` + (gone ? '<span class="cw">持ち主は降りた → 次の駅で、開いたドアの近くの駅員へ</span>'
-          : it.hint ? `<span>持ち主：${sw}<em>${esc(it.hint)}</em></span>` + (it.ownerLeaving ? '<span class="cw">⚠ 持ち主がもうすぐ降りる！</span>' : '') : '');
+        html = mini
+          ? `<b>👜 ${esc(it.name)}</b>` + (gone ? '<span class="cw">持ち主は降りた→駅員へ</span>' : it.hint ? `<span>${sw}<em>${esc(it.hint)}</em></span>` + (it.ownerLeaving ? '<span class="cw">⚠ もうすぐ降りる！</span>' : '') : '')
+          : `<b>👜 ${esc(it.name)}を持っている</b>` + (gone ? '<span class="cw">持ち主は降りた → 次の駅で、開いたドアの近くの駅員へ</span>'
+            : it.hint ? `<span>持ち主：${sw}<em>${esc(it.hint)}</em></span>` + (it.ownerLeaving ? '<span class="cw">⚠ 持ち主がもうすぐ降りる！</span>' : '') : '');
       }
-      if (html !== hud.carry) { hud.carry = html; $('carryCard').innerHTML = html; $('carryCard').classList.toggle('hidden', !html); }
+      const key = (mini ? 'm' : '') + html;
+      if (key !== hud.carry) { hud.carry = key; $('carryCard').innerHTML = html; $('carryCard').classList.toggle('hidden', !html); $('carryCard').classList.toggle('mini', mini); }
+      if (it && isTouch && !mini) {
+        const o = it.owner != null ? SW.person(g, it.owner) : null;
+        const gone = it.ownerGone || (it.owner != null && (!o || o.state === 'gone'));
+        const sw = o && o.look && o.look.top ? `<i class="sw" style="background:${o.look.top}"></i>` : '';
+        bl.push('👜 ' + esc(it.name) + (gone ? '→駅員へ' : it.hint ? '→' + sw + esc(it.hint) + (it.ownerLeaving ? '（降りそう！）' : '') : 'を持っている'));
+      }
     }
+    const bs = bl.join('|');
     if (bs !== hud.buffs) { hud.buffs = bs; $('buffs').innerHTML = bl.map(b => `<span class="buff">${b}</span>`).join(''); }
     // スキル
     SW.SKILLS.forEach((s, i) => {
@@ -1256,7 +1268,20 @@
     // 画面効果
     $('hitFlash').style.opacity = Math.min(1, pl.hitFlash * 2.5);
     $('sleepFx').style.opacity = pl.fakeSleep ? 1 : 0;
-    $('lowFx').style.boxShadow = pl.stamina < 25 ? `inset 0 0 ${80 + 40 * Math.sin(performance.now() / 200)}px rgba(255,30,30,.55)` : 'inset 0 0 0 rgba(0,0,0,0)';
+    // 体力が減ってきたら画面のふち：50 未満は黄色（点滅なし）、30 未満は赤く点滅（減るほど速く）、15 未満は濃い赤＋心臓の音。立っているときだけ
+    const sta = pl.stamina, standing = pl.seat < 0 && !g.over;
+    let fx = 'none';
+    if (standing && sta < 30) {
+      const per = sta < 15 ? 0.5 : 1.0 - (30 - sta) / 15 * 0.35; // 1 秒〜0.65 秒、15 未満は 0.5 秒（1 秒に 2 回まで）
+      const w = 0.5 + 0.5 * Math.sin(performance.now() / 1000 / per * TAU);
+      fx = sta < 15 ? `inset 0 0 ${110 + 40 * w}px ${20 + 20 * w}px rgba(255,10,10,${(0.4 + 0.38 * w).toFixed(2)})`
+        : `inset 0 0 ${70 + 50 * w}px ${4 + 22 * w}px rgba(255,30,30,${(0.25 + 0.37 * w).toFixed(2)})`;
+    } else if (standing && sta < 50) fx = 'inset 0 0 90px 10px rgba(255,200,40,.45)';
+    $('lowFx').style.boxShadow = fx;
+    if (standing && sta < 15) {
+      AU.hbT = (AU.hbT || 0) - dt;
+      if (AU.hbT <= 0) { AU.hbT = 60 / (80 + (15 - sta) * 3); heartbeat(); }
+    } else AU.hbT = 0;
   }
   function showAnn(text) { $('ann').textContent = '📢 ' + text; $('ann').classList.remove('hidden'); annT = 5; }
 

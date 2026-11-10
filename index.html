@@ -59,7 +59,8 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #stamBar.danger .t{box-shadow:0 0 0 2px var(--bad);animation:blink .5s infinite alternate}
 @keyframes blink{to{opacity:.55}}
 #buffs{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
-.buff{font-size:11px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:1px 6px}
+.buff{font-size:11px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:1px 6px;white-space:nowrap}
+.buff .sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 3px -1px 1px;border:1px solid #fff}
 #topR{position:absolute;right:max(10px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));text-align:right;display:flex;gap:8px;align-items:flex-start}
 #tokuBox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 10px;min-width:84px}
 #tokuBox small{display:block;font-size:10px;color:var(--sub)}
@@ -149,7 +150,7 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 #fx{position:fixed;inset:0;pointer-events:none;z-index:4}
 #hitFlash{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,0,0,.55));opacity:0}
 #sleepFx{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.55),rgba(0,0,0,.96));opacity:0;transition:opacity .4s;display:flex;align-items:center;justify-content:center;font-size:20px;color:#aab}
-#lowFx{position:absolute;inset:0;box-shadow:inset 0 0 120px rgba(255,40,40,.0);transition:box-shadow .3s}
+#lowFx{position:absolute;inset:0;pointer-events:none}
 #pcHint{position:absolute;left:50%;top:58%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.7;text-align:center;pointer-events:none}
 #pcHint b{color:var(--toku)}
 /* ---------- タッチ操作 ---------- */
@@ -257,8 +258,11 @@ body.replay #skills,body.replay #touch,body.replay #prompt{display:none!importan
 #carryCard em{font-style:normal;color:#ffd447;font-weight:800;white-space:nowrap}
 #carryCard i{display:inline-block;width:16px;height:16px;border-radius:50%;margin:0 6px -2px 2px;border:2px solid #fff;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
 #carryCard .cw{color:#ff9a7a;font-weight:800}
-@media (orientation:portrait){body.touch #carryCard{top:calc(196px + env(safe-area-inset-top))}}
-body.touch #carryCard b{font-size:15px}body.touch #carryCard span{font-size:14px}
+body.touch #carryCard:not(.mini){display:none!important}
+#carryCard.mini{left:auto;right:8px;transform:none;top:calc(78px + env(safe-area-inset-top));max-width:180px;padding:5px 10px;border-width:1.5px;border-radius:10px;text-align:left}
+#carryCard.mini b{font-size:13px}
+#carryCard.mini span{font-size:12px;margin-top:1px}
+#carryCard.mini i{width:11px;height:11px;margin:0 4px -1px 0;border-width:1.5px;box-shadow:none}
 .nm-dev{color:#5ad8ff!important;text-shadow:0 0 8px rgba(90,216,255,.7);font-weight:800}
 .nm-rare{color:#ffd23f!important;text-shadow:0 0 8px rgba(255,210,63,.7)}
 .nm-legend{background:linear-gradient(90deg,#ff5a5a,#ffd23f,#5affa0,#5ad8ff,#c77dff,#ff5a5a);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;animation:nm-rainbow 3s linear infinite;filter:drop-shadow(0 0 4px rgba(255,255,255,.4))}
@@ -793,7 +797,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261110101821"></script>
-<script src="game.js?v=20261110101821"></script>
+<script src="logic.js?v=20261110122637"></script>
+<script src="game.js?v=20261110122637"></script>
 </body>
 </html>
