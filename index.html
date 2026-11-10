@@ -110,6 +110,12 @@ body.touch #bLand{display:block}
 .sk{position:relative;width:50px;height:54px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:21px;line-height:1;padding:0}
 .sk small{font-size:10px;color:var(--toku);font-weight:800;margin-top:3px}
 .sk kbd{position:absolute;left:4px;top:2px;font-size:9px;color:var(--sub);font-family:inherit}
+.sk.down{background:rgba(255,212,71,.25)}
+#skTip{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 8px);width:max-content;max-width:min(88vw,330px);background:rgba(16,20,28,.96);border:2px solid var(--toku);border-radius:12px;padding:7px 11px;font-size:13px;line-height:1.45;text-align:left;pointer-events:none;z-index:6}
+#skTip b{color:var(--toku)}#skTip .k{color:#d7a6ff;font-weight:700}#skTip small{display:block;margin-top:3px;color:var(--sub);font-size:11px}
+body.touch #skTip{bottom:auto;top:calc(100% + 8px)}
+@media (orientation: landscape) and (max-height:520px){body.touch #skTip{top:auto;bottom:calc(100% + 8px)}}
+html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 .sk.off{opacity:.38}
 .sk.on{box-shadow:0 0 0 2px var(--toku) inset;background:rgba(255,212,71,.18)}
 .sk .cd{position:absolute;left:0;right:0;bottom:0;background:rgba(255,212,71,.35);border-radius:0 0 11px 11px}
@@ -712,7 +718,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261110001405"></script>
-<script src="game.js?v=20261110001405"></script>
+<script src="logic.js?v=20261110002212"></script>
+<script src="game.js?v=20261110002212"></script>
 </body>
 </html>

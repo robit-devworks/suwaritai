@@ -1103,15 +1103,41 @@
 
   // ================================================================ HUD
   const hud = { stam: -1, karma: -1, toku: -1, st: '', sub: '', prompt: '', target: '', skills: '', buffs: '' };
+  // スキル：タップ（クリック）で使う／長押し（マウスを乗せる）で説明。はじめての 1 回は説明を出して、もう一回タップで使う
   const skillsEl = $('skills');
+  const skTip = document.createElement('div'); skTip.id = 'skTip'; skTip.className = 'hidden'; skillsEl.appendChild(skTip);
+  let skTipT = 0;
+  function showSkTip(i, first, ms) {
+    const s = SW.SKILLS[i], cost = G ? SW.skillCost(G, i) : s.cost;
+    skTip.innerHTML = `<b>${s.icon} ${s.name}</b>（${cost}徳）<br>${s.desc}` + (s.karma ? `<br><span class="k">⚠ 悪いこと：カルマ +${s.karma}</span>` : '') +
+      `<small>${first ? '👆 もう一回タップで使う' : isTouch ? '長押しで説明・タップで使う' : 'クリック（または ' + (i + 1) + ' キー）で使う'}</small>`;
+    skTip.classList.remove('hidden'); clearTimeout(skTipT); if (ms) skTipT = setTimeout(hideSkTip, ms);
+  }
+  function hideSkTip() { clearTimeout(skTipT); skTip.classList.add('hidden'); }
   SW.SKILLS.forEach((s, i) => {
-    const b = document.createElement('button'); b.className = 'sk'; b.title = s.name + '：' + s.desc;
+    const b = document.createElement('button'); b.className = 'sk';
     b.innerHTML = `<kbd>${i + 1}</kbd>${s.icon}<small id="skc${i}">${s.cost}</small><div class="cd" id="skd${i}" style="height:0"></div>`;
-    const fire = e => { e.preventDefault(); e.stopPropagation(); initAudio(); if (state === 'play') inp.skill = i; };
-    b.addEventListener('touchstart', fire, { passive: false }); b.addEventListener('mousedown', fire);
+    const use = () => { initAudio(); if (state === 'play') inp.skill = i; };
+    let hold = 0, long = false;
+    b.addEventListener('touchstart', (e) => {
+      e.preventDefault(); e.stopPropagation(); long = false; b.classList.add('down');
+      clearTimeout(hold); hold = setTimeout(() => { long = true; showSkTip(i, false); }, 420);
+    }, { passive: false });
+    const end = (e) => {
+      if (e) e.preventDefault(); clearTimeout(hold); b.classList.remove('down');
+      if (long) { skTipT = setTimeout(hideSkTip, 1800); return; }
+      profile.skSeen = profile.skSeen || {};
+      if (!profile.skSeen[s.key]) { profile.skSeen[s.key] = 1; saveProfile(); showSkTip(i, true, 4000); return; } // はじめて：まず説明
+      hideSkTip(); use();
+    };
+    b.addEventListener('touchend', end, { passive: false });
+    b.addEventListener('touchcancel', () => { clearTimeout(hold); b.classList.remove('down'); hideSkTip(); });
+    b.addEventListener('mouseenter', () => { if (!isTouch) showSkTip(i, false); });
+    b.addEventListener('mouseleave', () => { if (!isTouch) hideSkTip(); });
+    b.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (!isTouch) use(); });
     skillsEl.appendChild(b);
   });
-  $('skillHelp').innerHTML = SW.SKILLS.map(s => `<div style="font-size:13px;margin:3px 0">${s.icon} <b>${s.name}</b>（${s.cost}徳）… ${s.desc}</div>`).join('');
+  $('skillHelp').innerHTML = `<div class="small" style="color:var(--sub);margin:2px 0 4px">${isTouch ? 'スキルのボタンは<b>長押しで説明</b>・タップで使う' : 'スキルのボタンに<b>マウスを乗せると説明</b>・クリックか数字キーで使う'}</div>` + SW.SKILLS.map(s => `<div style="font-size:13px;margin:3px 0">${s.icon} <b>${s.name}</b>（${s.cost}徳）… ${s.desc}</div>`).join('');
   function addToast(text, kind) {
     const box = $('toasts');
     const el = document.createElement('div'); el.className = 'toast ' + (kind || ''); el.textContent = text; box.appendChild(el);
