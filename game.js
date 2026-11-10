@@ -2108,8 +2108,22 @@
   function withTimeout(p, ms) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]); }
   function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load ' + src)); document.head.appendChild(s); }); }
   // Firebase は、ランキングを見る・記録するときに初めて読み込む（匿名ログイン）
+  // つなぎっぱなしにしない：使い終わって 30 秒たったら切る（無料枠の「同時接続 100」をすぐ使い切らないように）
+  // オンライン対戦の部屋にいるあいだは切らない
+  let fbIdleT = 0, fbOff = false;
+  function fbTouch(F) {
+    if (!F) return F;
+    if (fbOff) { try { F.db.goOnline(); } catch (e) { } fbOff = false; }
+    clearTimeout(fbIdleT);
+    fbIdleT = setTimeout(function idle() {
+      if (MP.code || MP.active) { fbIdleT = setTimeout(idle, 30000); return; }
+      try { F.db.goOffline(); fbOff = true; } catch (e) { }
+    }, 30000);
+    return F;
+  }
   function firebaseReady() {
     if (!fbAllowed) return Promise.resolve(null);
+    if (fbWait) return fbWait.then(fbTouch);
     if (!fbWait) fbWait = withTimeout((async () => {
       if (!window.firebase) for (const m of ['app', 'auth', 'database']) await loadScript(`https://cdn.jsdelivr.net/npm/firebase@${FB_VER}/firebase-${m}-compat.js`);
       const fb = window.firebase;
@@ -2119,7 +2133,7 @@
       const user = prev || (await auth.signInAnonymously()).user;
       return { db: app.database(), uid: user.uid, TS: fb.database.ServerValue.TIMESTAMP };
     })(), 12000).catch(e => { fbWait = null; throw e; });
-    return fbWait;
+    return fbWait.then(fbTouch);
   }
   function rankName() {
     return validName(profile.name) ? String(profile.name).slice(0, 12) : '名無しの乗客';
@@ -2176,9 +2190,9 @@
         const rec = REC && REC.done ? REC : null; REC = null;
         const res = DB ? await submitClaude(R) : await submitFirebase(R);
         if (!DB) recUpload(R, res, rec);
-        const rk = (x) => x ? x.rank + '位' : '-';
+        const rk = (x) => x ? (x.rank ? x.rank + '位' : '100位より下') : '-';
         const main = res && (R.mode === 'daily' ? res.daily : res.day);
-        if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${main.rank}位/${main.total}人・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
+        if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${rk(main)}・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
         else if (state === 'result') $('rRank').textContent = '';
         if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : 'day');
       } catch (e) {
@@ -2196,9 +2210,9 @@
       if (better || old.n !== name) await fbSet(ref, { n: name, s: better ? R.sc.total : old.s, ti: better ? R.sc.title : old.ti, t: F.TS });
       const myS = better ? R.sc.total : old.s;
       const parent = path.slice(0, path.lastIndexOf('/'));
-      const above = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(myS + 0.5).limitToFirst(1000).get(), 10000)).numChildren();
-      const total = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(0).limitToFirst(5000).get(), 10000)).numChildren();
-      return { rank: above + 1, total, improved: better && !!old, mine: better };
+      // 順位は上位 100 位まで数える（全員分を読むと通信量がふくらむので）。それより下は「100位より下」
+      const above = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(myS + 0.5).limitToFirst(TOP_N).get(), 10000)).numChildren();
+      return { rank: above < TOP_N ? above + 1 : null, improved: better && !!old, mine: better };
     };
     const best = await put('suwaritai/best/' + F.uid);
     const day = await put('suwaritai/day/' + dk + '/' + F.uid);
@@ -2257,10 +2271,11 @@
     let mine = null, total = arr.length;
     const own = (await withTimeout(F.db.ref(path + '/' + F.uid).get(), 10000)).val();
     if (own) {
-      const above = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(own.s + 0.5).limitToFirst(5000).get(), 10000)).numChildren();
-      mine = { id: F.uid, rank: above + 1, score: own.s, name: dispName(own.n, F.uid), title: own.ti };
+      const inTop = arr.findIndex((x) => x.id === F.uid);
+      const above = inTop >= 0 ? -1 : arr.filter((x) => x.score > own.s).length;
+      mine = { id: F.uid, rank: inTop >= 0 ? null : above < TOP_N ? above + 1 : '100+', score: own.s, name: dispName(own.n, F.uid), title: own.ti };
     }
-    if (arr.length >= TOP_N) total = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(0).limitToFirst(10000).get(), 10000)).numChildren();
+    if (arr.length >= TOP_N) total = null; // 全員の人数は数えない（通信量を減らすため）
     const rp = await fetchRpInfo(F, tab).catch(() => null);
     return { list: arr, me: F.uid, mine, total, rp };
   }
@@ -2298,7 +2313,7 @@
       if (!b) throw new Error('none');
       if (rankTab !== tab) return;
       const wk = weekKey().slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/');
-      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット' }[tab] || '歴代ランキング（みんなの自己ベスト）') + '・' + b.total + '人' + (b.total > TOP_N ? '（上位' + TOP_N + '人）' : '');
+      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
       listEl.innerHTML = b.list.length ? rankRows(b, TOP_N) : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
     } catch (e) { $('rankNote').textContent = 'オンラインのランキングを読めませんでした。この端末の記録：'; local(); }
   }
@@ -2353,7 +2368,7 @@
   async function recUpload(R, res, rec) {
     if (!rec || !rec.done || !res) return;
     const kinds = [['best', res.best, 'all'], ['day', res.day, todayKey()], ['week', res.week, weekKey()], ['daily', res.daily, todayKey()]]
-      .filter(([, r]) => r && r.mine && r.rank <= RP_TOP);
+      .filter(([, r]) => r && r.mine && r.rank != null && r.rank <= RP_TOP);
     if (!kinds.length) return;
     try {
       const F = await firebaseReady(); if (!F) return;
