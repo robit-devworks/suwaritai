@@ -51,6 +51,9 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .bar .t i{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:6px;transition:width .15s}
 #stamF{background:linear-gradient(90deg,#2ea85c,var(--stam))}
 #karmaF{background:linear-gradient(90deg,#6c35b8,var(--karma))}
+#mindF{background:linear-gradient(90deg,#2a7fb8,#7ad7ff)}
+#mindBar.danger .t{box-shadow:0 0 0 2px #7ad7ff;animation:blink .5s infinite alternate}
+.pop.m{color:#7ad7ff}
 .bar .v{width:26px;text-align:right;text-shadow:0 1px 2px #000}
 #karmaBar.danger .t{box-shadow:0 0 0 2px var(--bad);animation:blink .5s infinite alternate}
 #stamBar.danger .t{box-shadow:0 0 0 2px var(--bad);animation:blink .5s infinite alternate}
@@ -165,13 +168,13 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 #bPunch{right:100px;bottom:4px;width:70px;height:70px}
 #bGuard{right:14px;bottom:100px;width:70px;height:70px}
 #bSleep{right:100px;bottom:84px;width:60px;height:60px;font-size:10px}
-body.touch #skills{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 118px);left:50%}
+body.touch #skills{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 134px);left:50%}
 body.touch .sk{width:42px;height:46px;font-size:18px}
 body.touch .sk kbd{display:none}
 body.touch #prompt{bottom:auto;top:auto;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 192px)}
 body.touch #target{top:calc(50% + 34px);font-size:11px}
 body.touch #ann{display:none!important}
-body.touch #toasts{top:calc(max(8px,env(safe-area-inset-top)) + 172px)}
+body.touch #toasts{top:calc(max(8px,env(safe-area-inset-top)) + 188px)}
 body.touch #pcHint{display:none}
 /* ---------- 画面 ---------- */
 .screen{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,14,.55);overflow-y:auto}
@@ -214,7 +217,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 #tutSkip{font:inherit;font-size:12px;background:none;border:1px solid var(--line);border-radius:99px;color:var(--sub);padding:2px 10px}
 #tutD{font-size:13px;line-height:1.45;margin-top:2px}
 #tutBtns .btn{margin:6px 0 0}
-body.touch #tut{top:calc(max(8px,env(safe-area-inset-top)) + 172px)}
+body.touch #tut{top:calc(max(8px,env(safe-area-inset-top)) + 188px)}
 @media (orientation: landscape) and (max-height:520px){body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% + 4vw);width:min(34vw,380px)}#tut .tt b{font-size:13px}#tutD{font-size:11.5px}body.touch #tut .tt{flex-wrap:wrap;gap:2px 6px}body.touch #tut .tt b{flex:1 1 100%}}
 html.pland body.touch #tut .tt{flex-wrap:wrap;gap:2px 6px}html.pland body.touch #tut .tt b{flex:1 1 100%;font-size:13px}
 html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% + calc(var(--ph) * 4 / 100));width:min(calc(var(--ph) * 34 / 100),380px)}
@@ -283,6 +286,8 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
   html:not(.pland) #title #bStart{padding:14px}
   html:not(.pland) #title .btn:not(.main), html:not(.pland) #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
   html:not(.pland) #title .row .btn{white-space:nowrap;font-size:clamp(12px,3.6vw,15px);padding:9px 2px;min-width:0}
+  html:not(.pland) #title .row:not(#dailyRow):not(#modesRow){gap:6px}
+  html:not(.pland) #title .row:not(#dailyRow):not(#modesRow) .btn{flex:1 1 auto;min-width:auto;padding:9px 4px;font-size:clamp(11px,3.4vw,15px)}
   html:not(.pland) #title #dailyRow .btn{display:flex;flex-direction:column;align-items:center;gap:2px}
   html:not(.pland) #title .small{margin:0}
   html:not(.pland) #title .logo .tag{display:none}
@@ -445,6 +450,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div id="topL">
     <div id="station"><div id="stName">—</div><div id="stSub"></div><div id="stProg"><i></i></div></div>
     <div class="bar" id="stamBar"><b>体力</b><div class="t"><i id="stamF"></i></div><span class="v" id="stamV">100</span></div>
+    <div class="bar" id="mindBar"><b style="color:#7ad7ff">精神</b><div class="t"><i id="mindF"></i></div><span class="v" id="mindV">100</span></div>
     <div class="bar" id="karmaBar"><b style="color:#d7a6ff">カルマ</b><div class="t"><i id="karmaF" style="width:0"></i></div><span class="v" id="karmaV">0</span></div>
     <div id="buffs"></div>
   </div>
@@ -507,7 +513,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h2>遊び方</h2>
     <div class="row" id="howVideo" style="margin:0 0 4px"><a class="btn sub2 vid1" target="_blank" rel="noopener" style="text-decoration:none">🎬 どんなゲーム？（1 分）</a><a class="btn sub2 vid3" target="_blank" rel="noopener" style="text-decoration:none">📖 くわしい遊び方（3 分）</a></div>
     <button class="btn" id="bTut" style="margin:0 0 6px">🎓 チュートリアルをやる（1 分）</button>
-    <p>ここは各駅停車「たちっぱ線」。<b>立っていると体力が減り</b>、0になると倒れて終わり。<br>降りそうな人を見極めて<b>前に立ち、空いた瞬間に座れ！</b> 終点「やっと座れ橋」をめざそう。</p>
+    <p>ここは各駅停車「たちっぱ線」。<b>立っていると体力が減り</b>、0になると倒れて終わり。<br><b>🧠 精神</b>は、仮病にだまされる・目の前で席を取られる・逆ギレされる・うるさい人の近くにいる…などで減り、0になると心が折れて終わり（座る・善いことで回復）。<br>降りそうな人を見極めて<b>前に立ち、空いた瞬間に座れ！</b> 終点「やっと座れ橋」をめざそう。</p>
     <h3>降りる人のサイン</h3>
     <ul>
       <li>🪧 電光掲示板を何度もチラ見する人は、もうすぐ降りる</li>
@@ -719,7 +725,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261110023019"></script>
-<script src="game.js?v=20261110023019"></script>
+<script src="logic.js?v=20261110045201"></script>
+<script src="game.js?v=20261110045201"></script>
 </body>
 </html>

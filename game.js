@@ -1169,6 +1169,8 @@
     const st = Math.ceil(pl.stamina);
     if (st !== hud.stam) { hud.stam = st; $('stamF').style.width = st + '%'; $('stamV').textContent = st; $('stamBar').classList.toggle('danger', st <= 25); $('stamF').style.background = st <= 25 ? 'linear-gradient(90deg,#b8261d,#ff5a4f)' : ''; }
     const ka = Math.floor(pl.karma);
+    const mi = Math.ceil(pl.mind == null ? 100 : pl.mind);
+    if (mi !== hud.mind) { hud.mind = mi; $('mindF').style.width = mi + '%'; $('mindV').textContent = mi; $('mindBar').classList.toggle('danger', mi <= 25); }
     if (ka !== hud.karma) { hud.karma = ka; $('karmaF').style.width = ka + '%'; $('karmaV').textContent = ka; $('karmaBar').classList.toggle('danger', ka >= 75); }
     if (pl.toku !== hud.toku) { hud.toku = pl.toku; $('toku').textContent = pl.toku; }
     $('combo').textContent = pl.combo > 1 && g.t - pl.lastDeedT < SW.C.COMBO_WINDOW ? '善行コンボ ×' + Math.min(2.5, 1 + 0.25 * (pl.combo - 1)).toFixed(2).replace(/0$/, '') + '（' + Math.ceil(SW.C.COMBO_WINDOW - (g.t - pl.lastDeedT)) + '秒）' : '';
@@ -1272,6 +1274,7 @@
       switch (e.type) {
         case 'toast': addToast(e.text, e.kind); break;
         case 'points': addPop(`+${e.amount} 徳<small>${e.text}</small>`); if (e.combo > 1) { addToast('善行コンボ ×' + e.combo + '！', 'good'); sfx('combo'); } break;
+        case 'mind': addPop(`${e.amount} 精神<small>${e.text}</small>`, 'm'); if (e.amount <= -8) shakeAmt = Math.max(shakeAmt, 0.3); break;
         case 'karma': if (e.amount > 0) addPop(`+${e.amount} カルマ<small>${e.text}</small>`, 'k'); else addPop(`${e.amount} カルマ<small>${e.text}</small>`, 'k'); break;
         case 'sfx': sfx(e.name); break;
         case 'shake': shakeAmt = Math.max(shakeAmt, e.amount); break;
@@ -1397,7 +1400,7 @@
     state = 'play'; show(null); showInapp(false);
     $('hud').classList.remove('hidden');
     if (isTouch) $('touch').classList.remove('hidden');
-    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = -1;
+    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.mind = -1;
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (!isTouch) {
       $('pcHint').innerHTML = '<b>画面をクリック</b>でマウス操作開始<br>WASD 移動 ／ E・クリック アクション ／ F・右クリック パンチ<br>Space 踏ん張る・ガード ／ Q 狸寝入り ／ 1〜7 スキル ／ Esc 一時停止';
@@ -1728,7 +1731,7 @@
     track('診断：' + dg.name);
     profile.history = (profile.history || []).concat([{ s: sc.total, t: sc.title, m: mode, d: Date.now() }]).sort((a, b) => b.s - a.s).slice(0, 20);
     saveProfile();
-    const causeTxt = { clear: '🎉 終点到着！', collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行' }[r.cause];
+    const causeTxt = { clear: '🎉 終点到着！', collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', broken: '🧠 心が折れた…' }[r.cause];
     const stName = SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g)));
     $('rCause').textContent = causeTxt; $('rCause').className = 'res-cause ' + (r.cause === 'clear' ? 'good' : 'bad');
     $('rText').innerHTML = `<b class="dg">${dg.icon} あなたは「${dg.name}」タイプ${dgNew ? ' <span class="pill">NEW</span>' : ''}</b><br><span style="color:var(--sub)" title="${dg.desc}">${dg.why}${g.endless ? '（' + s.stations + '駅）' : ''}</span>`;
@@ -1745,7 +1748,7 @@
     $('rRank').textContent = ''; $('rMiniBox').classList.add('hidden'); $('rMini').innerHTML = '';
     lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text, dg };
     {
-      const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行' }[r.cause] || r.cause;
+      const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', broken: '心が折れた' }[r.cause] || r.cause;
       const band = sc.total >= 2000 ? '2000〜' : sc.total >= 1000 ? '1000〜1999' : sc.total >= 500 ? '500〜999' : sc.total >= 200 ? '200〜499' : '0〜199';
       track('結果：' + (MODE_JA[mode] || mode) + '：' + causeJa);
       track('スコア：' + band);
@@ -1759,7 +1762,7 @@
   function shareText(R) {
     const s = R.stats;
     const modeTxt = R.mode === 'daily' ? '【今日のダイヤ】' : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' }[R.mode] || '') + '】';
-    const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '痴漢に返り討ちにされた…') : '駅員に連行された…';
+    const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '痴漢に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
     return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
   }
@@ -2225,7 +2228,7 @@
     state = 'play'; show(null);
     $('hud').classList.remove('hidden'); $('mpBoard').classList.remove('hidden');
     if (isTouch) $('touch').classList.remove('hidden');
-    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = -1;
+    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.mind = -1;
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
     addToast('🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
@@ -2274,7 +2277,7 @@
       }
       return [r2(b.x), r2(b.z), r2(b.yaw), r2(b.pitch), b.seat, Math.round(b.stamina * 10) / 10, Math.round(b.karma), b.toku, b.earned, b.combo, Math.round((g.t - b.lastDeedT) * 10),
         P.out ? 1 : 0, P.ghost ? 1 : 0, b.carrying ? [b.carrying.key, b.carrying.name] : 0, b.buffs, b.mode || '', Math.round(b.modeT * 10), Math.round(b.punchAnim * 100), b.braceHeld ? 1 : 0, b.fakeSleep ? 1 : 0,
-        Math.round(b.stagger * 10), Math.round(b.hitFlash * 10), P.prompt ? P.prompt.label : '', P.prompt ? P.prompt.act : '', aim, P.result ? P.result.cause : '', P.tricks, obs, P.result ? (P.result.text || '') : '', b.drinkCount, Math.round(b.confessCD * 10)];
+        Math.round(b.stagger * 10), Math.round(b.hitFlash * 10), P.prompt ? P.prompt.label : '', P.prompt ? P.prompt.act : '', aim, P.result ? P.result.cause : '', P.tricks, obs, P.result ? (P.result.text || '') : '', b.drinkCount, Math.round(b.confessCD * 10), Math.round(b.mind)];
     });
     const snap = {
       k: MP.k, t: Math.round(g.t * 100) / 100, ph: g.phase === 'stop' ? 's' : 't', pt: Math.round(g.phaseT * 100) / 100, st: g.station, ds: g.doorSide, nds: g.nextDoorSide || 1, do: g.doorsOpen ? 1 : 0, ann: g.ann || '',
@@ -2330,7 +2333,7 @@
       b.carrying = a[13] ? { key: a[13][0], name: a[13][1] } : null; b.buffs = a[14] || {}; b.mode = a[15] || null; b.modeT = a[16] / 10; b.punchAnim = a[17] / 100;
       b.braceHeld = !!a[18]; b.fakeSleep = !!a[19]; b.stagger = a[20] / 10; b.hitFlash = a[21] / 10;
       P.prompt = a[22] ? { label: a[22], act: a[23] } : null; P.aim = a[24]; P.tricks = a[26];
-      if (a[25]) P.result = { cause: a[25], text: a[28] || '' }; b.drinkCount = a[29] || 0; b.confessCD = (a[30] || 0) / 10;
+      if (a[25]) P.result = { cause: a[25], text: a[28] || '' }; b.drinkCount = a[29] || 0; b.confessCD = (a[30] || 0) / 10; b.mind = a[31] == null ? 100 : a[31];
       if (mine) { g.prompt = P.prompt; g.aim = P.aim; MP.myObs = a[27] || null; if (!wasOut && P.out) mpOnOut(); }
     });
     for (const [seq, i, e] of (snap.ev || [])) { if (seq > MP.seen) { MP.seen = seq; if (i === MP.me) G.events.push(e); } }
@@ -2394,7 +2397,7 @@
     MP.outShown = true;
     const P = G.players[MP.me], r = P.result || {};
     if (r.cause === 'clear') return;
-    const T = { collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', pko: '👊 トドメを刺された', leave: '途中で降りた' }[r.cause] || '脱落…';
+    const T = { collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', pko: '👊 トドメを刺された', leave: '途中で降りた', broken: '🧠 心が折れた' }[r.cause] || '脱落…';
     $('mpOutT').textContent = T;
     $('mpOutS').textContent = (r.text || '') + ' ここまでの徳は記録に残ります。';
     $('mpOut').classList.remove('hidden');
@@ -2405,7 +2408,7 @@
     $('mpOut').classList.add('hidden'); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden');
     if (document.pointerLockElement) document.exitPointerLock();
     state = 'result'; backTo = 'mpres';
-    const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', pko: 'トドメ', leave: '途中で降りた' };
+    const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', pko: 'トドメ', leave: '途中で降りた', broken: '心が折れた' };
     let myRank = 0;
     $('mpResList').innerHTML = res.map((r, k) => {
       const me = r.uid === MP.uid; if (me) myRank = k + 1;

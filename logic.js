@@ -10,7 +10,7 @@
     T_TRAVEL: 24, T_STOP: 8.5,
     DOOR_OPEN: 0.8, ALIGHT: 1.0, BOARD: 2.6, CLOSE_WARN: 6.8,
     STAND_DRAIN: 1.0, CROWD_DRAIN: 0.6, WALK_DRAIN: 0.3, BRACE_DRAIN: 0.7, SIT_REGEN: 1.3,
-    MAX_STAMINA: 100, MAX_KARMA: 100,
+    MAX_STAMINA: 100, MAX_KARMA: 100, MAX_MIND: 100, MIND_REGEN: 0.5,
     EYE_STAND: 1.6, EYE_SIT: 1.15,
     PLAYER_SPEED: 1.9, PLAYER_R: 0.26, NPC_R: 0.24,
     COMBO_WINDOW: 45,
@@ -223,7 +223,7 @@
       x, z, yaw: Math.PI / 2, pitch: 0, seat: -1, stamina: C.MAX_STAMINA, karma: 0, toku: 0, earned: 0,
       combo: 0, lastDeedT: -999, carrying: null, lastBraceT: -99, braceHeld: false, punchCD: 0, hitFlash: 0,
       fakeSleep: false, mode: null, modeT: 0, buffs: {}, drinkCount: 0, confessCD: 0, stagger: 0, punchAnim: 0,
-      ignoreT: 0, sitT: 0, st: normStats(null),
+      ignoreT: 0, sitT: 0, st: normStats(null), mind: 100,
     };
   }
   function makeStats() {
@@ -372,7 +372,7 @@
       top: top[1], topName: top[0], bottom: bottom[1], skin, hair: hairC,
       hairStyle: type === 'elderly' && !female && r.chance(0.4) ? 'bald' : type === 'alien' ? 'hat' : type === 'henchman' ? 'buzz' : hairStyle,
       glasses: (type === 'otaku' || type === 'salaryman' || type === 'elderly' || type === 'ceo') && r.chance(0.45) || type === 'emperor' || type === 'henchman',
-      mask: (r.chance(0.12) || type === 'sick' && r.chance(0.4)) && type !== 'alien' && type !== 'emperor' && type !== 'henchman',
+      mask: r.chance(0.12) && type !== 'alien' && type !== 'emperor' && type !== 'henchman' && type !== 'sick', // 具合が悪そうな人は表情が大事なのでマスクなし
       bag: r.chance(0.5) || type === 'tourist',
       tie: (type === 'salaryman' || type === 'ceo' || type === 'emperor') ? (type === 'ceo' ? '#d8b23a' : type === 'emperor' ? '#7a1020' : r.pick(['#8a2a2a', '#2a3f8a', '#3a6a3a', '#777'])) : null,
       shade: r.range(-0.1, 0.1),
@@ -403,6 +403,11 @@
     if (rem <= 1 && g.r.chance(T.sleepy * 0.25)) { p.sleep = 2; p.oversleep = true; } // 寝過ごし予備軍
   }
   function sitAt(g, p, seat) {
+    // 目の前で空いた席を取られた（席の前に立っていたプレイヤーの心が削られる）
+    if (g.t > 3 && !seat.gift && g.t - seat.freedAt < 5) {
+      const bi = bodyIndex(g, (b) => b.seat < 0 && dist2(b.x, b.z, seat.x, seat.fz) < 0.95);
+      if (bi >= 0) asPlayer(g, bi, () => hurtMind(g, 8, '目の前で席を取られた'));
+    }
     seat.occ = p.id; seat.res = -1; seat.gift = false;
     p.seat = seat.id; p.state = 'seated'; p.x = seat.x; p.z = seat.z; p.ry = seat.side > 0 ? Math.PI : 0;
     releaseSlot(g, p);
@@ -531,6 +536,7 @@
     const pts = Math.round(base * mult);
     pl.toku += pts; pl.earned += pts;
     pl.karma = Math.max(0, pl.karma - 5);
+    pl.mind = Math.min(C.MAX_MIND, pl.mind + 5); // 「ありがとう」で心も回復
     g.stats.deeds++;
     g.stats.maxCombo = Math.max(g.stats.maxCombo, pl.combo);
     if (!g.stats.bestDeed || pts > g.stats.bestDeed.pts) g.stats.bestDeed = { pts, label };
@@ -543,12 +549,21 @@
     pl.stamina -= amt; pl.hitFlash = 0.4;
     if (pl.stamina <= 0) { pl.stamina = 0; gameOver(g, cause, extra); }
   }
+  // 精神ゲージ：人間関係のつらさで減る。度胸が高いと減りにくい。0 で「心が折れた」
+  function hurtMind(g, amt, why) {
+    const pl = g.player; if (g.over || g.multi && g.pi >= 0 && g.players[g.pi].out) return;
+    const a = amt * (1 - 0.04 * ST(g, 'guts'));
+    pl.mind = Math.max(0, pl.mind - a);
+    if (a >= 1) emit(g, { type: 'mind', amount: -Math.round(a), text: why });
+    if (pl.mind <= 0) gameOver(g, 'broken');
+  }
   const CAUSES = {
     collapse: { title: '膝が笑った', text: '立ちっぱなしで体力が尽きた…' },
     ko: { title: 'KO負け', text: '痴漢の反撃で床に沈んだ…' },
     arrest: { title: '駅員に連行', text: 'カルマがたまりすぎて、次の駅で降ろされた…' },
     clear: { title: '終点到着！', text: 'おつかれさまでした' },
     pko: { title: 'トドメを刺された', text: 'ライバルのパンチで床に沈んだ…' },
+    broken: { title: '心が折れた', text: 'もう無理…次の駅で降りた' },
     leave: { title: '途中で降りた', text: '' },
   };
   function gameOver(g, cause, extra) {
@@ -717,7 +732,7 @@
         if (p.type === 'alien') { g.stats.alien++; label = '???に席を譲った…「ワレワレハ カンシャ スル」'; }
         if (p.fake) { // 仮病にだまされた
           p.expr = 'happy'; p.exprT = 5; p.role = 'faked'; p.priority = 0; bubble(g, p, 'ラッキー♪', 2.5);
-          g.stats.fooled++; toast(g, '…仮病だった！ だまされた（徳なし）', 'bad');
+          g.stats.fooled++; toast(g, '…仮病だった！ だまされた（徳なし）', 'bad'); hurtMind(g, 20, '仮病にだまされた');
           break;
         }
         p.expr = 'happy'; p.exprT = 6; bubble(g, p, p.type === 'alien' ? 'ピピ…アリガト' : 'ありがとうございます', 2.5);
@@ -808,7 +823,7 @@
           if (p.state === 'stand') placeStanding(g, p, false);
         } else {
           p.checked = true; p.expr = 'sad'; p.exprT = 5; bubble(g, p, 'ほんとに…つらいんです…', 2.5);
-          addKarma(g, 18, '本当に具合が悪い人を疑った'); toast(g, '本当に具合が悪い人だった…', 'bad');
+          addKarma(g, 18, '本当に具合が悪い人を疑った'); toast(g, '本当に具合が悪い人だった…', 'bad'); hurtMind(g, 15, '病人を疑ってしまった');
         }
         break;
       }
@@ -1042,6 +1057,7 @@
     if (pl.seat >= 0) {
       const regen = C.SIT_REGEN * (pl.fakeSleep ? 1.35 : 1) * (1 + 0.03 * ST(g, 'hp'));
       pl.stamina = Math.min(C.MAX_STAMINA, pl.stamina + regen * dt);
+      pl.mind = Math.min(C.MAX_MIND, pl.mind + C.MIND_REGEN * (pl.fakeSleep ? 1.6 : 1) * dt);
       g.stats.sitTime += dt;
       if (pl.fakeSleep) g.stats.tanuki += dt;
     } else {
@@ -1059,6 +1075,11 @@
       if (pl.stamina <= 0) { pl.stamina = 0; gameOver(g, 'collapse'); return false; }
     }
 
+    // うるさいと心がすり減る（爆音スピーカー・大声電話の近く）
+    if (g.speaker && g.speaker.on && !g.speaker.broken && dist2(g.speaker.x, g.speaker.z, pl.x, pl.z) < 4) hurtMind(g, 0.6 * dt, '');
+    else if (g.people.some((q) => q.role === 'caller' && q.state !== 'ko' && q.state !== 'gone' && dist2(q.x, q.z, pl.x, pl.z) < 3)) hurtMind(g, 0.4 * dt, '');
+    if (g.tutorial) pl.mind = Math.max(pl.mind, 40);
+    if (isOver()) return false;
     // 狸寝入り
     if (input.fakeSleep) { if (pl.seat >= 0) { pl.fakeSleep = !pl.fakeSleep; emit(g, { type: 'sfx', name: pl.fakeSleep ? 'snore' : 'sit' }); } }
 
@@ -1446,7 +1467,7 @@
           break;
         }
         case 'stand': {
-          if (p.slot < 0 && !p.leaving && !p.targetPlayer && !p.role) {
+          if (p.slot < 0 && !p.leaving && !p.targetPlayer && !p.role && !p.hold) { // hold：台本（動画など）でその場に置いておく人
             // スロットが無い人：できれば取る
             if (g.r() < dt) placeStanding(g, p, false);
           }
@@ -1502,7 +1523,7 @@
       else if (p.role === 'caller') updateCaller(g, p, dt);
       else if (p.role === 'tuber') updateTuber(g, p, dt);
       else if (p.role === 'hench' || p.role === 'emperor') updateGang(g, p, dt);
-      if (p.fake && p.role !== 'faked' && p.state !== 'seated' && p.state !== 'ko' && g.r() < 0.07 * dt) { p.expr = 'happy'; p.exprT = 0.45; } // 仮病：元気な顔がもれる
+      if (p.fake && p.role !== 'faked' && p.state !== 'seated' && p.state !== 'ko' && g.r() < 0.07 * dt) { p.expr = 'happy'; p.exprT = 0.8; } // 仮病：元気な顔がもれる
       if (p.robbedAt && g.t > p.robbedAt && p.state !== 'gone') { p.robbedAt = 0; p.sleep = 0; p.oversleep = false; p.expr = 'worried'; p.exprT = 6; bubble(g, p, 'あれ？財布がない…！', 2.5); }
       // 降りる人（席を立って待っている）→ ドアが開いたら出る
       if (p.leaving && g.phase === 'stop' && g.doorsOpen && p.state === 'stand' && p.dest <= g.station) { p.leaving = false; leave(g, p); }
@@ -1632,7 +1653,7 @@
     if (!g.seenVillain[v] && VILLAIN_MSG[v] && !g.tutorial) { g.seenVillain[v] = true; toast(g, VILLAIN_MSG[v], 'warn'); }
     if (v === 'suri') { p.role = 'suri'; p.wantSeat = false; p.sleep = 0; p.suri = { ph: 'roam', t: r.range(4, 8) }; p.hp = 2; p.dest = capDest(g, st + r.int(3, 5)); }
     else if (v === 'hog') { p.role = 'hog'; p.wantSeat = true; p.react = 0.25; p.scary = p.tough || r.chance(0.3); p.hogKind = p.type === 'obachan' || p.type === 'otaku' || p.female ? 'bag' : 'spread'; p.dest = capDest(g, st + r.int(3, 6)); }
-    else if (v === 'faker') { p.fake = true; p.idle = 'phone'; p.wantSeat = true; }
+    else if (v === 'faker') { p.fake = true; p.idle = 'none'; p.wantSeat = true; } // 顔（ニヤッ）が見えるように、うつむかせない
     else if (v === 'dasher') { p.role = 'dasher'; p.wantSeat = true; p.dest = capDest(g, st + r.int(2, 4)); }
     else if (v === 'caller') { p.role = 'caller'; p.idle = 'call'; p.scary = p.tough || r.chance(0.3); p.callT = r.range(2, 4); p.dest = capDest(g, st + r.int(3, 5)); }
     else if (v === 'tuber') { p.role = 'tuber'; p.wantSeat = false; p.idle = 'phone'; p.tubT = r.range(1, 2); p.dest = capDest(g, st + r.int(3, 5)); g.speaker = { owner: p.id, x: p.x, z: 0, hp: 2, on: false, broken: false }; }
@@ -1740,7 +1761,7 @@
     if (!p.loot) { // まだ何もしていない：冤罪
       g.stats.falseAccuse++; g.stats.wrongPunch++;
       p.expr = 'angry'; p.exprT = 5; p.angry = 8; bubble(g, p, '痛っ！なにするんですか！', 2);
-      addKarma(g, 20, '冤罪（まだ何もしていない人を殴った）');
+      addKarma(g, 20, '冤罪（まだ何もしていない人を殴った）'); hurtMind(g, 15, '冤罪…');
       toast(g, '…まだ何もしていなかった。冤罪だ！', 'bad');
       const S = p.suri; S.ph = 'roam'; S.t = g.r.range(9, 14); S.target = null; p.anim = 'none';
       if (p.state === 'walk') { p.state = 'stand'; p.then = null; placeStanding(g, p, false); }
@@ -1860,6 +1881,7 @@
   }
   // こわい人に注意すると、逆ギレして向かってくる
   function angerFight(g, p) {
+    hurtMind(g, 10, '逆ギレされた');
     p.brute = { hp: p.type === 'yankee' ? 4 : 3, dmg: p.type === 'yankee' ? 12 : 10, guard: 0.3 };
     p.angryFight = true; p.expr = 'angry'; p.exprT = 5;
     setAggro(g, p, g.multi ? g.pi : 0);
@@ -2005,7 +2027,7 @@
               // ぶつかる
               const near = g.people.filter(p => (p.state === 'stand') && dist2(p.x, p.z, pl.x, pl.z) < 0.75);
               const f = near.find(p => p.female);
-              if (f && g.r.chance(0.35)) { f.expr = 'angry'; f.exprT = 4; bubble(g, f, 'ちょっと！どこ触って…！', 2); addKarma(g, 8, 'ぶつかった（誤解）'); }
+              if (f && g.r.chance(0.35)) { f.expr = 'angry'; f.exprT = 4; bubble(g, f, 'ちょっと！どこ触って…！', 2); addKarma(g, 8, 'ぶつかった（誤解）'); hurtMind(g, 10, '誤解された'); }
               else if (near.length) { bubble(g, near[0], 'おっと', 1); }
             }
           });
@@ -2126,6 +2148,7 @@
     { key: 'hasty', icon: '⚖', name: '早とちり', desc: '正義感が強すぎて、つい手が出る', why: (s) => '関係ない人を ' + s.wrongPunch + ' 回殴った', test: (s) => s.falseAccuse > 0 || s.wrongPunch >= 2 },
     { key: 'sitter', icon: '💺', name: '着席の達人', desc: '降りる人を見抜く目はプロ級', why: (s) => s.sits + ' 回座れた', test: (s) => s.sits >= 5 },
     { key: 'brace', icon: '🧘', name: '体幹おばけ', desc: 'どんな揺れでもびくともしない', why: (s) => '揺れを ' + s.braces + ' 回踏ん張った', test: (s) => s.braces >= 8 && s.braceFail === 0 },
+    { key: 'broken', icon: '🫥', name: 'ガラスのハート', desc: 'やさしすぎて、満員電車はつらい', why: () => '心が折れて途中下車', test: (s, r) => r === 'broken' },
     { key: 'collapse', icon: '🫠', name: 'ひざ笑い', desc: '座りたい気持ちだけは誰にも負けない', why: () => '体力が尽きて倒れた', test: (s, r) => r === 'collapse' },
     { key: 'ko', icon: '🤕', name: '返り討ち', desc: '勇気はある。腕力はこれから', why: () => 'ケンカに負けた', test: (s, r) => r === 'ko' },
     { key: 'normal', icon: '🚃', name: 'ふつうの通勤者', desc: '今日もおつかれさまです', why: () => '可もなく不可もなく', test: () => true },
