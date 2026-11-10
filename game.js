@@ -1354,34 +1354,176 @@
     '月曜の', '金曜の', '週末の', '雨の日の', 'はらぺこの', '謎の', '静かな', 'のんびり', 'せっかちな', '寝過ごし', '見極めの', '徳の高い', '窓際の', '網棚の', '早起きの', '定時の',
     '残業の', '遅延の', '乗換の', '終点の', '揺れる', '踏ん張る', '狸寝入り', 'やさしい', 'こわもての', '迷子の', '眼鏡の', '無口な', '腹ぺこの', 'まったり', '期待の'];
   const NAME_B = ['乗客', 'リーマン', 'OL', '学生', '車掌', '駅員', '吊り革', '網棚', '座席', 'ドア', '急行', '各駅', '定期券', '改札', 'ホーム', '始発', '終電', '車両',
-    'タヌキ', 'ペンギン', 'ハト', 'カラス', 'ネコ', 'ロボ', '侍', '忍者', '勇者', '魔王', 'おばちゃん', 'ヤンキー', '紳士', '旅人', '番長', '探偵', '聖人', '狸', 'パンダ', 'ゴリラ'];
+    '侍', '忍者', '勇者', '魔王', 'おばちゃん', 'ヤンキー', '紳士', '旅人', '番長', '探偵', '聖人'];
+  // 動物（顔アイコンがその動物になる）はレア寄り：およそ 33 回に 1 回
+  const NAME_ANIMAL = ['タヌキ', '狸', 'ペンギン', 'ハト', 'カラス', 'ネコ', 'パンダ', 'ゴリラ', 'ロボ'];
+  const ANIMAL_P = 0.03;
   const RARE_A = ['神座りの', '覇王の', '幻の', '永遠の', '銀河の', '光速の', '伝説の', '帝王の'];
   const RARE_B = ['帝王', '座席王', '座り神', '終着駅', '銀河鉄道', '予言者', '吊革王', '大聖人'];
   const rareP = () => 0.02;
   const pickW = (a) => a[Math.floor(Math.random() * a.length)];
+  function pickB() { const r = Math.random(); return r < rareP() ? pickW(RARE_B) : r < rareP() + ANIMAL_P ? pickW(NAME_ANIMAL) : pickW(NAME_B); }
   function makeName() {
     for (let i = 0; i < 50; i++) {
-      const n = `${Math.random() < rareP() ? pickW(RARE_A) : pickW(NAME_A)}${Math.random() < rareP() ? pickW(RARE_B) : pickW(NAME_B)}${Math.floor(10 + Math.random() * 90)}`;
+      const n = `${Math.random() < rareP() ? pickW(RARE_A) : pickW(NAME_A)}${pickB()}${Math.floor(10 + Math.random() * 90)}`;
       if (n.length <= 12) return n; // ランキングの名前は 12 文字まで
     }
-    return pickW(NAME_A) + pickW(NAME_B).slice(0, 4) + Math.floor(10 + Math.random() * 90);
+    return '立ちっぱの' + pickW(NAME_B.filter((w) => w.length <= 5)) + Math.floor(10 + Math.random() * 90);
   }
+  // 名前は自分で入れられない（ガチャの組み合わせだけ）。組み合わせになっていない名前（前に自分で入れた名前など）は使わない
+  // 「ROBIT」「開発」入りは開発者の端末だけ（データベースの決まりで止めている）
+  const NAME_A_ALL = NAME_A.concat(RARE_A), NAME_B_ALL = NAME_B.concat(RARE_B, NAME_ANIMAL);
+  function validName(n) {
+    n = String(n || ''); if (/ROBIT|開発/.test(n)) return true;
+    const m = n.match(/^(.+?)(\d{2})$/); if (!m) return false;
+    return NAME_A_ALL.some((a) => m[1].startsWith(a) && NAME_B_ALL.includes(m[1].slice(a.length)));
+  }
+  // 組み合わせでない名前（前に自分で入れた名前・空）は「名無しの乗客」と出す（顔もみんな同じ。ガチャで変えればよい）
+  const dispName = (n) => (validName(n) ? String(n) : '名無しの乗客');
   // 0：ふつう、1：レア（金色）、2：伝説（虹色）
   const nameRank = (n) => (RARE_A.some((w) => String(n).startsWith(w)) ? 1 : 0) + (RARE_B.some((w) => String(n).includes(w)) ? 1 : 0);
-  const nameHtml = (n) => { const r = nameRank(n); return `<span class="${r === 2 ? 'nm-legend' : r === 1 ? 'nm-rare' : ''}"${r ? ` title="${r === 2 ? '伝説の名前' : 'レアな名前'}"` : ''}>${esc(n)}</span>`; };
-  // 引き直しは 1 日 3 回（Lv20 からは 5 回）。レアな名前は「キープ」に残り、いつでも戻せる（回数は使わない）
-  const KEEP_MAX = 8;
+  // ---------------------------------------------------------------- 顔アイコン（名前から決まる 12×12 のドット絵。同じ名前ならいつも同じ顔）
+  // 動物の名前（「〇〇のタヌキ」など）は、その動物の顔にする。目は 4,6 と 7,6 にそろえて、メガネや寝てる目も重ねられるように
+  const AV_ANIMALS = ['タヌキ', '狸', 'ペンギン', 'ハト', 'カラス', 'ネコ', 'パンダ', 'ゴリラ', 'ロボ'];
+  function drawAnimal(px, R, a, eyeForce) {
+    const dark = '#1a1a1a', eyes = (col = dark) => { px(col, 4, 6); px(col, 7, 6); };
+    const head = (col) => { px(col, 3, 3, 6, 8); px(col, 2, 4, 8, 6); };
+    if (a === 'タヌキ') {
+      const f = ['#8a6a48', '#9a7650', '#7a5c40'][R(3)];
+      px(f, 2, 2, 2, 2); px(f, 8, 2, 2, 2); px('#3a2a20', 3, 3); px('#3a2a20', 8, 3); head(f);
+      px('#3a2a20', 2, 5, 4, 3); px('#3a2a20', 6, 5, 4, 3); px('#f0e0c8', 4, 8, 4, 3); px('#f0e0c8', 3, 9, 6, 1);
+      px('#fff', 4, 6); px('#fff', 7, 6); px(dark, 5, 8, 2, 1); px(dark, 5, 10, 2, 1);
+    } else if (a === 'ネコ') {
+      const f = ['#e8963a', '#9a9a9a', '#3a3a3a', '#f2f2f2', '#c8a070'][R(5)], ear = f === '#3a3a3a' ? '#f08aa0' : '#f0a0b0';
+      px(f, 2, 1, 2, 3); px(f, 8, 1, 2, 3); px(ear, 3, 2); px(ear, 8, 2); head(f);
+      if (R(2)) { px('#00000033', 5, 3, 2, 2); }
+      px('#b8e05a', 3, 6, 2, 1); px('#b8e05a', 7, 6, 2, 1); px(dark, 4, 6); px(dark, 7, 6);
+      px('#f08aa0', 5, 8, 2, 1); px(dark, 5, 9); px(dark, 6, 9);
+      px('#cfcfcf', 0, 8, 2, 1); px('#cfcfcf', 10, 8, 2, 1); px('#cfcfcf', 0, 9, 2, 1); px('#cfcfcf', 10, 9, 2, 1);
+    } else if (a === 'パンダ') {
+      px(dark, 1, 2, 3, 3); px(dark, 8, 2, 3, 3); head('#f4f4f4');
+      px(dark, 3, 5, 2, 3); px(dark, 7, 5, 2, 3); px('#fff', 4, 6); px('#fff', 7, 6);
+      px(dark, 5, 8, 2, 1); px(dark, 5, 9, 1, 1); px(dark, 6, 9, 1, 1); px(dark, 4, 10, 1, 1); px(dark, 7, 10, 1, 1);
+      if (R(3) === 0) { px('#f0a0b0', 3, 9); px('#f0a0b0', 8, 9); }
+    } else if (a === 'ゴリラ') {
+      const f = ['#3a3a3a', '#4a4040', '#2e2e34'][R(3)];
+      px(f, 3, 2, 6, 1); head(f); px(f, 1, 5, 1, 3); px(f, 10, 5, 1, 3);
+      px('#7a6458', 3, 5, 6, 6); px('#7a6458', 2, 7, 8, 3); px('#2a2222', 3, 5, 6, 1);
+      px('#fff', 4, 6); px('#fff', 7, 6); px(dark, 4, 6); px(dark, 7, 6);
+      px('#3a2a2a', 5, 7, 2, 1); px(dark, 4, 8); px(dark, 7, 8); px('#3a2a2a', 4, 9, 4, 1);
+    } else if (a === 'ペンギン') {
+      head('#22262e'); px('#22262e', 4, 2, 4, 1); px('#fff', 3, 5, 6, 6); px('#fff', 4, 4, 1, 1); px('#fff', 7, 4, 1, 1);
+      eyes(); px('#f2a03a', 5, 7, 2, 2); px('#f2a03a', 4, 8, 4, 1);
+      if (R(3) === 0) { px('#f08aa0', 3, 8); px('#f08aa0', 8, 8); }
+    } else if (a === 'ハト') {
+      const f = ['#9aa0aa', '#b0b4bc', '#7a808a'][R(3)];
+      head(f); px(f, 4, 2, 4, 1); px('#5a9a7a', 2, 9, 8, 2); px('#8a5aa0', 3, 10, 6, 1);
+      px('#f2902a', 3, 6, 2, 1); px('#f2902a', 7, 6, 2, 1); px(dark, 4, 6); px(dark, 7, 6);
+      px('#eee', 5, 7, 2, 1); px('#3a3a3a', 5, 8, 2, 1);
+    } else if (a === 'カラス') {
+      head('#16181e'); px('#16181e', 4, 2, 4, 1); px('#2a3048', 3, 3, 2, 1);
+      px('#fff', 4, 6); px('#fff', 7, 6); px(dark, 4, 6); px(dark, 7, 6); px('#fff', 3, 5); px('#fff', 8, 5);
+      px('#3a3e48', 4, 7, 4, 2); px('#3a3e48', 5, 9, 2, 1); px('#5a5e68', 4, 7, 4, 1);
+    } else { // ロボ
+      const f = ['#a8b0bc', '#c8ccd4', '#8a94a4', '#d0a040'][R(4)];
+      px('#555', 5, 1, 2, 2); px('#ff4a4a', 5, 0, 2, 1); px(f, 2, 3, 8, 8); px('#606a78', 1, 5, 1, 3); px('#606a78', 10, 5, 1, 3);
+      px('#2a2e38', 3, 5, 6, 3); px('#5affe0', 4, 6); px('#5affe0', 7, 6);
+      px('#2a2e38', 4, 9, 4, 1); px('#c8ccd4', 5, 9); px('#c8ccd4', 7, 9);
+    }
+    // 名前で決まる目（眼鏡の・狸寝入りなど）を上から重ねる
+    if (eyeForce === 3) { px('#e8e8e8', 3, 5, 3, 3); px('#e8e8e8', 6, 5, 3, 3); px('#88a', 4, 6); px('#88a', 7, 6); px(dark, 4, 6); px(dark, 7, 6); }
+    else if (eyeForce === 2) { // 寝てる目：まぶたの線だけ
+      const mask = a === 'パンダ' ? dark : a === 'タヌキ' ? '#3a2a20' : null;
+      if (mask) { px(mask, 3, 5, 2, 3); px(mask, 7, 5, 2, 3); px('#fff', 3, 7, 2, 1); px('#fff', 7, 7, 2, 1); }
+      else { const lid = a === 'カラス' ? '#fff' : a === 'ロボ' ? '#2a8a7a' : dark; px(lid, 3, 6, 2, 1); px(lid, 7, 6, 2, 1); }
+    }
+  }
+  const AV_CACHE = new Map();
+  function avHash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function avatarUrl(name) {
+    name = String(name || '名無しの乗客');
+    if (AV_CACHE.has(name)) return AV_CACHE.get(name);
+    let h = avHash(name);
+    const R = (n) => { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; h = (h ^ (h >>> 13)) >>> 0; return h % n; };
+    const BG = ['#3d5a80', '#4a6b52', '#6b4a6b', '#7a5c3a', '#3a6b6b', '#5c4a7a', '#7a3d3d', '#4f5d6b'];
+    const SKIN = ['#f5d0b0', '#e8b896', '#d29b72', '#a8714a', '#f0c8a0'];
+    const HAIR = ['#2b2321', '#4a3426', '#7a5230', '#c9a227', '#9a9a9a', '#b8433a', '#3a4a8a', '#e8e8e8'];
+    const SHIRT = ['#2f3b52', '#d8d8d8', '#8a2f2f', '#2f6b4a', '#c98a2f', '#5a3f7a', '#3f6fa8'];
+    const cv = document.createElement('canvas'); cv.width = cv.height = 12;
+    const c = cv.getContext('2d');
+    const px = (col, x, y, w = 1, hh = 1) => { c.fillStyle = col; c.fillRect(x, y, w, hh); };
+    const rank = nameRank(name);
+    px(rank === 2 ? '#2a1f4a' : rank === 1 ? '#6b5a1a' : BG[R(BG.length)], 0, 0, 12, 12);
+    const base = name.replace(/\d+$/, ''), dark = '#1a1a1a';
+    const animal = AV_ANIMALS.find((w) => base.endsWith(w));
+    const eyeForce = /^眼鏡の/.test(base) ? 3 : /^(狸寝入り|寝不足の|ねむい|寝過ごし)/.test(base) ? 2 : -1;
+    if (animal) drawAnimal(px, R, animal === '狸' ? 'タヌキ' : animal, eyeForce);
+    else {
+      const skin = SKIN[R(SKIN.length)], hair = HAIR[R(HAIR.length)], shirt = SHIRT[R(SHIRT.length)];
+      // 服と首
+      px(shirt, 2, 11, 8, 1); px(shirt, 1, 11, 1, 1); px(shirt, 10, 11, 1, 1); px(skin, 5, 11, 2, 1);
+      if (R(3) === 0) px('#c03030', 5, 11, 2, 1); // ネクタイ
+      // 顔
+      px(skin, 3, 3, 6, 8); px(skin, 2, 4, 8, 6);
+      // 髪型
+      const hs = R(7);
+      if (hs === 0) { px(hair, 3, 2, 6, 1); px(hair, 2, 3, 8, 1); px(hair, 2, 4, 1, 1); px(hair, 9, 4, 1, 1); } // 短髪
+      else if (hs === 1) { px(hair, 3, 2, 6, 1); px(hair, 2, 3, 8, 1); px(hair, 3, 1, 1, 1); px(hair, 5, 1, 1, 1); px(hair, 7, 1, 1, 1); px(hair, 8, 1, 1, 1); } // ツンツン
+      else if (hs === 2) { px(hair, 3, 2, 6, 1); px(hair, 2, 3, 8, 1); px(hair, 1, 4, 2, 6); px(hair, 9, 4, 2, 6); } // ロング
+      else if (hs === 3) { px(hair, 2, 4, 1, 2); px(hair, 9, 4, 1, 2); } // つるつる
+      else if (hs === 4) { const cap = SHIRT[R(SHIRT.length)]; px(cap, 3, 1, 6, 2); px(cap, 2, 3, 9, 1); px(hair, 2, 4, 1, 1); } // 帽子
+      else if (hs === 5) { px(hair, 3, 1, 6, 1); px(hair, 2, 2, 8, 1); px(hair, 1, 3, 10, 1); px(hair, 1, 4, 1, 3); px(hair, 10, 4, 1, 3); } // もじゃもじゃ
+      else { px(hair, 5, 0, 2, 4); } // モヒカン
+      // 目
+      let ey = R(6); const dark = '#1a1a1a';
+      if (eyeForce >= 0) ey = eyeForce;
+      if (ey === 0 || ey === 1) { px(dark, 4, 6, 1, 1); px(dark, 7, 6, 1, 1); } // 点の目
+      else if (ey === 2) { px(dark, 3, 6, 2, 1); px(dark, 7, 6, 2, 1); } // 寝てる目（狸寝入り）
+      else if (ey === 3) { px('#d8d8d8', 3, 5, 3, 3); px('#d8d8d8', 7, 5, 3, 3); px(skin, 4, 6, 1, 1); px(skin, 8, 6, 1, 1); px(dark, 4, 6, 1, 1); px(dark, 8, 6, 1, 1); px('#d8d8d8', 6, 6, 1, 1); } // メガネ
+      else if (ey === 4) { px(dark, 3, 6, 6, 1); px(dark, 3, 5, 2, 1); px(dark, 7, 5, 2, 1); } // サングラス
+      else { px('#fff', 3, 6, 2, 1); px('#fff', 7, 6, 2, 1); px(dark, 4, 6, 1, 1); px(dark, 7, 6, 1, 1); } // 大きい目
+      if (R(3) === 0) { px(dark, 3, 4, 2, 1); px(dark, 7, 4, 2, 1); } // 太まゆ
+      // 口・マスク・ひげ
+      const mo = R(10);
+      if (mo < 2) { px('#f2f2f2', 3, 8, 6, 3); px('#cfcfcf', 2, 8, 1, 1); px('#cfcfcf', 9, 8, 1, 1); } // マスク
+      else {
+        if (mo === 2) { px(dark, 4, 8, 1, 1); px(dark, 7, 8, 1, 1); px(dark, 5, 9, 2, 1); } // にっこり
+        else if (mo === 3) { px('#8a2a2a', 5, 8, 2, 2); } // ぽかん
+        else if (mo === 4) { px(dark, 4, 9, 4, 1); px('#fff', 5, 9, 2, 1); } // にやり
+        else if (mo === 5) { px(dark, 5, 9, 2, 1); px(dark, 4, 10, 1, 1); px(dark, 7, 10, 1, 1); } // へ の字
+        else px(dark, 5, 9, 2, 1); // ふつう
+        if (R(5) === 0) px(hair === '#e8e8e8' ? '#bbb' : hair, 4, 8, 4, 1); // ひげ
+        if (R(4) === 0) { px('#f08a8a', 3, 8, 1, 1); px('#f08a8a', 8, 8, 1, 1); } // ほっぺ
+      }
+    }
+    // レアは王冠
+    if (rank) { px('#ffd23f', 3, 0, 6, 1); px('#ffd23f', 3, 1, 1, 1); px('#ffd23f', 5, 1, 2, 1); px('#ffd23f', 8, 1, 1, 1); if (rank === 2) { px('#ff5a8a', 5, 0, 2, 1); } }
+    const url = cv.toDataURL();
+    AV_CACHE.set(name, url);
+    return url;
+  }
+  const avHtml = (n, cls = '') => { const r = nameRank(n); return `<img class="av ${r === 2 ? 'av2' : r === 1 ? 'av1' : ''} ${cls}" src="${avatarUrl(n)}" alt="">`; };
+  const nameHtml = (n, noAv) => { const r = nameRank(n); return `${noAv ? '' : avHtml(n)}<span class="${r === 2 ? 'nm-legend' : r === 1 ? 'nm-rare' : ''}"${r ? ` title="${r === 2 ? '伝説の名前' : 'レアな名前'}"` : ''}>${esc(n)}</span>`; };
+  // 引き直しは 1 日 3 回（Lv20 からは 5 回）。気に入った名前（顔アイコンも名前で決まる）は 3 つまで「キープ」でき、いつでも戻せる（回数は使わない）
+  const KEEP_MAX = 3;
+  const isAnimalName = (n) => NAME_ANIMAL.some((w) => String(n).replace(/\d+$/, '').endsWith(w));
+  const special = (n) => nameRank(n) > 0 || isAnimalName(n);
   const nameRolls = () => (SW.levelOf(profile.xp || 0).lv >= 20 ? 5 : 3);
   function rollsLeft() { const v = profile.nameRolls; return v && v.d === todayKey() ? Math.max(0, nameRolls() - v.n) : nameRolls(); }
   function useRoll() { profile.nameRolls = { d: todayKey(), n: nameRolls() - rollsLeft() + 1 }; }
-  function keepName(n) {
-    if (!n || !nameRank(n)) return;
-    const k = (profile.nameKeep || []).filter((x) => x !== n); k.unshift(n);
-    while (k.length > KEEP_MAX) { const i = k.map(nameRank).lastIndexOf(1); k.splice(i >= 0 ? i : k.length - 1, 1); } // 伝説は残す
-    profile.nameKeep = k;
+  const keepList = () => { const k = (profile.nameKeep || []).filter(Boolean); if (k.length > KEEP_MAX) { k.sort((x, y) => nameRank(y) - nameRank(x)); k.length = KEEP_MAX; profile.nameKeep = k; } return k; };
+  const isKept = (n) => keepList().includes(n);
+  function keepName(n) { // 空きがあればキープ。できたら true
+    if (!n) return false; const k = keepList();
+    if (k.includes(n)) return true;
+    if (k.length >= KEEP_MAX) return false;
+    k.push(n); profile.nameKeep = k; saveProfile(); return true;
   }
-  // まだ名前がない人には、最初に 1 つ引いておく（ランキングが「名無しの乗客」だらけにならないように）
-  if (!profile.name) { profile.name = makeName(); keepName(profile.name); saveProfile(); }
+  function unkeepName(n) { profile.nameKeep = keepList().filter((x) => x !== n); saveProfile(); }
+  if ((profile.nameKeep || []).some((n) => !validName(n))) profile.nameKeep = profile.nameKeep.filter(validName);
+  keepList();
+  // 名前がない人・前に自分で入れた名前の人には、ガチャで 1 つ引いておく（ランキングの名前も次に送るときに変わる）
+  if (!validName(profile.name)) { profile.name = makeName(); profile.nameFix = 1; saveProfile(); }
   function showName() {
     $('nameShow').innerHTML = nameHtml(profile.name || '名無しの乗客');
     $('nameIn').value = profile.name || '';
@@ -1389,30 +1531,50 @@
     if ($('olName')) $('olName').value = profile.name || '';
   }
   function renderNameGacha() {
-    const left = rollsLeft(), keep = (profile.nameKeep || []).filter((n) => n !== profile.name);
-    $('ngName').innerHTML = nameHtml(profile.name);
+    const left = rollsLeft(), keep = keepList(), kept = keep.includes(profile.name);
+    $('ngName').innerHTML = avHtml(profile.name, 'avbig') + '<div>' + nameHtml(profile.name, 1) + '</div>'
+      + `<button class="ngpin ${kept ? 'on' : ''}" id="ngPin" ${!kept && keep.length >= KEEP_MAX ? 'disabled' : ''}>${kept ? '📌 キープ中' : keep.length >= KEEP_MAX ? 'キープ枠がいっぱい' : '📌 この名前をキープ'}</button>`;
     $('ngRoll').disabled = !left; $('ngRoll').textContent = left ? '🎲 名前を引き直す（今日あと ' + left + ' 回）' : '🎲 明日また引けます';
-    $('ngNote').textContent = left ? '今の名前は消えます。レアな名前は自動でキープされます' : '';
-    $('ngKeep').innerHTML = keep.length ? '<div class="small" style="width:100%;color:var(--sub)">キープ中（押すとその名前にもどせる）</div>' + keep.map((n, i) => `<button data-keep="${i}">${nameHtml(n)}</button>`).join('') : '';
+    $('ngNote').textContent = !left ? '' : kept ? '今の名前はキープしてあるので、いつでも戻せます' : 'キープしていない今の名前は、引き直すと消えます';
+    let h = `<div class="small" style="width:100%;color:var(--sub)">キープ ${keep.length}/${KEEP_MAX}（押すとその名前と顔にする・✕ で外す）</div>`;
+    for (let i = 0; i < KEEP_MAX; i++) {
+      const n = keep[i];
+      h += n ? `<div class="ngslot ${n === profile.name ? 'cur' : ''}"><button data-keep="${i}">${nameHtml(n)}${n === profile.name ? ' <span class="pill">使用中</span>' : ''}</button><button class="x" data-unkeep="${i}" title="キープから外す">✕</button></div>`
+        : '<div class="ngslot empty">（あき）</div>';
+    }
+    $('ngKeep').innerHTML = h;
   }
-  function setName(n) { profile.name = n; saveProfile(); showName(); syncName(); }
+  function setName(n) { profile.name = n; profile.nameFix = 0; saveProfile(); showName(); syncName(); }
+  function fixName() { if (profile.nameFix) setName(profile.name); } // ランキングに載っている前の名前も、ガチャの名前に変える
   $('bName').addEventListener('click', () => { backTo = 'title'; renderNameGacha(); show('namegacha'); track('名前ガチャを開いた'); });
+  $('ngName').addEventListener('click', (e) => {
+    if (!e.target.closest('#ngPin')) return;
+    if (isKept(profile.name)) unkeepName(profile.name); else keepName(profile.name);
+    renderNameGacha();
+  });
   $('ngRoll').addEventListener('click', () => {
     if (!rollsLeft()) return;
-    keepName(profile.name); useRoll();
-    const n = makeName(); keepName(n); setName(n); renderNameGacha();
-    const r = nameRank(n);
-    if (r === 2) { addToast('🌈 伝説の名前！「' + n + '」 虹色に光ります（およそ 2500 回に 1 回）', 'good'); sfx('clear'); }
-    else if (r === 1) { addToast('✨ レアな名前！「' + n + '」 金色に光ります', 'good'); sfx('combo'); }
+    if (special(profile.name) && !isKept(profile.name) && !confirm('今の名前「' + profile.name + '」はキープしていません。引き直すと消えますが、いいですか？')) return;
+    useRoll();
+    const n = makeName(); setName(n);
+    const r = nameRank(n), an = isAnimalName(n);
+    let kept = false; if (r || an) kept = keepName(n);
+    renderNameGacha();
+    const tail = (r || an) ? (kept ? '（自動でキープしました）' : '（キープ枠がいっぱい。残すならどれかを外してキープしてね）') : '';
+    if (r === 2) { addToast('🌈 伝説の名前！「' + n + '」 虹色に光ります' + tail, 'good'); sfx('clear'); }
+    else if (r === 1) { addToast('✨ レアな名前！「' + n + '」 金色に光ります' + tail, 'good'); sfx('combo'); }
+    else if (an) { addToast('🐾 動物の名前！「' + n + '」 顔も動物になります' + tail, 'good'); sfx('combo'); }
     else sfx('coin');
-    track(['名前ガチャを引いた（ふつう）', '名前ガチャで金色の名前', '名前ガチャで虹色の名前'][r]);
+    track(r ? ['', '名前ガチャで金色の名前', '名前ガチャで虹色の名前'][r] : an ? '名前ガチャで動物の名前' : '名前ガチャを引いた（ふつう）');
   });
   $('ngKeep').addEventListener('click', (e) => {
+    const keep = keepList();
+    const x = e.target.closest('[data-unkeep]');
+    if (x) { const n = keep[+x.dataset.unkeep]; if (n && (n === profile.name || confirm('「' + n + '」をキープから外しますか？'))) { unkeepName(n); renderNameGacha(); } return; }
     const b = e.target.closest('[data-keep]'); if (!b) return;
-    const keep = (profile.nameKeep || []).filter((n) => n !== profile.name);
-    keepName(profile.name); setName(keep[+b.dataset.keep]); renderNameGacha();
+    const n = keep[+b.dataset.keep]; if (n && n !== profile.name) { setName(n); renderNameGacha(); }
   });
-  showName();
+  showName(); setTimeout(fixName, 0);
   $('bSnd').textContent = AU.on ? '🔊' : '🔇';
   $('bSnd').addEventListener('click', () => { AU.on = !AU.on; profile.sound = AU.on; saveProfile(); $('bSnd').textContent = AU.on ? '🔊' : '🔇'; initAudio(); if (AU.master) AU.master.gain.value = AU.on ? 0.6 : 0; if (!AU.on && speechOK) try { speechSynthesis.cancel(); } catch (e) { } });
   function titleScreen() {
@@ -1907,7 +2069,7 @@
     return fbWait;
   }
   function rankName() {
-    return (profile.name || '').trim().slice(0, 12) || '名無しの乗客';
+    return validName(profile.name) ? String(profile.name).slice(0, 12) : '名無しの乗客';
   }
   // 「ROBIT」「開発」が入った名前は、決まりで開発者の端末しか書けない。断られたら名無しで書き直す
   let nameRefused = false;
@@ -2026,6 +2188,7 @@
         : tab === 'day' ? all.filter(x => x.dayDate === dk && x.dayScore > 0).map(x => ({ id: x.id, name: x.name, score: x.dayScore, title: x.dayTitle }))
         : tab === 'week' ? all.filter(x => x.weekKey === wk && x.weekScore > 0).map(x => ({ id: x.id, name: x.name, score: x.weekScore, title: x.weekTitle }))
         : all.filter(x => x.best > 0).map(x => ({ id: x.id, name: x.name, score: x.best, title: x.title }))).sort((a, b) => b.score - a.score);
+      arr.forEach((x) => { x.name = dispName(x.name, x.id); });
       const i = arr.findIndex(x => x.id === myId);
       return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length };
     }
@@ -2033,13 +2196,13 @@
     const path = tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
     const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(TOP_N).get(), 10000);
     const arr = [];
-    snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: v.n, score: v.s || 0, title: v.ti }); });
+    snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti }); });
     arr.sort((a, b) => b.score - a.score);
     let mine = null, total = arr.length;
     const own = (await withTimeout(F.db.ref(path + '/' + F.uid).get(), 10000)).val();
     if (own) {
       const above = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(own.s + 0.5).limitToFirst(5000).get(), 10000)).numChildren();
-      mine = { id: F.uid, rank: above + 1, score: own.s, name: own.n, title: own.ti };
+      mine = { id: F.uid, rank: above + 1, score: own.s, name: dispName(own.n, F.uid), title: own.ti };
     }
     if (arr.length >= TOP_N) total = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(0).limitToFirst(10000).get(), 10000)).numChildren();
     return { list: arr, me: F.uid, mine, total };
@@ -2068,7 +2231,7 @@
     const local = () => {
       const wk0 = new Date(weekKey() + 'T00:00:00').getTime(), today = new Date().toDateString();
       const h = (profile.history || []).filter(x => tab === 'daily' ? x.m === 'daily' && new Date(x.d).toDateString() === today : (x.m === 'normal' || x.m === 'daily') && (tab === 'day' ? new Date(x.d).toDateString() === today : tab === 'week' ? x.d >= wk0 : true)).slice(0, 10);
-      listEl.innerHTML = h.length ? h.map((x, i) => `<div class="rk"><span class="n">${i + 1}</span><span class="nm">${esc(profile.name || 'あなた')}<div class="ttl">${esc(x.t)}・${new Date(x.d).toLocaleDateString()}</div></span><span class="sc">${x.s}</span></div>`).join('') : '<p class="small">まだ記録がありません</p>';
+      listEl.innerHTML = h.length ? h.map((x, i) => `<div class="rk"><span class="n">${i + 1}</span><span class="nm">${nameHtml(profile.name || 'あなた')}<div class="ttl">${esc(x.t)}・${new Date(x.d).toLocaleDateString()}</div></span><span class="sc">${x.s}</span></div>`).join('') : '<p class="small">まだ記録がありません</p>';
     };
     if (!DB && !fbAllowed) { $('rankNote').textContent = 'この端末の記録'; local(); return; }
     $('rankNote').textContent = '読み込み中…'; listEl.innerHTML = '';
@@ -2235,7 +2398,7 @@
     let html = '';
     for (let i = 0; i < 4; i++) {
       const m = mem[i];
-      if (m) html += `<div class="olm"><i style="background:${MPCOL[i]}"></i>${esc(m[1].n || '名無しの乗客')}${m[0] === MP.hostUid ? ' <span class="pill">ホスト</span>' : ''}${m[0] === MP.uid ? ' <span class="pill">あなた</span>' : ''}</div>`;
+      if (m) html += `<div class="olm"><i style="background:${MPCOL[i]}"></i>${nameHtml(dispName(m[1].n, m[0]))}${m[0] === MP.hostUid ? ' <span class="pill">ホスト</span>' : ''}${m[0] === MP.uid ? ' <span class="pill">あなた</span>' : ''}</div>`;
       else html += `<div class="olm empty"><i style="background:${MPCOL[i]}"></i>${cpu ? '🤖 ' + CPU_NAMES[i] : '（あき）'}</div>`;
     }
     $('olMembers').innerHTML = html;
@@ -2261,7 +2424,7 @@
   async function mpStart() {
     const N = await net();
     const mem = mpSortedMembers();
-    const players = mem.map(([uid, m]) => ({ uid, name: (m.n || '名無しの乗客').slice(0, 12), cpu: false, st: String(m.s || '') }));
+    const players = mem.map(([uid, m]) => ({ uid, name: dispName(m.n, uid).slice(0, 12), cpu: false, st: String(m.s || '') }));
     if ($('olCpu').checked) while (players.length < 4) players.push({ uid: 'cpu' + players.length, name: CPU_NAMES[players.length], cpu: true });
     if (players.length < 2) { olNote('2 人以上（CPU をふくむ）で始められます'); return; }
     try {
@@ -2469,7 +2632,7 @@
     $('mpResList').innerHTML = res.map((r, k) => {
       const me = r.uid === MP.uid; if (me) myRank = k + 1;
       const extra = [causeJa[r.cause] || '', r.pko ? 'トドメ×' + r.pko : '', r.tricks ? 'いたずら×' + r.tricks : ''].filter(Boolean).join('・');
-      return `<div class="mpr ${me ? 'me' : ''}"><span class="n">${k + 1}</span><i style="background:${MPCOL[r.i]}"></i><span class="nm">${esc(r.name)}${r.cpu ? ' 🤖' : ''}${me ? ' <span class="pill">あなた</span>' : ''}<small>${esc(extra)}</small></span><span class="sc">${r.score}</span></div>`;
+      return `<div class="mpr ${me ? 'me' : ''}"><span class="n">${k + 1}</span><i style="background:${MPCOL[r.i]}"></i><span class="nm">${nameHtml(r.name)}${r.cpu ? ' 🤖' : ''}${me ? ' <span class="pill">あなた</span>' : ''}<small>${esc(extra)}</small></span><span class="sc">${r.score}</span></div>`;
     }).join('');
     $('mpResNote').textContent = myRank === 1 ? '🎉 あなたの勝ち！' : myRank ? 'あなたは ' + myRank + ' 位' : '';
     $('mpAgain').classList.toggle('hidden', !MP.isHost);
@@ -2606,5 +2769,5 @@
   }
   if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(boot); else boot();
   // テスト用
-  window.__SW = { mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
+  window.__SW = { avatarUrl, makeName, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
 })();
