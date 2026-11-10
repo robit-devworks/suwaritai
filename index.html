@@ -224,7 +224,15 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 #rText .dg{color:var(--toku);font-size:1.12em}
 #result .card{position:relative}.rlv{position:absolute;top:6px;right:8px;z-index:2;font:inherit;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);background:rgba(0,0,0,.45);color:var(--sub);order:-1}.rlv.up{color:#1b1200;background:var(--toku);border-color:var(--toku);font-weight:700;animation:lvp 1s ease 2}@keyframes lvp{50%{transform:scale(1.15)}}
 @media (orientation: landscape) and (max-height:520px){.rlv{right:auto;left:8px}}
-#bStat{white-space:nowrap}#lvDot{color:#ff5a5a;font-style:normal;font-size:10px;vertical-align:top;margin-left:1px}
+#bStat{white-space:nowrap}
+#bName{width:auto;margin:0;padding:6px 8px;max-width:210px;min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.nm-rare{color:#ffd23f!important;text-shadow:0 0 8px rgba(255,210,63,.7)}
+.nm-legend{background:linear-gradient(90deg,#ff5a5a,#ffd23f,#5affa0,#5ad8ff,#c77dff,#ff5a5a);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;animation:nm-rainbow 3s linear infinite;filter:drop-shadow(0 0 4px rgba(255,255,255,.4))}
+@keyframes nm-rainbow{to{background-position:-200% 0}}
+@media (max-width:360px),(orientation: landscape) and (max-height:520px){#title .nmlbl{display:none}}
+html.pland #title .nmlbl{display:none}
+#ngKeep{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+#ngKeep button{font:inherit;font-size:13px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.06)}#lvDot{color:#ff5a5a;font-style:normal;font-size:10px;vertical-align:top;margin-left:1px}
 .xpbar{height:8px;background:rgba(255,255,255,.12);border-radius:4px;overflow:hidden;margin-top:4px}.xpbar i{display:block;height:100%;width:0;background:var(--toku)}
 .stwrap{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
 #stHex{width:180px;height:166px;flex:0 0 auto}
@@ -492,7 +500,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="row" id="dailyRow"><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
     <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo">🎬 動画で見る</button></div>
     <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button><button class="btn sub2" id="bStat">📊 Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
-    <div class="namebox">乗客名 <input id="nameIn" maxlength="12" placeholder="名無しの乗客"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
+    <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
     <button class="btn sub2 hidden" id="bPort">📱 縦画面にもどす</button>
@@ -602,6 +610,19 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   </div>
 </div>
 
+<div id="namegacha" class="screen hidden">
+  <div class="card">
+    <h2>🎲 名前ガチャ</h2>
+    <p class="small" style="color:var(--sub);margin:0">ランキングに出る名前です</p>
+    <div id="ngName" style="font-size:24px;margin:10px 0 4px"></div>
+    <button class="btn main" id="ngRoll">🎲 名前を引き直す</button>
+    <p class="small" id="ngNote" style="color:var(--sub);margin:2px 0 6px"></p>
+    <div id="ngKeep"></div>
+    <p class="small" style="color:var(--sub);margin:8px 0 4px">✨ 金色の名前：およそ 25 回に 1 回　🌈 虹色の名前：およそ 2500 回に 1 回</p>
+    <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
 <div id="stat" class="screen hidden">
   <div class="card">
     <h2>📊 ステータス <span class="pill" id="stLv">Lv.1</span></h2>
@@ -632,7 +653,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h2>🌐 オンライン対戦 <span class="pill">β・フレンド戦</span></h2>
     <p class="small">合言葉の部屋に 2〜4 人。7 駅の短い路線で、いちばん徳を積んだ人の勝ち。<br>具合が悪そうなライバルはパンチでトドメ（カルマに注意）。脱落したら「ニセ乗客」で邪魔できる。</p>
     <div id="olMenu">
-      <div class="namebox">乗客名 <input id="olName" maxlength="12" placeholder="名無しの乗客"></div>
+      <div class="namebox">乗客名 <b id="olNameShow"></b><input id="olName" type="hidden"></div>
       <button class="btn main" id="olCreate">🚪 部屋をつくる</button>
       <div class="row"><input id="olCode" class="olcodein" inputmode="numeric" maxlength="4" placeholder="合言葉（4けた）" autocomplete="off"><button class="btn" id="olJoin">入る</button></div>
     </div>
@@ -725,7 +746,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261110045201"></script>
-<script src="game.js?v=20261110045201"></script>
+<script src="logic.js?v=20261110054326"></script>
+<script src="game.js?v=20261110054326"></script>
 </body>
 </html>

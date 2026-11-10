@@ -1342,20 +1342,77 @@
   }
 
   // ================================================================ 画面
-  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'stat', 'videos', 'tutask', 'pause', 'result', 'online', 'mpres'];
+  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'stat', 'videos', 'namegacha', 'tutask', 'pause', 'result', 'online', 'mpres'];
   let backTo = 'title';
   function show(id) {
     for (const s of screens) $(s).classList.toggle('hidden', s !== id);
   }
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { show(backTo); }));
-  $('nameIn').value = profile.name || '';
-  // 名前は入力のたびに保存し、少し待ってからランキングの名前も直す
-  let nameTimer = 0;
-  $('nameIn').addEventListener('input', () => {
-    profile.name = $('nameIn').value.trim().slice(0, 12); saveProfile();
-    clearTimeout(nameTimer); nameTimer = setTimeout(() => syncName(), 1200);
+  // ---- 名前ガチャ（デストロイ碁と同じしくみ）：「〇〇の」＋「△△」＋2けたの数字。名前はゲームが組み合わせて作る
+  // たまにレアな言葉が出て、片方なら金色（レア・およそ 4%）、両方なら虹色（伝説・およそ 0.04%）。色は言葉で決まるので、ほかの人の画面でも同じ
+  const NAME_A = ['立ちっぱの', '寝不足の', '満員の', '始発の', '終電の', '各停の', '快速の', 'ねむい', '通勤中の', '腰痛の', '吊り革の', '優先席の', '急ぎの', 'ほろ酔いの',
+    '月曜の', '金曜の', '週末の', '雨の日の', 'はらぺこの', '謎の', '静かな', 'のんびり', 'せっかちな', '寝過ごし', '見極めの', '徳の高い', '窓際の', '網棚の', '早起きの', '定時の',
+    '残業の', '遅延の', '乗換の', '終点の', '揺れる', '踏ん張る', '狸寝入り', 'やさしい', 'こわもての', '迷子の', '眼鏡の', '無口な', '腹ぺこの', 'まったり', '期待の'];
+  const NAME_B = ['乗客', 'リーマン', 'OL', '学生', '車掌', '駅員', '吊り革', '網棚', '座席', 'ドア', '急行', '各駅', '定期券', '改札', 'ホーム', '始発', '終電', '車両',
+    'タヌキ', 'ペンギン', 'ハト', 'カラス', 'ネコ', 'ロボ', '侍', '忍者', '勇者', '魔王', 'おばちゃん', 'ヤンキー', '紳士', '旅人', '番長', '探偵', '聖人', '狸', 'パンダ', 'ゴリラ'];
+  const RARE_A = ['神座りの', '覇王の', '幻の', '永遠の', '銀河の', '光速の', '伝説の', '帝王の'];
+  const RARE_B = ['帝王', '座席王', '座り神', '終着駅', '銀河鉄道', '予言者', '吊革王', '大聖人'];
+  const rareP = () => 0.02;
+  const pickW = (a) => a[Math.floor(Math.random() * a.length)];
+  function makeName() {
+    for (let i = 0; i < 50; i++) {
+      const n = `${Math.random() < rareP() ? pickW(RARE_A) : pickW(NAME_A)}${Math.random() < rareP() ? pickW(RARE_B) : pickW(NAME_B)}${Math.floor(10 + Math.random() * 90)}`;
+      if (n.length <= 12) return n; // ランキングの名前は 12 文字まで
+    }
+    return pickW(NAME_A) + pickW(NAME_B).slice(0, 4) + Math.floor(10 + Math.random() * 90);
+  }
+  // 0：ふつう、1：レア（金色）、2：伝説（虹色）
+  const nameRank = (n) => (RARE_A.some((w) => String(n).startsWith(w)) ? 1 : 0) + (RARE_B.some((w) => String(n).includes(w)) ? 1 : 0);
+  const nameHtml = (n) => { const r = nameRank(n); return `<span class="${r === 2 ? 'nm-legend' : r === 1 ? 'nm-rare' : ''}"${r ? ` title="${r === 2 ? '伝説の名前' : 'レアな名前'}"` : ''}>${esc(n)}</span>`; };
+  // 引き直しは 1 日 3 回（Lv20 からは 5 回）。レアな名前は「キープ」に残り、いつでも戻せる（回数は使わない）
+  const KEEP_MAX = 8;
+  const nameRolls = () => (SW.levelOf(profile.xp || 0).lv >= 20 ? 5 : 3);
+  function rollsLeft() { const v = profile.nameRolls; return v && v.d === todayKey() ? Math.max(0, nameRolls() - v.n) : nameRolls(); }
+  function useRoll() { profile.nameRolls = { d: todayKey(), n: nameRolls() - rollsLeft() + 1 }; }
+  function keepName(n) {
+    if (!n || !nameRank(n)) return;
+    const k = (profile.nameKeep || []).filter((x) => x !== n); k.unshift(n);
+    while (k.length > KEEP_MAX) { const i = k.map(nameRank).lastIndexOf(1); k.splice(i >= 0 ? i : k.length - 1, 1); } // 伝説は残す
+    profile.nameKeep = k;
+  }
+  // まだ名前がない人には、最初に 1 つ引いておく（ランキングが「名無しの乗客」だらけにならないように）
+  if (!profile.name) { profile.name = makeName(); keepName(profile.name); saveProfile(); }
+  function showName() {
+    $('nameShow').innerHTML = nameHtml(profile.name || '名無しの乗客');
+    $('nameIn').value = profile.name || '';
+    if ($('olNameShow')) $('olNameShow').innerHTML = nameHtml(profile.name || '名無しの乗客');
+    if ($('olName')) $('olName').value = profile.name || '';
+  }
+  function renderNameGacha() {
+    const left = rollsLeft(), keep = (profile.nameKeep || []).filter((n) => n !== profile.name);
+    $('ngName').innerHTML = nameHtml(profile.name);
+    $('ngRoll').disabled = !left; $('ngRoll').textContent = left ? '🎲 名前を引き直す（今日あと ' + left + ' 回）' : '🎲 明日また引けます';
+    $('ngNote').textContent = left ? '今の名前は消えます。レアな名前は自動でキープされます' : '';
+    $('ngKeep').innerHTML = keep.length ? '<div class="small" style="width:100%;color:var(--sub)">キープ中（押すとその名前にもどせる）</div>' + keep.map((n, i) => `<button data-keep="${i}">${nameHtml(n)}</button>`).join('') : '';
+  }
+  function setName(n) { profile.name = n; saveProfile(); showName(); syncName(); }
+  $('bName').addEventListener('click', () => { backTo = 'title'; renderNameGacha(); show('namegacha'); track('名前ガチャを開いた'); });
+  $('ngRoll').addEventListener('click', () => {
+    if (!rollsLeft()) return;
+    keepName(profile.name); useRoll();
+    const n = makeName(); keepName(n); setName(n); renderNameGacha();
+    const r = nameRank(n);
+    if (r === 2) { addToast('🌈 伝説の名前！「' + n + '」 虹色に光ります（およそ 2500 回に 1 回）', 'good'); sfx('clear'); }
+    else if (r === 1) { addToast('✨ レアな名前！「' + n + '」 金色に光ります', 'good'); sfx('combo'); }
+    else sfx('coin');
+    track(['名前ガチャを引いた（ふつう）', '名前ガチャで金色の名前', '名前ガチャで虹色の名前'][r]);
   });
-  $('nameIn').addEventListener('change', () => { clearTimeout(nameTimer); syncName(); });
+  $('ngKeep').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-keep]'); if (!b) return;
+    const keep = (profile.nameKeep || []).filter((n) => n !== profile.name);
+    keepName(profile.name); setName(keep[+b.dataset.keep]); renderNameGacha();
+  });
+  showName();
   $('bSnd').textContent = AU.on ? '🔊' : '🔇';
   $('bSnd').addEventListener('click', () => { AU.on = !AU.on; profile.sound = AU.on; saveProfile(); $('bSnd').textContent = AU.on ? '🔊' : '🔇'; initAudio(); if (AU.master) AU.master.gain.value = AU.on ? 0.6 : 0; if (!AU.on && speechOK) try { speechSynthesis.cancel(); } catch (e) { } });
   function titleScreen() {
@@ -1903,7 +1960,7 @@
         const res = DB ? await submitClaude(R) : await submitFirebase(R);
         const rk = (x) => x ? x.rank + '位' : '-';
         const main = res && (R.mode === 'daily' ? res.daily : res.day);
-        if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${main.rank}位/${main.total}人・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : profile.name ? '' : '　※タイトルの「乗客名」を入れると名前が載ります');
+        if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${main.rank}位/${main.total}人・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
         else if (state === 'result') $('rRank').textContent = '';
         if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : 'day');
       } catch (e) {
@@ -2000,9 +2057,9 @@
     b.list.slice(0, limit).forEach((x, i) => {
       if (x.score !== prev) { rank = i + 1; prev = x.score; }
       const me = x.id === b.me; if (me) meShown = true;
-      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${esc(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
+      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
     });
-    if (b.mine && !meShown) html += `<div class="rk" style="justify-content:center;color:var(--sub)">⋮</div><div class="rk me"><span class="n">${b.mine.rank}</span><span class="nm">${esc(b.mine.name || '名無しの乗客')} <span class="pill">あなた</span><div class="ttl">${esc(b.mine.title)}</div></span><span class="sc">${b.mine.score}</span></div>`;
+    if (b.mine && !meShown) html += `<div class="rk" style="justify-content:center;color:var(--sub)">⋮</div><div class="rk me"><span class="n">${b.mine.rank}</span><span class="nm">${nameHtml(b.mine.name || '名無しの乗客')} <span class="pill">あなた</span><div class="ttl">${esc(b.mine.title)}</div></span><span class="sc">${b.mine.score}</span></div>`;
     return html;
   }
   async function loadRanking(tab) {
@@ -2104,13 +2161,12 @@
   function olNote(t) { $('olNote').textContent = t || ''; }
   function openOnline() {
     backTo = 'title'; show('online'); olNote('');
-    $('olName').value = profile.name || '';
+    showName();
     $('olMenu').classList.toggle('hidden', !!MP.code); $('olRoom').classList.toggle('hidden', !MP.code);
     track('オンライン：画面を開いた');
   }
   $('bOnline').classList.toggle('hidden', !onlineAvailable());
   $('bOnline').addEventListener('click', openOnline);
-  $('olName').addEventListener('input', () => { profile.name = $('olName').value.trim().slice(0, 12); saveProfile(); $('nameIn').value = profile.name; });
   $('olCreate').addEventListener('click', () => mpCreate());
   $('olJoin').addEventListener('click', () => mpJoin());
   $('olCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') mpJoin(); });
@@ -2125,7 +2181,7 @@
   $('mpLeave').addEventListener('click', () => mpLeave(false));
 
   async function mpCreate() {
-    if (!profile.name) { olNote('乗客名を入れてください'); $('olName').focus(); return; }
+    if (!profile.name) { olNote('タイトルの「乗客名」から名前を引いてください'); return; }
     try {
       const N = await net(); olNote('部屋をつくっています…');
       for (let k = 0; k < 8; k++) {
@@ -2147,7 +2203,7 @@
   async function mpJoin() {
     const code = ($('olCode').value || '').replace(/\D/g, '');
     if (code.length !== 4) { olNote('合言葉は 4 けたの数字です'); return; }
-    if (!profile.name) { olNote('乗客名を入れてください'); $('olName').focus(); return; }
+    if (!profile.name) { olNote('タイトルの「乗客名」から名前を引いてください'); return; }
     try {
       const N = await net(); olNote('さがしています…');
       const r = await N.get(roomP(code));
