@@ -65,6 +65,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #tokuBox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 10px;min-width:84px}
 #tokuBox small{display:block;font-size:10px;color:var(--sub)}
 #toku{font-size:22px;font-weight:800;color:var(--toku);line-height:1.1}
+#wallet{font-size:11px;color:#cfe8ff;white-space:nowrap}#wallet b{font-size:13px;color:#fff}
 #combo{font-size:11px;color:var(--accent);font-weight:800;min-height:13px}
 #pauseBtn,#fsBtn{pointer-events:auto;width:40px;height:40px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:18px}
 #a2hs{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,14,.7)}
@@ -251,7 +252,7 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 #spName i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
 #spBar button{font:inherit;font-size:13px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer;flex:0 0 auto}
 body.replay #skills,body.replay #touch,body.replay #prompt{display:none!important}
-#rookieTag{position:fixed;right:10px;top:calc(56px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#fff;background:rgba(46,160,90,.85);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none}
+#rookieTag{position:fixed;right:10px;top:calc(96px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#fff;background:rgba(46,160,90,.85);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none}
 #carryCard{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top));z-index:6;max-width:calc(100% - 24px);background:rgba(12,14,20,.86);border:2px solid #ffd447;border-radius:14px;padding:8px 16px;text-align:center;color:#fff;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.4)}
 #carryCard b{display:block;font-size:18px}
 #carryCard span{display:block;font-size:17px;margin-top:3px}
@@ -259,8 +260,9 @@ body.replay #skills,body.replay #touch,body.replay #prompt{display:none!importan
 #carryCard i{display:inline-block;width:16px;height:16px;border-radius:50%;margin:0 6px -2px 2px;border:2px solid #fff;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
 #carryCard .cw{color:#ff9a7a;font-weight:800}
 body.touch #carryCard:not(.mini){display:none!important}
-#carryCard.mini{left:auto;right:8px;transform:none;top:calc(78px + env(safe-area-inset-top));max-width:180px;padding:5px 10px;border-width:1.5px;border-radius:10px;text-align:left}
+#carryCard.mini{left:auto;right:8px;transform:none;top:calc(94px + env(safe-area-inset-top));max-width:180px;padding:5px 10px;border-width:1.5px;border-radius:10px;text-align:left}
 #carryCard.mini b{font-size:13px}
+body.rookie #carryCard.mini{top:calc(120px + env(safe-area-inset-top))}
 #carryCard.mini span{font-size:12px;margin-top:1px}
 #carryCard.mini i{width:11px;height:11px;margin:0 4px -1px 0;border-width:1.5px;box-shadow:none}
 .nm-dev{color:#5ad8ff!important;text-shadow:0 0 8px rgba(90,216,255,.7);font-weight:800}
@@ -513,7 +515,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div id="buffs"></div>
   </div>
   <div id="topR">
-    <div><div id="tokuBox"><small>徳（スコア）</small><div id="toku">0</div><div id="combo"></div></div><div id="mpBoard" class="hidden"></div></div>
+    <div><div id="tokuBox"><small>スコア</small><div id="toku">0</div><div id="wallet" title="スキルに使える徳（使ってもスコアは減りません）">🙏 徳 <b id="walletV">0</b></div><div id="combo"></div></div><div id="mpBoard" class="hidden"></div></div>
     <button id="fsBtn" class="fs-btn" aria-label="全画面">⛶</button>
     <button id="pauseBtn" aria-label="一時停止">Ⅱ</button>
   </div>
@@ -797,7 +799,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261110131418"></script>
-<script src="game.js?v=20261110131418"></script>
+<script src="logic.js?v=20261110150515"></script>
+<script src="game.js?v=20261110150515"></script>
 </body>
 </html>

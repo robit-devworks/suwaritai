@@ -106,13 +106,13 @@
   ];
 
   const SKILLS = [
-    { key: 'glasses', name: '見極めメガネ', icon: '👓', cost: 40, dur: 30, desc: '乗客があと何駅で降りるか見える（30秒）' },
-    { key: 'drink', name: 'エナドリ', icon: '🥤', cost: 30, desc: '体力+35。飲むたびに値上がり' },
-    { key: 'brainwash', name: '洗脳ビーム', icon: '🌀', cost: 70, karma: 10, desc: '座っている人を狙って発射。急用を思い出して席を立つ（カルマ+10）' },
+    { key: 'glasses', name: '見極めメガネ', icon: '👓', cost: 25, dur: 30, desc: '乗客があと何駅で降りるか見える（30秒）' },
+    { key: 'drink', name: 'エナドリ', icon: '🥤', cost: 20, desc: '体力+35。飲むたびに値上がり' },
+    { key: 'brainwash', name: '洗脳ビーム', icon: '🌀', cost: 50, karma: 10, desc: '座っている人を狙って発射。急用を思い出して席を立つ（カルマ+10）' },
     { key: 'force', name: '強制どかし', icon: '💪', cost: 10, karma: 22, desc: '目の前の座っている人をどかして座る（カルマ+22）。強い人には反撃される' },
-    { key: 'legs', name: '鉄の脚', icon: '🦵', cost: 50, dur: 40, desc: '立っていても体力が減らない＆揺れに強い（40秒）' },
-    { key: 'protein', name: '鉄拳プロテイン', icon: '🥊', cost: 30, dur: 60, desc: 'パンチの威力2倍、ガードで無傷（60秒）' },
-    { key: 'confess', name: '懺悔', icon: '🙏', cost: 60, desc: 'カルマ-25（30秒に1回）' },
+    { key: 'legs', name: '鉄の脚', icon: '🦵', cost: 35, dur: 40, desc: '立っていても体力が減らない＆揺れに強い（40秒）' },
+    { key: 'protein', name: '鉄拳プロテイン', icon: '🥊', cost: 20, dur: 60, desc: 'パンチの威力2倍、ガードで無傷（60秒）' },
+    { key: 'confess', name: '懺悔', icon: '🙏', cost: 45, desc: 'カルマ-25（30秒に1回）' },
   ];
 
   // ステータス（やりこむとレベルが上がって割り振れる）。どれも 0〜10、1 ポイントの効き目は小さめ
@@ -246,7 +246,7 @@
       seats: null, slots: null, people: [], nextId: 1, events: [],
       phase: 'stop', phaseT: C.BOARD - 0.4, station: 0, doorSide: 1, doorsOpen: true, doorClose: C.T_STOP,
       items: [], chikan: null, lurch: null, runner: null, nextChikanCheck: 30, nextItemCheck: 12, samaritanT: 15,
-      endless: mode === 'endless', hard: mode === 'hard', jiji: mode === 'jiji',
+      endless: mode === 'endless', hard: mode === 'hard', jiji: mode === 'jiji', bal2: !!opts.bal2,
       player: makePlayer(0.4, 0.6),
       stats: makeStats(),
       aim: -1, prompt: null, ann: '', online: mode === 'online',
@@ -351,6 +351,8 @@
       if ((FAV[type] || []).includes(d)) v += 6;
       if (d === 6) v += 2;
       if (d === last) v += 1.5;
+      // 都心に向かう朝の電車：遠くの駅（終点の近く）で降りる人ほど多い → 終盤ほど混む
+      { const x = (d - from) / Math.max(1, last - from); v *= 0.35 + 2.4 * x * x; }
       w[d] = v;
     }
     return parseInt(weighted(r, w), 10);
@@ -531,6 +533,11 @@
     emit(g, { type: 'karma', amount: amt, text: why });
     return amt;
   }
+  // 新バランス（お試し）：座ることの点。コンボやカルマには関係しない
+  function bonusPts(g, n, label) {
+    const pl = g.player; pl.toku += n; pl.earned += n;
+    emit(g, { type: 'points', amount: n, text: label, combo: 1 });
+  }
   function deed(g, base, label) {
     const pl = g.player;
     if (g.t - pl.lastDeedT < C.COMBO_WINDOW) pl.combo++; else pl.combo = 1;
@@ -699,7 +706,7 @@
     seat.occ = 0; seat.res = -1; pl.seat = seat.id; pl.x = seat.x; pl.z = seat.z * 0.92; pl.sitT = g.t;
     pl.yaw = seat.side > 0 ? 0 : Math.PI; pl.pitch = 0;
     g.stats.sits++;
-    if (g.t - seat.freedAt < 1.0 && seat.freedAt > 0) g.stats.quickSits++;
+    if (g.t - seat.freedAt < 1.0 && seat.freedAt > 0) { g.stats.quickSits++; if (g.bal2) bonusPts(g, 15, '⚡ 秒速着席'); }
     if (seat.freedBy >= 0) { const q = person(g, seat.freedBy); if (q && q.oversleep) g.stats.oversleepSteal++; }
     emit(g, { type: 'sfx', name: 'sit' });
     emit(g, { type: 'sit' });
@@ -1267,7 +1274,7 @@
     g.phaseT += dt;
     if (g.phase === 'travel') {
       if (g.phaseT >= C.T_TRAVEL) {
-        g.phase = 'stop'; g.phaseT = 0; g.station++; withEach(g, () => { g.stats.stations++; });
+        g.phase = 'stop'; g.phaseT = 0; g.station++; withEach(g, () => { g.stats.stations++; if (g.bal2 && g.player.seat >= 0) bonusPts(g, 8, '💺 座ったまま 1 駅'); });
         g.doorSide = g.nextDoorSide || 1; g.doorsOpen = false; g.doorClose = C.T_STOP;
         g.ann = stationName(g, g.station) + '、' + stationName(g, g.station) + '。お出口は' + (g.doorSide > 0 ? '右側' : '左側') + 'です。';
         emit(g, { type: 'arrive', station: g.station });
@@ -1352,10 +1359,13 @@
     if (g.endless && st < LINE.length - 1) range = LINE[st].board;
     if (g.endless && st >= LINE.length - 1) range = [4 + Math.min(4, (st - 11) >> 2), 8 + Math.min(6, (st - 11) >> 1)];
     let n = g.r.int(range[0], range[1]);
+    // 終点に向かってどんどん混む：後半の駅ほど乗ってくる人が多く、終点のひとつ手前でどっと乗ってくる
+    const last = lastStation(g), frac = g.endless ? 0 : Math.min(1, st / Math.max(1, last));
+    if (!g.endless && st > 0 && st < last) { n = Math.max(n, 4) ; n = Math.round(n * (0.7 + 1.3 * frac)); if (st === last - 1) n += 8; }
     if (g.hard) n = Math.round(n * 1.4);
     if (g.tutorial) n = 0; // チュートリアル：乗ってくる人はいない
     const alive = g.people.filter(p => p.state !== 'gone' && p.state !== 'exit').length;
-    n = Math.max(0, Math.min(n, C.MAX_PEOPLE - alive));
+    n = Math.max(0, Math.min(n, C.MAX_PEOPLE + Math.round(12 * frac) - alive));
     let i = 0;
     g.boardQueue = [];
     for (; i < n; i++) g.boardQueue.push({ at: g.phaseT + i * 0.32, type: pickType(g, st) });
@@ -2065,8 +2075,9 @@
     // 落とし物
     g.nextItemCheck -= dt;
     if (g.nextItemCheck <= 0) {
-      g.nextItemCheck = g.r.range(10, 18);
-      if (g.items.length < 2 && g.r.chance(0.6)) dropItem(g);
+      // 新バランス（お試し）：落とし物は 1 駅に 1 個くらい・同時に 1 個まで
+      g.nextItemCheck = g.bal2 ? g.r.range(30, 45) : g.r.range(10, 18);
+      if (g.items.length < (g.bal2 ? 1 : 2) && g.r.chance(g.bal2 ? 0.85 : 0.6)) dropItem(g);
     }
     for (const it of g.items) {
       const o = person(g, it.owner);

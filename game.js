@@ -7,6 +7,8 @@
   const T3 = THREE;
   const TAU = Math.PI * 2;
   const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches;
+  // 新バランスのお試し（落とし物を減らす・座ると点）：?bal=2 か、お試し用のページだけ。ランキングには載せない
+  const BAL2 = /[?&]bal=2\b/.test(location.search) || !!window.__SW_BAL2;
   if (isTouch) document.body.classList.add('touch');
   const SHARE_URL = window.SUWARITAI_URL || (location.href.split('?')[0].split('#')[0] + '?ref=share');
 
@@ -1174,7 +1176,10 @@
     const mi = Math.ceil(pl.mind == null ? 100 : pl.mind);
     if (mi !== hud.mind) { hud.mind = mi; $('mindF').style.width = mi + '%'; $('mindV').textContent = mi; $('mindBar').classList.toggle('danger', mi <= 25); }
     if (ka !== hud.karma) { hud.karma = ka; $('karmaF').style.width = ka + '%'; $('karmaV').textContent = ka; $('karmaBar').classList.toggle('danger', ka >= 75); }
-    if (pl.toku !== hud.toku) { hud.toku = pl.toku; $('toku').textContent = pl.toku; }
+    // スコア（集めた徳の合計。スキルを使っても減らない）と、スキルに使える徳を分けて出す
+    const scoreNow = Math.max(0, pl.earned + g.stats.stations * 10 - Math.round(pl.karma));
+    if (scoreNow !== hud.toku) { hud.toku = scoreNow; $('toku').textContent = scoreNow; }
+    if (pl.toku !== hud.wallet) { hud.wallet = pl.toku; $('walletV').textContent = pl.toku; }
     $('combo').textContent = pl.combo > 1 && g.t - pl.lastDeedT < SW.C.COMBO_WINDOW ? '善行コンボ ×' + Math.min(2.5, 1 + 0.25 * (pl.combo - 1)).toFixed(2).replace(/0$/, '') + '（' + Math.ceil(SW.C.COMBO_WINDOW - (g.t - pl.lastDeedT)) + '秒）' : '';
     // 駅
     const last = SW.lastStation(g);
@@ -1298,7 +1303,7 @@
     const pl = g.player;
     if (g.t > 3) tip('observe', '座っている人に照準を合わせると「様子」が見える。掲示板をチラ見する人は、降りるのが近い');
     if (g.t > 14 && pl.seat < 0) tip('stand', '立っていると体力が減る。降りそうな人の前で待ち、空いたらすぐアクションで座ろう');
-    if (pl.toku >= 40) tip('shop', '徳がたまった！ 画面のスキルのボタンが使える（👓メガネで降りる駅が見える）');
+    if (pl.toku >= 25) tip('shop', '徳がたまった！ スキルのボタンが使える（使ってもスコアは減らない。👓メガネで降りる駅が見える）');
     if (pl.seat >= 0 && SW._internal.priorityNear(g)) tip('give', '目の前に座りたそうな人が。譲ると徳が入る…けど、また立つことに。無視するとカルマ');
     if (pl.karma >= 40) tip('karma', 'カルマが100になると駅員に連行される。🙏懺悔か善行で減らそう');
   }
@@ -1635,6 +1640,7 @@
     const dk = todayKey();
     $('dailyBest').textContent = profile.daily && profile.daily.date === dk ? '今日のベスト ' + profile.daily.score : '未挑戦';
     $('bestLine').textContent = profile.best ? `自己ベスト ${profile.best}点「${profile.bestTitle}」・乗車 ${profile.plays} 回` : '降りる人を見極めて、座って、徳を積め。';
+    if (BAL2) $('bestLine').textContent = '🧪 新バランスのお試し版（落とし物が少なめ・座ると点）';
     renderModes();
   }
   function renderModes() {
@@ -1659,16 +1665,16 @@
     initAudio();
     clearWorld();
     const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
-    G = SW.create({ seed, mode, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = SW.create({ seed, mode, bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = mode;
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
     G.rookie = mode === 'normal' && !profile.plays && !profile.rookieDone;
-    $('rookieTag').classList.toggle('hidden', !G.rookie);
+    $('rookieTag').classList.toggle('hidden', !G.rookie); document.body.classList.toggle('rookie', !!G.rookie);
     inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null); showInapp(false);
     $('hud').classList.remove('hidden');
     if (isTouch) $('touch').classList.remove('hidden');
-    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.mind = -1;
+    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.wallet = hud.mind = -1;
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (!isTouch) {
       $('pcHint').innerHTML = '<b>画面をクリック</b>でマウス操作開始<br>WASD 移動 ／ E・クリック アクション ／ F・右クリック パンチ<br>Space 踏ん張る・ガード ／ Q 狸寝入り ／ 1〜7 スキル ／ Esc 一時停止';
@@ -1677,7 +1683,7 @@
       if (!noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
     }
     if (isTouch && isPortrait()) setTimeout(() => { if (state === 'play' && isPortrait()) addToast('📱 スマホを横にすると遊びやすいよ', 'warn'); }, 4000);
-    if (!G.rookie) recStart(mode); else REC = null;
+    if (!G.rookie && !BAL2) recStart(mode); else REC = null;
     if (G.rookie) addToast('🔰 見習い乗車：はじめの 1 回は体力がへりにくい（ランキングには載りません）', 'good');
     else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
@@ -2180,6 +2186,7 @@
   // 1 件ずつ順番に書く（同じ場所への書きこみを重ねない）
   let submitting = Promise.resolve();
   function submitScore(R) {
+    if (BAL2) { $('rRank').textContent = '🧪 新バランスのお試し版なので、ランキングには載りません'; return; }
     if (R.rookie) { $('rRank').textContent = '🔰 見習い乗車なので、ランキングには載りません。次から本番！'; return; }
     if (R.mode !== 'normal' && R.mode !== 'daily') return;
     if (!DB && !fbAllowed) return;
@@ -2192,7 +2199,7 @@
         if (!DB) recUpload(R, res, rec);
         const rk = (x) => x ? (x.rank ? x.rank + '位' : '100位より下') : '-';
         const main = res && (R.mode === 'daily' ? res.daily : res.day);
-        if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${rk(main)}・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
+        if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${rankTxt(main)}・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
         else if (state === 'result') $('rRank').textContent = '';
         if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : 'day');
       } catch (e) {
@@ -2200,6 +2207,28 @@
       }
     });
   }
+  // ---- 順位と人数：50 点ごとの人数（suwaritai/hist/{種類}/{日付など}/b{点数÷50}）で出す
+  // 自分より上のかたまりの人数を足し、同じかたまりの中だけ実際に数える。分布は 1 時間ごとに作り直している（Actions の suwaritai-hist）
+  const HIST_W = 50;
+  const histB = (s) => 'b' + Math.floor(Math.max(0, s) / HIST_W);
+  function histPath(parent) { const a = parent.split('/'); return 'suwaritai/hist/' + a[1] + '/' + (a[2] || 'all'); }
+  async function histAdd(F, hp, b, d) { try { await withTimeout(F.db.ref(hp + '/' + b).transaction((v) => Math.max(0, (v || 0) + d)), 8000); } catch (e) { } }
+  async function rankOf(F, parent, myS) {
+    try {
+      const hist = (await withTimeout(F.db.ref(histPath(parent)).get(), 8000)).val() || {};
+      const myB = Math.floor(Math.max(0, myS) / HIST_W);
+      let above = 0, total = 0;
+      for (const k in hist) { const n = +hist[k] || 0, b = +k.slice(1); total += n; if (b > myB) above += n; }
+      const top = (myB + 1) * HIST_W - 0.001;
+      const inB = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(myS + 0.5).endAt(top).get(), 8000)).numChildren();
+      const rank = above + inB + 1;
+      return { rank, total: Math.max(total, rank) };
+    } catch (e) {
+      const above = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(myS + 0.5).limitToFirst(TOP_N).get(), 10000)).numChildren();
+      return { rank: above < TOP_N ? above + 1 : null, total: null };
+    }
+  }
+  const rankTxt = (x) => x && x.rank ? x.rank + '位' + (x.total ? '/' + x.total.toLocaleString() + '人（上位' + Math.max(1, Math.ceil(x.rank / x.total * 100)) + '%）' : '') : x ? '100位より下' : '-';
   async function submitFirebase(R) {
     const F = await firebaseReady(); if (!F) return null;
     const dk = todayKey(), name = rankName();
@@ -2210,9 +2239,14 @@
       if (better || old.n !== name) await fbSet(ref, { n: name, s: better ? R.sc.total : old.s, ti: better ? R.sc.title : old.ti, t: F.TS });
       const myS = better ? R.sc.total : old.s;
       const parent = path.slice(0, path.lastIndexOf('/'));
-      // 順位は上位 100 位まで数える（全員分を読むと通信量がふくらむので）。それより下は「100位より下」
-      const above = (await withTimeout(F.db.ref(parent).orderByChild('s').startAt(myS + 0.5).limitToFirst(TOP_N).get(), 10000)).numChildren();
-      return { rank: above < TOP_N ? above + 1 : null, improved: better && !!old, mine: better };
+      // 点数の分布（50 点ごとの人数）を足し引きしておく（順位と人数を、全員分を読まずに出すため）
+      const hp = histPath(parent);
+      if (better) {
+        const nb = histB(R.sc.total), ob = old ? histB(old.s) : null;
+        if (ob !== nb) { await histAdd(F, hp, nb, 1); if (ob != null) await histAdd(F, hp, ob, -1); }
+      }
+      const rt = await rankOf(F, parent, myS);
+      return { rank: rt.rank, total: rt.total, improved: better && !!old, mine: better };
     };
     const best = await put('suwaritai/best/' + F.uid);
     const day = await put('suwaritai/day/' + dk + '/' + F.uid);
@@ -2272,10 +2306,14 @@
     const own = (await withTimeout(F.db.ref(path + '/' + F.uid).get(), 10000)).val();
     if (own) {
       const inTop = arr.findIndex((x) => x.id === F.uid);
-      const above = inTop >= 0 ? -1 : arr.filter((x) => x.score > own.s).length;
-      mine = { id: F.uid, rank: inTop >= 0 ? null : above < TOP_N ? above + 1 : '100+', score: own.s, name: dispName(own.n, F.uid), title: own.ti };
+      let rank = null;
+      if (inTop < 0) { const rt = await rankOf(F, path, own.s); rank = rt.rank || '100+'; if (rt.total) total = rt.total; }
+      mine = { id: F.uid, rank, score: own.s, name: dispName(own.n, F.uid), title: own.ti };
     }
-    if (arr.length >= TOP_N) total = null; // 全員の人数は数えない（通信量を減らすため）
+    if (arr.length >= TOP_N && total === arr.length) {
+      // 全員の人数は、点数の分布から数える（全員分は読まない）
+      try { const h = (await withTimeout(F.db.ref(histPath(path)).get(), 8000)).val() || {}; let t = 0; for (const k in h) t += +h[k] || 0; total = t >= arr.length ? t : null; } catch (e) { total = null; }
+    }
     const rp = await fetchRpInfo(F, tab).catch(() => null);
     return { list: arr, me: F.uid, mine, total, rp };
   }
@@ -2416,7 +2454,7 @@
     G.player.yaw = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null);
     $('hud').classList.remove('hidden'); $('touch').classList.add('hidden');
-    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.mind = -1;
+    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.wallet = hud.mind = -1;
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     $('rpName').innerHTML = nameHtml(RP.name) + ` <b>${RP.score}</b>点`;
     $('rpBar').classList.remove('hidden'); $('rpEnd').classList.add('hidden'); document.body.classList.add('replay');
@@ -2731,7 +2769,7 @@
     state = 'play'; show(null);
     $('hud').classList.remove('hidden'); $('mpBoard').classList.remove('hidden');
     if (isTouch && !MP.spect) $('touch').classList.remove('hidden');
-    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.mind = -1;
+    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.wallet = hud.mind = -1;
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (MP.spect) { document.body.classList.add('replay'); $('spBar').classList.remove('hidden'); spName(); addToast('👀 観戦中。「次の人」で見る人を切りかえ', 'good'); track('オンライン：観戦をはじめた'); }
     else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
