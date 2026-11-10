@@ -1150,6 +1150,18 @@
     el.style.top = ((popN++ % 3) * 30) + 'px'; $('pops').appendChild(el); setTimeout(() => el.remove(), 1850);
   }
   let warnT = 0, annT = 0, targetT = 0;
+  const tgtV = new T3.Vector3();
+  function placeTarget(g) {
+    const el = $('target');
+    const p = g.aim >= 0 && g.aim < SW.PID ? SW.person(g, g.aim) : null;
+    if (!p || el.classList.contains('hidden')) { if (el.style.top) el.style.top = ''; return; }
+    const H = $('hud').clientHeight || window.innerHeight;
+    tgtV.set(p.x, SW._internal.headY(p) - 0.2, p.z).project(camera); // あごの少し下
+    if (tgtV.z > 1) { el.style.top = ''; return; }
+    let y = (1 - tgtV.y) / 2 * H + 4;
+    y = Math.max(H / 2 + 22, Math.min(y, H - el.offsetHeight - (isTouch ? 150 : 100))); // 照準のすぐ下より上には出さない・下のボタンに重ねない
+    el.style.top = Math.round(y) + 'px';
+  }
   function updateHUD(g, dt) {
     const pl = g.player;
     const st = Math.ceil(pl.stamina);
@@ -1219,6 +1231,8 @@
       if (o) html = `<h4>${esc(o.name)}</h4>` + o.notes.slice(0, 3).map(n => `<div>${esc(n)}</div>`).join('');
       if (html !== hud.target) { hud.target = html; $('target').innerHTML = html; $('target').classList.toggle('hidden', !html); }
     }
+    // 様子カードは、照準を合わせた人の「あごの下」に出す（顔にかぶらず、目もあまり動かさずに読める）
+    placeTarget(g);
     // 揺れ警告
     if (warnT > 0) { warnT -= dt; if (warnT <= 0) $('warn').classList.add('hidden'); }
     if (annT > 0) { annT -= dt; if (annT <= 0) $('ann').classList.add('hidden'); }
