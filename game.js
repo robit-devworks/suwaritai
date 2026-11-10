@@ -2372,7 +2372,7 @@
     G.modeName = data.mode;
     const looks = {};
     for (const f of data.fr) if (f.nw) Object.assign(looks, f.nw);
-    Object.assign(RP, { active: true, fr: data.fr, i: -1, t: 0, t0: data.fr[0].t, speed: 1, paused: false, ended: false, looks, uid, kind, name: dispName(meta.n, uid), score: meta.s, obs: null, liked: false, me: F.uid, P: { pl: G.player, out: false, ghost: false, prompt: null, aim: -1, result: null, tricks: 0 } });
+    Object.assign(RP, { active: true, nextI: -2, np: null, fr: data.fr, i: -1, t: 0, t0: data.fr[0].t, speed: 1, paused: false, ended: false, looks, uid, kind, name: dispName(meta.n, uid), score: meta.s, obs: null, liked: false, me: F.uid, P: { pl: G.player, out: false, ghost: false, prompt: null, aim: -1, result: null, tricks: 0 } });
     G.player.yaw = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null);
     $('hud').classList.remove('hidden'); $('touch').classList.add('hidden');
@@ -2402,26 +2402,31 @@
       RP.i++;
       const f = fr[RP.i], a = f.pl[0], b = g.player;
       applyWorld(g, f, RP.looks);
-      b._tx = a[0] / 100; b._tz = a[1] / 100; b._tyaw = a[2] / 100; b.pitch = a[3] / 100;
-      if (b._init == null || a[4] !== b.seat) { b.x = b._tx; b.z = b._tz; b.yaw = b._tyaw; b._init = 1; }
+      b._tx = a[0] / 100; b._tz = a[1] / 100; b._tyaw = a[2] / 100; b._tpitch = a[3] / 100;
       applyPl(g, RP.P, a);
       g.aim = RP.P.aim; g.prompt = RP.P.prompt; RP.obs = a[27] || null;
       if (RP.speed <= 2) for (const e of f.ev || []) g.events.push(e);
     }
-    // なめらかに動かす
-    const k = Math.min(1, dt * 9 * RP.speed);
+    // なめらかに動かす：今のコマ（i）と次のコマ（i+1）のあいだを、時間でまっすぐつなぐ（0.2 秒ごとの記録でもカクカクしない）
+    if (RP.nextI !== RP.i) { RP.nextI = RP.i; rpPrepNext(g); }
+    const f0 = fr[RP.i], f1 = fr[RP.i + 1];
+    const al = f0 && f1 && f1.t > f0.t ? Math.max(0, Math.min(1, (now - f0.t) / (f1.t - f0.t))) : 1;
+    const lerpA = (x, y) => { let d = y - x; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return x + d * al; };
     for (const p of g.people) {
       if (p._tx == null) continue;
-      const dx = p._tx - p.x, dz = p._tz - p.z, d = Math.hypot(dx, dz);
-      p.x += dx * k; p.z += dz * k;
-      if (d > 0.02 && p.state !== 'seated') p.walkPhase += d * k * 6 * 3;
-      let dr = p._try - p.ry; while (dr > Math.PI) dr -= TAU; while (dr < -Math.PI) dr += TAU; p.ry += dr * k;
+      const bx = p._nx != null ? p._nx : p._tx, bz = p._nz != null ? p._nz : p._tz, br = p._nry != null ? p._nry : p._try;
+      const nx = p._tx + (bx - p._tx) * al, nz = p._tz + (bz - p._tz) * al;
+      const d = Math.hypot(nx - p.x, nz - p.z);
+      if (d > 1.5) { p.x = nx; p.z = nz; } // ワープ（乗ってきた・座った）はそのまま
+      else { if (d > 0.002 && p.state !== 'seated') p.walkPhase += d * 18; p.x = nx; p.z = nz; }
+      p.ry = lerpA(p._try, br);
       if (p.bubble) p.bubbleT = 1;
     }
     const b = g.player;
     if (b._tx != null) {
-      b.x += (b._tx - b.x) * k; b.z += (b._tz - b.z) * k;
-      let dr = b._tyaw - b.yaw; while (dr > Math.PI) dr -= TAU; while (dr < -Math.PI) dr += TAU; b.yaw += dr * k;
+      const n = RP.np;
+      b.x = n ? b._tx + (n[0] - b._tx) * al : b._tx; b.z = n ? b._tz + (n[1] - b._tz) * al : b._tz;
+      b.yaw = n ? lerpA(b._tyaw, n[2]) : b._tyaw; b.pitch = n ? b._tpitch + (n[3] - b._tpitch) * al : b._tpitch;
     }
     b.punchAnim = Math.max(0, b.punchAnim - dt);
     $('rpProg').style.width = Math.min(100, (RP.i + 1) / fr.length * 100) + '%';
@@ -2429,6 +2434,24 @@
       RP.ended = true;
       setTimeout(() => { if (RP.active && RP.ended) { $('rpEnd').classList.remove('hidden'); $('rpEndT').innerHTML = nameHtml(RP.name) + ' のリプレイ　<b>' + RP.score + '</b>点'; rpButtons(); } }, 1500);
     }
+  }
+  // 次のコマの場所を、乗客ごとに覚えておく（座っている人は座席の場所）
+  function rpPrepNext(g) {
+    const f1 = RP.fr[RP.i + 1];
+    for (const p of g.people) { p._nx = p._nz = p._nry = null; }
+    RP.np = null;
+    if (!f1) return;
+    const map = new Map(g.people.map((p) => [p.id, p]));
+    for (const a of f1.pe || []) {
+      const p = map.get(a[0]); if (!p) continue;
+      if (STC[a[4]] === 'seated' && a[5] >= 0 && g.seats[a[5]]) { p._nx = g.seats[a[5]].x; p._nz = g.seats[a[5]].z; }
+      else { p._nx = a[1] / 100; p._nz = a[2] / 100; }
+      p._nry = a[3] / 100;
+      // 座る・立つ・乗り降りの切りかわりは、まっすぐつながない
+      if (STC[a[4]] !== p.state && (STC[a[4]] === 'seated' || p.state === 'seated')) { p._nx = p._nz = p._nry = null; }
+    }
+    const a = f1.pl && f1.pl[0];
+    if (a && a[4] === g.player.seat) RP.np = [a[0] / 100, a[1] / 100, a[2] / 100, a[3] / 100];
   }
   function rpStop(toRank) {
     RP.active = false; RP.fr = null;
@@ -2440,7 +2463,7 @@
   $('rpSpeed').addEventListener('click', () => { RP.speed = RP.speed >= 4 ? 1 : RP.speed * 2; rpButtons(); });
   $('rpClose').addEventListener('click', () => rpStop(true));
   $('rpBack').addEventListener('click', () => rpStop(true));
-  $('rpAgain').addEventListener('click', () => { const keep = { fr: RP.fr, looks: RP.looks }; clearWorld(); const seed = G.seed, mode = G.mode; G = SW.create({ seed, mode }); RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false }, keep); RP.P.out = false; RP.P.result = null; $('rpEnd').classList.add('hidden'); });
+  $('rpAgain').addEventListener('click', () => { const keep = { fr: RP.fr, looks: RP.looks }; clearWorld(); const seed = G.seed, mode = G.mode; G = SW.create({ seed, mode }); RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null }, keep); RP.P.out = false; RP.P.result = null; $('rpEnd').classList.add('hidden'); });
   for (const id of ['rpLike', 'rpLike2']) $(id).addEventListener('click', async () => {
     if (RP.liked || RP.uid === RP.me) return;
     RP.liked = true; RP.likes = (RP.likes || 0) + 1; rpButtons(); sfx('combo');
