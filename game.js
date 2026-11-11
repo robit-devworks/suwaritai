@@ -1251,7 +1251,8 @@
     if (e.code === 'Space') { if (!e.repeat) inp.bracePressed = true; e.preventDefault(); }
     if (e.code === 'KeyQ') inp.fakeSleep = true;
     if (/^Digit[1-7]$/.test(e.code)) inp.skill = +e.code.slice(5) - 1;
-    if (e.code === 'Escape' || e.code === 'KeyP') { if (!locked) pause(); }
+    // P・Tab でも一時停止（全画面のまま）。Chrome・Edge の全画面では Esc も横取りしているので、Esc でもメニューが開く
+    if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Tab') { if (e.code === 'Tab') e.preventDefault(); pause(); if (document.pointerLockElement) document.exitPointerLock(); }
     if (e.code.startsWith('Arrow')) e.preventDefault();
   });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -2335,8 +2336,20 @@
     b.classList.toggle('hidden', standalone || !isIOS || EMBEDDED); // iPhone は「ホーム画面に追加」の案内
     b.addEventListener('click', openA2hs);
   });
-  document.addEventListener('fullscreenchange', () => { updateFsButtons(); resize(); });
-  document.addEventListener('webkitfullscreenchange', () => { updateFsButtons(); resize(); });
+  document.addEventListener('fullscreenchange', () => { updateFsButtons(); resize(); escLock(); });
+  document.addEventListener('webkitfullscreenchange', () => { updateFsButtons(); resize(); escLock(); });
+  // PC の全画面：Esc を押すと全画面が解ける（ブラウザの決まり）。Chrome・Edge は Esc をゲームが受け取れるようにする（Keyboard Lock）。
+  // そうすると Esc でメニューが開き、全画面をやめるときは Esc を長押し。ほかのブラウザは P か Tab でメニュー
+  let fsTold = false;
+  function escLock() {
+    if (isTouch) return;
+    const kb = navigator.keyboard;
+    if (fsElement()) {
+      let ok = false;
+      if (kb && kb.lock) { try { const r = kb.lock(['Escape']); ok = true; if (r && r.catch) r.catch(() => { }); } catch (e) { ok = false; } }
+      if (!fsTold && state === 'play') { fsTold = true; addToast(ok ? '全画面中は Esc でメニュー（全画面をやめるときは Esc を長押し）' : '全画面のままメニューを開くには P キー', 'good'); }
+    } else if (kb && kb.unlock) { try { kb.unlock(); } catch (e) { } }
+  }
 
   // ---------------------------------------------------------------- 横向き・全画面で遊ぶ
   const isPortrait = () => !pland && realPortrait();
@@ -2650,6 +2663,7 @@
     lastResult.moment = momentText(g); setShareHref(); showNudge(g);
     $('bRetry').textContent = mode === 'practice' ? '🚃 本番に挑戦！' : 'もう一回乗る';
     show('result');
+    myRpKeep(g);
     submitScore(lastResult);
   }
   // ---- シェアのきっかけ：見せ場（大きな善行・ボス駅クリア・めずらしいこと・新記録）をためて、結果画面で「自慢しよう」と出す
@@ -3291,7 +3305,7 @@
   const RP = { active: false };
   function recStart(mode) {
     REC = null;
-    if ((mode !== 'normal' && mode !== 'daily' && mode !== 'ranked' && mode !== 'mikiwame') || !fbAllowed || typeof CompressionStream === 'undefined') return;
+    if (mode === 'tutorial') return; // 自分のリプレイはどのモードでも残す（ランキングに載せるのは上位 10 位のときだけ）
     REC = { T: { k: 0, sentMax: G.nextId - 1, newIds: [] }, fr: [], acc: 1, ev: [], seed: G.seed, mode: mode === 'ranked' || mode === 'mikiwame' ? 'normal' : mode, mk: mode === 'mikiwame', done: false, ranked: mode === 'ranked' };
   }
   function recTick(g, dt) {
@@ -3328,7 +3342,7 @@
   }
   // リプレイを載せる（kinds は [種類, いつの分] の並び）
   async function rpPut(R, rec, kinds) {
-    if (!rec || !rec.done) return;
+    if (!rec || !rec.done || typeof CompressionStream === 'undefined') return;
     try {
       const F = await firebaseReady(); if (!F) return;
       const d = await gz(JSON.stringify(Object.assign({ v: 1, seed: rec.seed, mode: rec.mode, fr: rec.fr }, rec.mk ? { mk: 1 } : {})));
@@ -3371,12 +3385,19 @@
     // 見られた数（自分のは数えない）
     if (uid !== F.uid) F.db.ref('suwaritai/rpv/' + uid).transaction((v) => (v || 0) + 1).catch(() => { });
     track('リプレイを見た');
+    rpBegin(data, { name: dispName(meta.n, uid), score: meta.s, uid, kind, me: F.uid, list: opt.list || null, k: opt.k || 0 });
+    // いいね済みか
+    F.db.ref('suwaritai/rpl/' + uid + '/' + F.uid).get().then((s) => { RP.liked = !!s.val(); rpButtons(); }).catch(() => { });
+    F.db.ref('suwaritai/rpl/' + uid).get().then((s) => { RP.likes = s.numChildren(); rpButtons(); }).catch(() => { });
+  }
+  // リプレイを始める（data：記録　o：だれの・何点か。own は自分の手もとのリプレイ）
+  function rpBegin(data, o) {
     initAudio(); clearWorld();
     G = SW.create({ seed: data.seed, mode: data.mode, mikiwame: !!data.mk });
     G.modeName = data.mk ? 'mikiwame' : data.mode;
     const looks = {};
     for (const f of data.fr) if (f.nw) Object.assign(looks, f.nw);
-    Object.assign(RP, { active: true, nextI: -2, np: null, fr: data.fr, i: -1, t: 0, t0: data.fr[0].t, speed: 1, paused: false, ended: false, looks, uid, kind, name: dispName(meta.n, uid), score: meta.s, obs: null, liked: false, me: F.uid, P: { pl: G.player, out: false, ghost: false, prompt: null, aim: -1, result: null, tricks: 0 }, list: opt.list || null, k: opt.k || 0 });
+    Object.assign(RP, { active: true, nextI: -2, np: null, fr: data.fr, i: -1, t: 0, t0: data.fr[0].t, speed: 1, paused: false, ended: false, looks, uid: o.uid, kind: o.kind, name: o.name, score: o.score, obs: null, liked: false, likes: null, me: o.me, P: { pl: G.player, out: false, ghost: false, prompt: null, aim: -1, result: null, tricks: 0 }, list: o.list || null, k: o.k || 0, own: !!o.own, data, dg: null });
     $('rpPrevP').classList.toggle('hidden', !RP.list || RP.list.list.length < 2); $('rpNextP').classList.toggle('hidden', !RP.list || RP.list.list.length < 2);
     if (RP.list) $('rpName').dataset.k = (RP.k + 1) + '/' + RP.list.list.length;
     G.player.yaw = 0; endT = 0; pendingResult = false; eyeH = 1.6;
@@ -3386,15 +3407,173 @@
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     $('rpName').innerHTML = (RP.list ? `<small>${RP.k + 1}/${RP.list.list.length}</small> ` : '') + nameHtml(RP.name) + ` <b>${RP.score}</b>点`;
     $('rpBar').classList.remove('hidden'); $('rpEnd').classList.add('hidden'); document.body.classList.add('replay');
+    $('rpLike').classList.toggle('hidden', !!o.own); $('rpLike2').classList.toggle('hidden', !!o.own); $('rpVid').classList.toggle('hidden', !o.own || !vidType());
+    $('rpBack').textContent = o.own ? 'もどる' : 'ランキングにもどる';
     rpButtons();
-    // いいね済みか
-    F.db.ref('suwaritai/rpl/' + uid + '/' + F.uid).get().then((s) => { RP.liked = !!s.val(); rpButtons(); }).catch(() => { });
-    F.db.ref('suwaritai/rpl/' + uid).get().then((s) => { RP.likes = s.numChildren(); rpButtons(); }).catch(() => { });
   }
+  // ================================================================ 自分のリプレイ（手もとに残す）とダイジェスト動画
+  // 遊び終わるたびに、その回の記録を残す（ランキングに載らなくても見られる）。前回の分はこの端末に 1 つだけ保存（suwaritai.myrp）
+  let MYRP = null;
+  const MYRP_KEY = 'suwaritai.myrp';
+  function myRpKeep(g) {
+    if (!REC || REC.fr.length < 10 || !lastResult) { $('bMyRp').classList.add('hidden'); return; }
+    REC.done = true;
+    MYRP = { seed: REC.seed, mode: REC.mode, mk: REC.mk ? 1 : 0, fr: REC.fr, n: rankName(), s: lastResult.sc.total, m: lastResult.mode, at: Date.now() };
+    $('bMyRp').classList.remove('hidden');
+    if (typeof CompressionStream !== 'undefined') {
+      const keep = MYRP;
+      gz(JSON.stringify(keep)).then((d) => { if (MYRP !== keep) return; try { localStorage.setItem(MYRP_KEY, d); } catch (e) { try { localStorage.removeItem(MYRP_KEY); } catch (e2) { } } }).catch(() => { });
+    }
+  }
+  async function myRpLoad() {
+    if (MYRP) return MYRP;
+    try { const d = localStorage.getItem(MYRP_KEY); if (d && typeof DecompressionStream !== 'undefined') MYRP = JSON.parse(await gunz(d)); } catch (e) { MYRP = null; }
+    return MYRP;
+  }
+  async function playMyRp(from) {
+    const d = await myRpLoad(); if (!d || !d.fr || !d.fr.length) { addToast('まだ自分のリプレイがありません（1 回遊ぶと見られます）', 'warn'); return; }
+    track('自分のリプレイを見た');
+    rpBegin(d, { name: d.n || rankName(), score: d.s, uid: 'me', me: 'me', own: true });
+    RP.from = from;
+  }
+  // ---- ダイジェスト動画：見せ場（座れた・大きな善行・KO・ボス駅）は 1 倍、そのあいだは早送りで、だいたい 1 分にまとめる
+  // 3D の画面にスコアや見せ場の文字を重ねて、MediaRecorder で録る（ボタンを押したときだけ。ふだんは重くならない）
+  let VR = null;
+  function vidType() {
+    if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return null;
+    const ok = (t) => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } };
+    const h264 = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1'].find(ok);
+    if (h264) return { type: h264, x: true };
+    if (ok('video/mp4') && !ok('video/webm')) return { type: 'video/mp4', x: true }; // Safari
+    const webm = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(ok);
+    return webm ? { type: webm, x: false } : null;
+  }
+  const DG_PR = (e) => e.type === 'bossResult' ? 4 : e.type === 'ko' ? 3 : e.type === 'points' && e.amount >= 30 ? 3 : e.type === 'sit' ? 2 : e.type === 'points' && e.amount >= 15 ? 1 : 0;
+  function dgPlan(fr) {
+    const T0 = fr[0].t, T = fr[fr.length - 1].t - T0, hs = [];
+    for (const f of fr) for (const e of f.ev || []) { const pr = DG_PR(e); if (pr) hs.push({ t: f.t, pr }); }
+    hs.sort((a, b) => b.pr - a.pr || a.t - b.t);
+    const MAXH = 38, wins = []; // 1 分くらいにまとめる（見せ場は 38 秒まで・強いものから）
+    const total = () => wins.reduce((a, w) => a + w[1] - w[0], 0);
+    for (const h of hs) {
+      const w = [h.t - 2, h.t + 2.5];
+      if (wins.some((x) => w[0] < x[1] && w[1] > x[0])) { for (const x of wins) if (w[0] < x[1] && w[1] > x[0]) { x[0] = Math.min(x[0], w[0]); x[1] = Math.max(x[1], w[1]); } }
+      else wins.push(w);
+      if (total() > MAXH) { wins.pop(); break; }
+    }
+    wins.sort((a, b) => a[0] - b[0]);
+    const H = total(), base = Math.max(4, Math.min(60, (T - H) / Math.max(10, 52 - H)));
+    return { wins, base };
+  }
+  function dgSpeed(now) { const d = RP.dg; return d.wins.some((w) => now >= w[0] && now < w[1]) ? 1 : d.base; }
+  function vrPop(e) {
+    const t = e.type === 'sit' ? '🪑 座れた！' : e.type === 'points' && e.amount >= 10 ? '+' + e.amount + ' 徳　' + (e.text || '') : e.type === 'ko' ? '👊 KO！' : e.type === 'bossResult' ? (e.ok ? '🏆 ボス駅「' + e.name + '」クリア！' : '💀 ボス駅「' + e.name + '」失敗…') : '';
+    if (t) VR.pops.push({ t, at: performance.now() });
+  }
+  function vrStart() {
+    const vt = vidType(); if (!vt || !RP.active || !RP.own) return;
+    track('ダイジェスト動画を作った');
+    // 最初から見せ場つきの早送りで流す
+    const keep = { fr: RP.fr, looks: RP.looks }; clearWorld();
+    G = SW.create({ seed: RP.data.seed, mode: RP.data.mode, mikiwame: !!RP.data.mk }); G.modeName = RP.data.mk ? 'mikiwame' : RP.data.mode;
+    RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null }, keep); RP.P.out = false; RP.P.result = null;
+    RP.dg = dgPlan(RP.fr);
+    $('rpEnd').classList.add('hidden');
+    const src = renderer.domElement, k = 960 / Math.max(src.width, src.height);
+    const out = document.createElement('canvas'); out.width = Math.round(src.width * k / 2) * 2; out.height = Math.round(src.height * k / 2) * 2;
+    const stream = out.captureStream(30);
+    initAudio();
+    let dest = null, keepS = null;
+    if (AU.ctx && AU.master && AU.ctx.createMediaStreamDestination) {
+      dest = AU.ctx.createMediaStreamDestination(); AU.master.connect(dest);
+      dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+      if (AU.ctx.createConstantSource) { keepS = AU.ctx.createConstantSource(); keepS.offset.value = 0.0003; keepS.connect(dest); keepS.start(); } // 音が途切れて詰められないように
+    }
+    const chunks = [], mr = new MediaRecorder(stream, { mimeType: vt.type, videoBitsPerSecond: 2500000 });
+    mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    VR = { mr, out, c: out.getContext('2d'), chunks, vt, dest, keepS, t0: performance.now(), endAt: 0, pops: [] };
+    mr.start(500);
+    $('rpVid').textContent = '■ 録画をやめる'; document.body.classList.add('vrec');
+    addToast('🎬 ダイジェスト動画を作っています（見せ場は普通の速さ、ほかは早送り）', 'good');
+  }
+  function vrFrame() {
+    const v = VR, c = v.c, W = v.out.width, H = v.out.height, now = performance.now();
+    if (!RP.active) { vrStop(true); return; }
+    c.drawImage(renderer.domElement, 0, 0, W, H);
+    const fs = Math.round(Math.min(W, H) * 0.05), g = G;
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    // 上：ロゴ・駅・積んだ徳
+    c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, W, fs * 2.2);
+    c.font = 'bold ' + fs + 'px ' + FONT; c.fillStyle = '#ffd447'; c.fillText('スワリタイ！', fs * 0.5, fs * 1.1);
+    c.textAlign = 'right'; c.fillStyle = '#fff';
+    const st = g ? SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g))) : '';
+    c.fillText((st ? '🚃 ' + st + '　' : '') + '🙏 ' + (g ? g.player.earned : 0), W - fs * 0.5, fs * 1.1);
+    // 早送りのしるし
+    if (RP.speed > 1.5 && !v.endAt) { c.textAlign = 'right'; c.font = 'bold ' + Math.round(fs * 0.8) + 'px ' + FONT; c.fillStyle = 'rgba(255,255,255,.85)'; c.fillText('▶▶ 早送り ×' + Math.round(RP.speed), W - fs * 0.5, fs * 3); }
+    // 見せ場の文字
+    v.pops = v.pops.filter((p) => now - p.at < 2200);
+    v.pops.slice(-3).forEach((p, i, a) => {
+      const y = H * 0.38 + (i - a.length + 1) * fs * 1.5, al = Math.min(1, (2200 - (now - p.at)) / 400);
+      c.globalAlpha = al; c.textAlign = 'center'; c.font = 'bold ' + Math.round(fs * 1.15) + 'px ' + FONT;
+      c.lineWidth = fs * 0.25; c.strokeStyle = 'rgba(0,0,0,.85)'; c.strokeText(p.t, W / 2, y); c.fillStyle = '#ffd447'; c.fillText(p.t, W / 2, y); c.globalAlpha = 1;
+    });
+    // 下：URL
+    const f2 = Math.round(fs * 0.7); c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, H - f2 * 2, W, f2 * 2);
+    c.textAlign = 'center'; c.font = 'bold ' + f2 + 'px ' + FONT; c.fillStyle = '#fff'; c.fillText('ブラウザで無料　robit-devworks.github.io/suwaritai　#スワリタイ', W / 2, H - f2);
+    // はじめ（1.6 秒）と終わりのカード
+    const card = (a, l1, l2, l3) => {
+      c.globalAlpha = a; c.fillStyle = 'rgba(10,12,18,.82)'; c.fillRect(0, 0, W, H); c.textAlign = 'center';
+      c.font = 'bold ' + Math.round(fs * 1.9) + 'px ' + FONT; c.fillStyle = '#ffd447'; c.fillText(l1, W / 2, H * 0.4);
+      c.font = 'bold ' + Math.round(fs * 1.1) + 'px ' + FONT; c.fillStyle = '#fff'; c.fillText(l2, W / 2, H * 0.4 + fs * 2.4);
+      c.font = 'bold ' + Math.round(fs * 0.85) + 'px ' + FONT; c.fillStyle = '#bfe7ff'; c.fillText(l3, W / 2, H * 0.4 + fs * 4.2); c.globalAlpha = 1;
+    };
+    const el = now - v.t0;
+    if (el < 1600) card(Math.min(1, (1600 - el) / 400), 'スワリタイ！', (MODE_JA[RP.data.mk ? 'mikiwame' : RP.data.m || RP.data.mode] || '') + '　ダイジェスト', RP.name + '　' + RP.score + '点');
+    if (v.endAt) card(Math.min(1, (now - (v.endAt - 3200)) / 500), RP.score + '点', 'あなたは座れる？', 'ブラウザで無料　#スワリタイ');
+    if (!v.endAt && now - v.t0 > 72000) { v.endAt = now + 3200; RP.paused = true; } // 長くなりすぎたら最後のカードへ（1 分ちょっとまで）
+    if (v.endAt && now >= v.endAt) vrStop(false);
+  }
+  function vrStop(cancel) {
+    const v = VR; if (!v) return; VR = null;
+    if (RP.dg) { RP.dg = null; RP.speed = 1; }
+    $('rpVid').textContent = '📹 動画にする'; document.body.classList.remove('vrec');
+    v.mr.onstop = () => {
+      if (v.dest) try { AU.master.disconnect(v.dest); } catch (e) { }
+      if (v.keepS) try { v.keepS.stop(); v.keepS.disconnect(); } catch (e) { }
+      if (cancel || !v.chunks.length) return;
+      const blob = new Blob(v.chunks, { type: v.vt.type.split(';')[0] });
+      vidShow(blob, 'suwaritai-digest.' + (/mp4/.test(v.vt.type) ? 'mp4' : 'webm'), v.vt.x);
+    };
+    try { v.mr.stop(); } catch (e) { }
+    if (!cancel && RP.active) { RP.paused = true; rpButtons(); }
+  }
+  let vidUrl = null;
+  function vidShow(blob, name, xOk) {
+    if (vidUrl) URL.revokeObjectURL(vidUrl);
+    vidUrl = URL.createObjectURL(blob);
+    const file = new File([blob], name, { type: blob.type });
+    const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    const R = { sc: { total: RP.score } };
+    const text = 'スワリタイ！で ' + RP.score + '点のダイジェスト🚃\nあなたは座れる？\n\n▶ ブラウザですぐ遊べます（無料）\n' + SHARE_URL + '\n\n#スワリタイ #バカゲー';
+    $('vidBox').innerHTML = `<div class="card"><h3>📹 ダイジェスト動画ができました</h3><video src="${vidUrl}" controls playsinline loop></video>
+      <p class="small" style="margin:6px 0">${(blob.size / 1048576).toFixed(1)}MB${xOk ? '' : '・このブラウザでは WebM 形式なので、X に載せるときは Chrome / Edge / Safari がおすすめ'}</p>
+      ${canShare ? '<button class="btn main" id="vidShare">📤 共有する（X など）</button>' : ''}
+      <a class="btn ${canShare ? '' : 'main'}" id="vidSave" href="${vidUrl}" download="${name}" style="text-decoration:none">💾 保存する</a>
+      <a class="btn" id="vidX" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}" style="text-decoration:none">𝕏 に投稿（保存した動画をつける）</a>
+      <button class="btn sub2" id="vidClose">とじる</button></div>`;
+    $('vidBox').classList.remove('hidden');
+    if ($('vidShare')) $('vidShare').onclick = () => { navigator.share({ files: [file], text }).then(() => { track('ダイジェスト動画を共有した'); shareReward(); }).catch(() => { }); };
+    $('vidSave').onclick = () => track('ダイジェスト動画を保存した');
+    $('vidX').onclick = () => { track('ダイジェスト動画からXへ'); shareReward(); };
+    $('vidClose').onclick = () => { $('vidBox').classList.add('hidden'); if (RP.active && RP.ended) { $('rpEnd').classList.remove('hidden'); $('rpEndT').innerHTML = nameHtml(RP.name) + ' のリプレイ　<b>' + RP.score + '</b>点'; } };
+  }
+  $('rpVid').addEventListener('click', () => { if (VR) { vrStop(true); addToast('録画をやめました', 'warn'); } else vrStart(); });
+  $('bMyRp').addEventListener('click', () => playMyRp('result'));
+  $('bMyRp2').addEventListener('click', () => playMyRp('rank'));
   function rpButtons() {
     $('rpPlay').textContent = RP.paused ? '▶' : '⏸';
     $('rpSpeed').textContent = RP.speed + '×';
-    const self = RP.uid === RP.me;
+    const self = RP.uid === RP.me || RP.own;
     for (const id of ['rpLike', 'rpLike2']) {
       const b = $(id); b.disabled = RP.liked || self;
       b.textContent = (RP.liked ? '❤️ いいね済み' : self ? '❤️ 自分のリプレイ' : '🤍 いいね') + (RP.likes != null ? ' ' + RP.likes : '');
@@ -3402,6 +3581,7 @@
   }
   function rpTick(dt) {
     const g = G, fr = RP.fr;
+    if (RP.dg) RP.speed = dgSpeed(RP.t0 + RP.t);
     if (!RP.paused && !RP.ended && state === 'play') RP.t += dt * RP.speed;
     const now = RP.t0 + RP.t;
     while (RP.i + 1 < fr.length && fr[RP.i + 1].t <= now) {
@@ -3412,6 +3592,7 @@
       applyPl(g, RP.P, a);
       g.aim = RP.P.aim; g.prompt = RP.P.prompt; RP.obs = a[27] || null;
       if (RP.speed <= 2) for (const e of f.ev || []) g.events.push(e);
+      if (VR) for (const e of f.ev || []) vrPop(e);
     }
     // なめらかに動かす：今のコマ（i）と次のコマ（i+1）のあいだを、時間でまっすぐつなぐ（0.2 秒ごとの記録でもカクカクしない）
     if (RP.nextI !== RP.i) { RP.nextI = RP.i; rpPrepNext(g); }
@@ -3438,6 +3619,7 @@
     $('rpProg').style.width = Math.min(100, (RP.i + 1) / fr.length * 100) + '%';
     if (!RP.ended && RP.i >= fr.length - 1) {
       RP.ended = true;
+      if (VR) { VR.endAt = performance.now() + 3200; return; } // 動画のときは最後のカードを出してから止める
       setTimeout(() => { if (RP.active && RP.ended) { $('rpEnd').classList.remove('hidden'); $('rpEndT').innerHTML = nameHtml(RP.name) + ' のリプレイ　<b>' + RP.score + '</b>点'; rpButtons(); } }, 1500);
     }
   }
@@ -3460,9 +3642,12 @@
     if (a && a[4] === g.player.seat) RP.np = [a[0] / 100, a[1] / 100, a[2] / 100, a[3] / 100];
   }
   function rpStop(toRank) {
-    RP.active = false; RP.fr = null;
+    if (VR) vrStop(true);
+    const own = RP.own, from = RP.from;
+    RP.active = false; RP.fr = null; RP.dg = null; RP.own = false;
     $('rpBar').classList.add('hidden'); $('rpEnd').classList.add('hidden');
     titleScreen();
+    if (own) { if (from === 'result' && lastResult) { state = 'result'; backTo = 'title'; show('result'); } else if (from === 'rank') { backTo = 'title'; show('rank'); setRankTab(rankTab); } return; }
     if (toRank) { backTo = 'title'; show('rank'); setRankTab(rankTab); }
   }
   $('rpPlay').addEventListener('click', () => { RP.paused = !RP.paused; rpButtons(); });
@@ -3474,7 +3659,7 @@
   $('rpSpeed').addEventListener('click', () => { RP.speed = RP.speed >= 4 ? 1 : RP.speed * 2; rpButtons(); });
   $('rpClose').addEventListener('click', () => rpStop(true));
   $('rpBack').addEventListener('click', () => rpStop(true));
-  $('rpAgain').addEventListener('click', () => { const keep = { fr: RP.fr, looks: RP.looks }; clearWorld(); const seed = G.seed, mode = G.mode; G = SW.create({ seed, mode }); RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null }, keep); RP.P.out = false; RP.P.result = null; $('rpEnd').classList.add('hidden'); });
+  $('rpAgain').addEventListener('click', () => { const keep = { fr: RP.fr, looks: RP.looks }; clearWorld(); const seed = G.seed, mode = G.mode; G = SW.create({ seed, mode, mikiwame: !!(RP.data && RP.data.mk) }); RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null }, keep); RP.P.out = false; RP.P.result = null; $('rpEnd').classList.add('hidden'); });
   for (const id of ['rpLike', 'rpLike2']) $(id).addEventListener('click', async () => {
     if (RP.liked || RP.uid === RP.me) return;
     RP.liked = true; RP.likes = (RP.likes || 0) + 1; rpButtons(); sfx('combo');
@@ -4137,6 +4322,7 @@
     }
     renderer.render(scene, camera);
     if (SHOT.pending) takeShot();
+    if (VR) vrFrame();
   }
   // 起動
   function boot() {

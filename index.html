@@ -279,6 +279,8 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 .rpProgW{height:4px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:6px;overflow:hidden}
 #rpProg{display:block;height:100%;width:0;background:#ffd447}
 .rpMark{font-size:10px;color:var(--sub);text-align:right;margin-top:3px}
+#vidBox{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}#vidBox.hidden{display:none}#vidBox .card{max-width:420px;width:calc(100% - 28px);max-height:calc(100% - 24px);overflow:auto}#vidBox video{width:100%;max-height:50vh;border-radius:10px;background:#000}#vidBox .btn{display:block;margin:6px 0}
+body.vrec #rpPlay,body.vrec #rpSpeed,body.vrec #rpTpv{opacity:.4;pointer-events:none}
 #rpEnd{position:fixed;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)}
 #rpEnd .card{max-width:360px;width:calc(100% - 32px)}
 .rk .rpb{flex:0 0 auto;font:inherit;font-size:14px;width:34px;height:30px;border-radius:8px;border:1px solid #ffd447;background:rgba(255,212,71,.12);color:#ffd447;cursor:pointer}
@@ -542,8 +544,9 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="fx"><div id="hitFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
 
 <div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spTpv">🎥 3人称</button><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
-<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpLike">🤍 いいね</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
+<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpLike">🤍 いいね</button><button id="rpVid" class="hidden">📹 動画にする</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
 <div id="rpEnd" class="hidden"><div class="card"><h3 id="rpEndT"></h3><button class="btn main" id="rpLike2">🤍 いいね</button><button class="btn sub2" id="rpAgain">もう一度見る</button><button class="btn sub2" id="rpBack">ランキングにもどる</button></div></div>
+<div id="vidBox" class="hidden"></div>
 <div id="lobbyBan" class="hidden"></div>
 <div id="hud" class="hidden">
   <div id="carryCard" class="hidden"></div>
@@ -691,9 +694,10 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <kbd>Space</kbd><span>踏ん張る（揺れ対策）・ガード</span>
       <kbd>Q</kbd><span>狸寝入り（座っている時）</span>
       <kbd>1〜7</kbd><span>スキル</span>
-      <kbd>Esc</kbd><span>一時停止</span>
+      <kbd>Esc / P</kbd><span>一時停止（全画面のままなら P）</span>
     </div>
     <p class="small">📱 スマホは、人や空いた席を<b>軽くタップ</b>するとそっちを向きます。一時停止（Ⅱ）で<b>視点の感度</b>と<b>✋ 片手モード</b>（右手・左手）を選べます。片手モードはスティックを少し倒すと見回す、大きく倒すと歩きます。</p>
+    <p class="small">🎬 遊び終わったら、結果画面で<b>自分のリプレイ</b>が見られます（前回の分はランキングの画面からも）。「📹 動画にする」で見せ場をまとめた<b>ダイジェスト動画</b>を作って、X などにシェアできます。</p>
     <p class="small">スコア ＝ 集めた徳 ＋ 駅ごとのボーナス ＋ 完走ボーナス − カルマ</p>
     <p class="small">作者：ROBIT（<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">𝕏 @ROBITdesuyo</a>）　アップデート情報も X で<br>作者のほかのゲーム：<a class="dg-link" data-from="遊び方" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--accent)">🎮 デストロイ碁（石を壊す囲碁バトル）</a></p>
     <p class="small">ランキングには「乗客名」とスコアだけを記録します（ログインは不要。端末ごとに自動で番号がつきます）。遊ばれた回数を GoatCounter で数えています（Cookie なし・個人は分かりません）。</p>
@@ -708,6 +712,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="tabs" id="rankTabs2"><button data-rt="rkon">🏅 対戦レート</button><button data-rt="mkweek">👀 見極め</button><button data-rt="coop2">🤝 共闘</button></div>
     <div class="tabs hidden" id="mkTabs"><button data-mt="week" class="on">今週</button><button data-mt="best">歴代</button></div>
     <div class="tabs hidden" id="coopTabs"><button data-ct="2" class="on">2人</button><button data-ct="3">3人</button><button data-ct="4">4人</button></div>
+    <button class="btn sub2" id="bMyRp2" style="margin:2px 0 6px;padding:6px">🎬 前回の自分のリプレイ</button>
     <div id="rankNote" class="small"></div>
     <div id="rankList"></div>
     <button class="btn sub2" data-back>もどる</button>
@@ -779,7 +784,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <p class="small hidden" id="handNote" style="margin:-4px 0 8px;color:var(--sub)">片手モード（縦画面）：スティックを少し倒すと見回す、大きく倒すと歩く。人や空いた席を軽くタップすると、そっちを向く。</p>
     <button class="btn" id="bHow2">📖 遊び方</button>
     <button class="btn" id="bQuit">タイトルへ（途中でやめる）</button>
-    <p class="small">PCは画面をクリックするとマウスで見回せます。</p>
+    <p class="small">PCは画面をクリックするとマウスで見回せます。全画面のままメニューを開くには <b>P</b> キー（Chrome・Edge は Esc でも OK。全画面をやめるときは Esc を長押し）。</p>
   </div>
 </div>
 
@@ -866,6 +871,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="stats" id="rStats"></div>
     <div class="row"><a class="btn" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn" id="bShareImg">🖼 画像</button><a class="btn follow-x" id="bFollow" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="text-decoration:none">🔔 フォロー</a></div>
     <p class="other-game"><a class="dg-link" data-from="結果" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener">🎮 作者の別ゲーム：デストロイ碁（囲碁バトル）›</a></p>
+    <button class="btn sub2 hidden" id="bMyRp">🎬 今の自分のリプレイを見る（動画にもできる）</button>
     <div class="row"><button class="btn main" id="bRetry">もう一回乗る</button></div>
     <button class="btn sub2" id="bToTitle">タイトルへ</button>
     </div>
@@ -889,7 +895,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261111065343"</script><script src="logic.js?v=20261111065343"></script>
-<script src="game.js?v=20261111065343"></script>
+<script>window.SW_VER="20261111071559"</script><script src="logic.js?v=20261111071559"></script>
+<script src="game.js?v=20261111071559"></script>
 </body>
 </html>
