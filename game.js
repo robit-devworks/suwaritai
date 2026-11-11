@@ -1482,7 +1482,7 @@
     if (mi !== hud.mind) { hud.mind = mi; $('mindF').style.width = mi + '%'; $('mindV').textContent = mi; $('mindBar').classList.toggle('danger', mi <= 25); }
     if (ka !== hud.karma) { hud.karma = ka; $('karmaF').style.width = ka + '%'; $('karmaV').textContent = ka; $('karmaBar').classList.toggle('danger', ka >= 75); }
     // スコア（集めた徳の合計。スキルを使っても減らない）と、スキルに使える徳を分けて出す
-    const scoreNow = Math.max(0, pl.earned + g.stats.stations * 10 - Math.round(pl.karma));
+    const scoreNow = Math.max(0, pl.earned + (g.stats.stations - (pl.stBase || 0)) * 10 - Math.round(pl.karma));
     if (scoreNow !== hud.toku) { hud.toku = scoreNow; $('toku').textContent = scoreNow; }
     if (pl.toku !== hud.wallet) { hud.wallet = pl.toku; $('walletV').textContent = pl.toku; }
     $('combo').textContent = pl.combo > 1 && g.t - pl.lastDeedT < SW.C.COMBO_WINDOW ? '善行コンボ ×' + Math.min(2.5, 1 + 0.25 * (pl.combo - 1)).toFixed(2).replace(/0$/, '') + '（' + Math.ceil(SW.C.COMBO_WINDOW - (g.t - pl.lastDeedT)) + '秒）' : '';

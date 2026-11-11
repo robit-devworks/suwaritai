@@ -284,7 +284,7 @@
       g.multi = true; g.pi = -1;
       const spots = [[0.4, 0.6], [-0.6, -0.55], [1.5, -0.5], [-1.4, 0.55]];
       g.players = opts.players.map((o, i) => ({
-        i, name: o.name || ('プレイヤー' + (i + 1)), cpu: !!o.cpu, pl: Object.assign(makePlayer(spots[i % 4][0], spots[i % 4][1]), { st: capStats(o.cpu ? { hp: 3, spd: 3, atk: 4, def: 4, guts: 3, eye: 3 } : o.stats, STAT_CAP_FAIR) }), stats: makeStats(),
+        i, name: o.name || ('プレイヤー' + (i + 1)), cpu: !!o.cpu, pl: Object.assign(makePlayer(spots[i % 4][0], spots[i % 4][1]), { toku: MP_TOKU, st: capStats(o.cpu ? { hp: 3, spd: 3, atk: 4, def: 4, guts: 3, eye: 3 } : o.stats, STAT_CAP_FAIR) }), stats: makeStats(),
         aim: -1, prompt: null, events: [], out: false, result: null, ghost: false, tricks: 0, pko: 0,
       }));
       g.worldPlayer = makePlayer(999, 0); g.worldStats = makeStats(); g.worldEvents = [];
@@ -626,8 +626,22 @@
     toast(g, '💥 本番なら「' + (SAVE_MSG[cause] || '終わってた') + '」！（' + g.stats.saves + '回目）…練習なので続行', 'bad');
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'shake', amount: 0.8 });
   }
+  // オンライン（⚔ 対戦）は脱落なし：倒れたら（膝が笑った・KO・連行・心が折れた）その場でやり直し。スコアは 0 から、徳は 30 から（はじめも徳 30）
+  const MP_TOKU = 30;
+  function mpRespawn(g, cause) {
+    const P = g.players[g.pi], pl = P.pl;
+    if (pl.seat >= 0) { freeSeat(g, g.seats[pl.seat], -1); pl.seat = -1; }
+    if (pl.carrying) { const it = pl.carrying; pl.carrying = null; [it.x, it.z] = aisleClamp(pl.x, pl.z); it.taken = false; it.t0 = g.t; g.items.push(it); }
+    pl.earned = 0; pl.toku = MP_TOKU; pl.karma = 0; pl.stamina = 100; pl.mind = 100; pl.combo = 0; pl.stBase = g.stats.stations;
+    pl.fakeSleep = false; pl.mode = null; pl.stagger = 0; pl.hitFlash = 0.8; pl.buffs = {};
+    P.respawns = (P.respawns || 0) + 1;
+    toast(g, '💫 ' + CAUSES[cause].title + '…！ スコア 0・徳 ' + MP_TOKU + ' からやり直し', 'bad');
+    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'shake', amount: 0.8 });
+    toOthers(g, { type: 'toast', text: P.name + ' が' + CAUSES[cause].title + '！（スコア 0 からやり直し）', kind: 'warn' });
+  }
   function gameOver(g, cause, extra) {
     if (g.practice && !g.multi && cause !== 'clear') { practiceSave(g, cause); return; }
+    if (g.multi && !g.coop && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out) mpRespawn(g, cause); return; }
     if (g.multi) {
       const P = g.players[g.pi]; if (!P || P.out) return;
       P.out = true; P.outT = g.t; P.outStation = g.station; g.outCount = (g.outCount || 0) + 1; P.outOrder = g.outCount;
@@ -650,7 +664,7 @@
   function finalScore(g) {
     const res = g.multi ? (g.pi >= 0 ? g.players[g.pi].result : null) : g.result;
     const pl = g.player, clear = res && res.cause === 'clear';
-    const stationBonus = g.stats.stations * 10;
+    const stationBonus = (g.stats.stations - (pl.stBase || 0)) * 10; // オンラインでやり直したら、そこからの駅だけ
     const clearBonus = clear ? 300 + Math.round(pl.stamina) : 0;
     const karmaPen = Math.round(pl.karma);
     const total = Math.max(0, pl.earned + stationBonus + clearBonus - karmaPen);
