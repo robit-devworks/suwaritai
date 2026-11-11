@@ -1145,6 +1145,7 @@
     const sw = Math.sin(now * 1.7) * 0.08 * (v / VMAX) + lurchKick * 0.5;
     for (const s of straps) s.rotation.z = sw;
     updateAvatars(g, dt, now);
+    updateSelfFig(g, dt, now);
     // ビーム
     for (let i = beams.length - 1; i >= 0; i--) { const b = beams[i]; b.t -= dt; b.m.material.opacity = Math.max(0, b.t / 0.6); b.m.rotation.y += dt * 20; if (b.t <= 0) { scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose(); beams.splice(i, 1); } }
   }
@@ -1627,6 +1628,7 @@
     }
     camera.position.set(pl.x + ox, y + oy, pl.z);
     camera.rotation.set(pitch, yaw, roll);
+    if (tpvOn()) { tpvCamera(g, dt); fpR.visible = fpL.visible = false; return; }
     // 手
     const guard = pl.seat < 0 && (pl.braceHeld) && !g.over;
     const pa = pl.punchAnim > 0 ? 1 - pl.punchAnim / 0.3 : 0;
@@ -1812,7 +1814,13 @@
   const special = (n) => nameRank(n) > 0 || isAnimalName(n);
   const nameRolls = () => (SW.levelOf(profile.xp || 0).lv >= 20 ? 5 : 3);
   function rollsLeft() { const v = profile.nameRolls; return v && v.d === todayKey() ? Math.max(0, nameRolls() - v.n) : nameRolls(); }
-  function useRoll() { profile.nameRolls = { d: todayKey(), n: nameRolls() - rollsLeft() + 1 }; }
+  // ランキングのごほうびの「名前ガチャチケット」（profile.nameTickets）。その日の回数を使い切ったあとに使う
+  const ticketsLeft = () => Math.max(0, profile.nameTickets || 0);
+  const canRoll = () => rollsLeft() + ticketsLeft() > 0;
+  function useRoll() {
+    if (rollsLeft() > 0) { profile.nameRolls = { d: todayKey(), n: nameRolls() - rollsLeft() + 1 }; return; }
+    if (ticketsLeft() > 0) { profile.nameTickets = ticketsLeft() - 1; track('名前ガチャチケットを使った'); }
+  }
   const keepList = () => { const k = (profile.nameKeep || []).filter(Boolean); if (k.length > KEEP_MAX) { k.sort((x, y) => nameRank(y) - nameRank(x)); k.length = KEEP_MAX; profile.nameKeep = k; } return k; };
   const isKept = (n) => keepList().includes(n);
   function keepName(n) { // 空きがあればキープ。できたら true
@@ -1836,8 +1844,9 @@
     const left = rollsLeft(), keep = keepList(), kept = keep.includes(profile.name);
     $('ngName').innerHTML = avHtml(profile.name, 'avbig') + '<div>' + nameHtml(profile.name, 1) + '</div>'
       + `<button class="ngpin ${kept ? 'on' : ''}" id="ngPin" ${!kept && keep.length >= KEEP_MAX ? 'disabled' : ''}>${kept ? '📌 キープ中' : keep.length >= KEEP_MAX ? 'キープ枠がいっぱい' : '📌 この名前をキープ'}</button>`;
-    $('ngRoll').disabled = !left; $('ngRoll').textContent = left ? '🎲 名前を引き直す（今日あと ' + left + ' 回）' : '🎲 明日また引けます';
-    $('ngNote').textContent = !left ? '' : kept ? '今の名前はキープしてあるので、いつでも戻せます' : 'キープしていない今の名前は、引き直すと消えます';
+    const tk = ticketsLeft();
+    $('ngRoll').disabled = !left && !tk; $('ngRoll').textContent = left ? '🎲 名前を引き直す（今日あと ' + left + ' 回' + (tk ? '＋🎟' + tk + '枚' : '') + '）' : tk ? '🎟 チケットで引き直す（あと ' + tk + ' 枚）' : '🎲 明日また引けます';
+    $('ngNote').textContent = !left && !tk ? '' : kept ? '今の名前はキープしてあるので、いつでも戻せます' : 'キープしていない今の名前は、引き直すと消えます';
     let h = `<div class="small" style="width:100%;color:var(--sub)">キープ ${keep.length}/${KEEP_MAX}（押すとその名前と顔にする・✕ で外す）</div>`;
     for (let i = 0; i < KEEP_MAX; i++) {
       const n = keep[i];
@@ -1855,7 +1864,7 @@
     renderNameGacha();
   });
   $('ngRoll').addEventListener('click', () => {
-    if (!rollsLeft()) return;
+    if (!canRoll()) return;
     if (special(profile.name) && !isKept(profile.name) && !confirm('今の名前「' + profile.name + '」はキープしていません。引き直すと消えますが、いいですか？')) return;
     useRoll();
     const n = makeName(); setName(n);
@@ -2488,6 +2497,7 @@
         if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${rankTxt(main)}・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
         else if (state === 'result') $('rRank').textContent = '';
         if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : 'day');
+        if (!DB) claimGifts();
       } catch (e) {
         if (state === 'result') $('rRank').textContent = 'ランキングに記録できませんでした（記録はこの端末に残っています）';
       }
@@ -2598,6 +2608,32 @@
     const m = arr.findIndex((x) => x.id === mine.id);
     return withRanks(arr.slice(Math.max(0, m - NEAR_N), m + NEAR_N + 1), mine.id, mine.rank);
   }
+  // ---- ランキングのごほうび（Actions の suwaritai-gifts が置く）：名前ガチャチケットと、先週 1 位の 👑
+  let crownCache = null, giftChecked = false;
+  async function fetchCrown(F) {
+    if (crownCache) return crownCache;
+    try { crownCache = (await withTimeout(F.db.ref('suwaritai/crown').get(), 8000)).val() || {}; } catch (e) { crownCache = {}; }
+    return crownCache;
+  }
+  const crownOf = (b, id) => { const c = b && b.crown && b.crown[id]; return c && c.until >= todayKey() ? '<span class="crown" title="先週の今週ランキング 1 位">👑</span>' : ''; };
+  async function claimGifts() {
+    if (giftChecked || DB || !fbAllowed) return; giftChecked = true;
+    try {
+      const F = await firebaseReady(); if (!F) return;
+      const ref = F.db.ref('suwaritai/gifts/' + F.uid);
+      const v = (await withTimeout(ref.get(), 8000)).val();
+      if (!v || !(v.t > 0)) return;
+      await withTimeout(ref.remove(), 8000); // 先に消す（消せなかったら受け取らない＝2 回もらえないように）
+      profile.nameTickets = ticketsLeft() + Math.min(20, v.t); saveProfile();
+      track('ランキングのごほうびを受け取った');
+      const bn = document.createElement('div'); bn.id = 'giftBanner';
+      bn.innerHTML = `<b>🎁 ${esc(v.msg || 'ランキングのお礼')}</b><span>名前ガチャチケット 🎟×${Math.min(20, v.t)} をプレゼント！ 遊んでくれてありがとう</span><div><button class="btn main" id="giftGo">🎲 名前ガチャを引く</button><button class="btn sub2" id="giftX">あとで</button></div>`;
+      document.body.appendChild(bn);
+      sfx('clear');
+      $('giftX').addEventListener('click', () => bn.remove());
+      $('giftGo').addEventListener('click', () => { bn.remove(); if (state === 'play') return; backTo = state === 'result' ? 'result' : 'title'; renderNameGacha(); show('namegacha'); });
+    } catch (e) { giftChecked = false; }
+  }
   async function fetchBoard(tab) {
     const dk = todayKey();
     if (DB) {
@@ -2632,7 +2668,9 @@
       try { const h = (await withTimeout(F.db.ref(histPath(path)).get(), 8000)).val() || {}; let t = 0; for (const k in h) t += +h[k] || 0; total = t >= arr.length ? t : null; } catch (e) { total = null; }
     }
     const rp = await fetchRpInfo(F, tab).catch(() => null);
-    return { list: arr, me: F.uid, mine, total, rp, near };
+    const crown = await fetchCrown(F);
+    claimGifts();
+    return { list: arr, me: F.uid, mine, total, rp, near, crown };
   }
   document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
   function setRankTab(tab) {
@@ -2648,7 +2686,7 @@
       if (x.score !== prev) { rank = i + 1; prev = x.score; }
       const me = x.id === b.me; if (me) meShown = true;
       const rp = b.rp && rank <= RP_TOP && b.rp.has[x.id] === x.score ? b.rp : null;
-      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}${rpStats(rp, x.id)}</div></span><span class="sc">${x.score}</span>${rp ? `<button class="rpb" data-rp="${esc(x.id)}" data-kind="${rp.kind}" title="リプレイを見る">▶</button>` : ''}</div>`;
+      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${crownOf(b, x.id)}${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}${rpStats(rp, x.id)}</div></span><span class="sc">${x.score}</span>${rp ? `<button class="rpb" data-rp="${esc(x.id)}" data-kind="${rp.kind}" title="リプレイを見る">▶</button>` : ''}</div>`;
     });
     if (b.mine && !meShown) {
       // 100 位より下：自分の点数のまわり（上と下の数人）を出す。結果画面の小さい表では上下 1 人ずつ
@@ -2658,7 +2696,7 @@
       const inList = new Set(b.list.slice(0, limit).map((x) => x.id));
       near.slice(Math.max(0, m - k), m + k + 1).filter((x) => !inList.has(x.id)).forEach((x) => {
         const me = x.id === b.me;
-        html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${x.rank == null ? '-' : x.rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
+        html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${x.rank == null ? '-' : x.rank}</span><span class="nm">${crownOf(b, x.id)}${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
       });
     }
     return html;
@@ -2872,6 +2910,8 @@
     if (toRank) { backTo = 'title'; show('rank'); setRankTab(rankTab); }
   }
   $('rpPlay').addEventListener('click', () => { RP.paused = !RP.paused; rpButtons(); });
+  for (const id of ['rpTpv', 'spTpv']) $(id).addEventListener('click', () => setTpv(!TPV));
+  for (const id of ['rpTpv', 'spTpv']) $(id).textContent = TPV ? '👁 1人称' : '🎥 3人称';
   $('rpSpeed').addEventListener('click', () => { RP.speed = RP.speed >= 4 ? 1 : RP.speed * 2; rpButtons(); });
   $('rpClose').addEventListener('click', () => rpStop(true));
   $('rpBack').addEventListener('click', () => rpStop(true));
@@ -3353,6 +3393,42 @@
     titleScreen();
     titleToast(msg);
     if (wasActive) track('オンライン：試合が中断した');
+  }
+  // ---- 3 人称視点（リプレイと観戦だけ）：見ている人の体を出して、カメラをうしろ上に置く
+  let TPV = !!profile.tpv, selfH = null, camYaw = null;
+  const tpvOn = () => (TPV && (RP.active || (MP.active && MP.spect))) || !!window.__tpvForce; // __tpvForce：見た目を確かめる用
+  function setTpv(on) {
+    TPV = on; profile.tpv = on ? 1 : 0; saveProfile(); camYaw = null;
+    document.body.classList.toggle('tpv', tpvOn());
+    for (const id of ['rpTpv', 'spTpv']) if ($(id)) $(id).textContent = on ? '👁 1人称' : '🎥 3人称';
+    track(on ? '3人称で見た' : '1人称にもどした');
+  }
+  function updateSelfFig(g, dt, now) {
+    const on = tpvOn(); document.body.classList.toggle('tpv', on);
+    if (!on) { if (selfH) selfH.root.visible = false; return; }
+    if (!selfH) selfH = buildHuman(fakePerson(-99, { h: 1.72, look: { top: '#e0703a', bottom: '#22252c', skin: '#f1c9a5', hair: '#1d1612', hairStyle: 'short', topName: 'オレンジ' } }));
+    const b = g.player, fp = selfH.p;
+    selfH.root.visible = !g.over || (g.result && g.result.cause === 'clear');
+    const moved = Math.hypot(b.x - fp.x, b.z - fp.z);
+    if (b.seat >= 0) { const s = g.seats[b.seat]; fp.state = 'seated'; fp.x = s.x; fp.z = s.z; fp.ry = s.side > 0 ? Math.PI : 0; fp.sleep = b.fakeSleep ? 2 : 0; }
+    else { fp.state = moved > 0.004 ? 'walk' : 'stand'; fp.x = b.x; fp.z = b.z; fp.ry = b.yaw + Math.PI; fp.sleep = 0; if (moved > 0.004) fp.walkPhase += moved * 18; fp.speed = 1.6; }
+    fp.expr = b.stamina <= 20 ? 'sick' : b.stamina < 45 ? 'worried' : b.punchAnim > 0 ? 'angry' : 'neutral'; fp.exprT = 1;
+    poseHuman(selfH, g, dt, now);
+    if (b.punchAnim > 0 && b.seat < 0) { selfH.armR.sh.rotation.set(-1.55, 0, 0); selfH.armR.el.rotation.x = -0.1; }
+    if (b.braceHeld && b.seat < 0) { selfH.armR.sh.rotation.set(-2.85, 0, 0.12); selfH.armL.sh.rotation.set(-2.85, 0, -0.12); }
+    faceState(selfH, g, now);
+  }
+  // 3 人称のカメラ：立っているときはうしろ上、座っているときは通路から。車両の外や天井に出ないようにする
+  function tpvCamera(g, dt) {
+    const pl = g.player;
+    if (camYaw == null) camYaw = pl.yaw;
+    camYaw += angDiff(camYaw, pl.yaw) * Math.min(1, dt * 3);
+    let cx, cz, cy, ty;
+    if (pl.seat >= 0) { const s = g.seats[pl.seat]; cx = s.x + 0.9; cz = -Math.sign(s.z) * 0.35; cy = 1.75; ty = 1.05; }
+    else { cx = pl.x + Math.sin(camYaw) * 1.55; cz = pl.z + Math.cos(camYaw) * 1.55; cy = 1.85; ty = 1.4; } // 手すり（高さ 1.98）より下
+    cz = Math.max(-1.2, Math.min(1.2, cz)); cx = Math.max(CAR_X0 + 0.4, Math.min(CAR_X1 - 0.4, cx));
+    camera.position.set(cx, cy, cz);
+    camera.lookAt(pl.seat >= 0 ? g.seats[pl.seat].x : pl.x, ty, pl.seat >= 0 ? g.seats[pl.seat].z : pl.z);
   }
   // ---- ほかのプレイヤーの体（色つきの名札）
   function updateAvatars(g, dt, now) {

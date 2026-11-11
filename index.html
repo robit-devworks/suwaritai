@@ -209,6 +209,12 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .rk .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rk .ttl{font-size:11px;color:var(--sub)}
 .jumpMe{display:block;width:100%;margin:0 0 6px;padding:6px;font-size:13px}
+#giftBanner{position:fixed;left:50%;top:max(14px,env(safe-area-inset-top));transform:translateX(-50%);z-index:90;width:min(360px,calc(100% - 24px));background:#1d2230;border:2px solid #ffd447;border-radius:16px;padding:12px 14px;color:#fff;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#giftBanner b{display:block;font-size:16px;color:#ffd447;margin-bottom:4px}
+#giftBanner span{display:block;font-size:13px;margin-bottom:8px}
+#giftBanner div{display:flex;gap:6px}#giftBanner .btn{flex:1;margin:0;padding:8px;font-size:13px}
+.crown{margin-right:2px}
+body.tpv #cross,body.tpv #target{display:none!important}
 .vtag{display:inline-block;font-size:9px;line-height:1;padding:2px 4px;margin-right:4px;border-radius:4px;background:#2f9e6b;color:#fff;vertical-align:1px}
 .rk .sc{font-weight:800;color:var(--toku)}
 .rk.me{background:rgba(255,212,71,.12);border-radius:8px}
@@ -506,8 +512,8 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 
 <div id="fx"><div id="hitFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
 
-<div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
-<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpLike">🤍 いいね</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
+<div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spTpv">🎥 3人称</button><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
+<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpTpv">🎥 3人称</button><button id="rpLike">🤍 いいね</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
 <div id="rpEnd" class="hidden"><div class="card"><h3 id="rpEndT"></h3><button class="btn main" id="rpLike2">🤍 いいね</button><button class="btn sub2" id="rpAgain">もう一度見る</button><button class="btn sub2" id="rpBack">ランキングにもどる</button></div></div>
 <div id="hud" class="hidden">
   <div id="carryCard" class="hidden"></div>
@@ -805,7 +811,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111023701"></script>
-<script src="game.js?v=20261111023701"></script>
+<script src="logic.js?v=20261111025833"></script>
+<script src="game.js?v=20261111025833"></script>
 </body>
 </html>
