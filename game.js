@@ -1611,7 +1611,9 @@
   const RARE_B = ['帝王', '座席王', '座り神', '終着駅', '銀河鉄道', '予言者', '吊革王', '大聖人'];
   const rareP = () => 0.02;
   const pickW = (a) => a[Math.floor(Math.random() * a.length)];
-  function pickB() { const r = Math.random(); return r < rareP() ? pickW(RARE_B) : r < rareP() + ANIMAL_P ? pickW(NAME_ANIMAL) : pickW(NAME_B); }
+  // 動物は「顔」ごとに同じ確率にする（「タヌキ」と「狸」はどちらもタヌキの顔なので、2 つで 1 種類ぶん）
+  const pickAnimal = () => { const w = pickW(NAME_ANIMAL.filter((x) => x !== '狸')); return w === 'タヌキ' && Math.random() < 0.5 ? '狸' : w; };
+  function pickB() { const r = Math.random(); return r < rareP() ? pickW(RARE_B) : r < rareP() + ANIMAL_P ? pickAnimal() : pickW(NAME_B); }
   function makeName() {
     for (let i = 0; i < 50; i++) {
       const n = `${Math.random() < rareP() ? pickW(RARE_A) : pickW(NAME_A)}${pickB()}${Math.floor(10 + Math.random() * 90)}`;
