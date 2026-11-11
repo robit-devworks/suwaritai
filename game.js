@@ -1292,7 +1292,8 @@
   const joyEl = $('joy'), joyBase = $('joyBase'), joyKnob = $('joyKnob');
   let joyId = null, joyO = null, lookId = null, lookP = null, lookMv = 0, lookT0 = 0;
   // 視点の感度（一時停止の画面で 0.5〜3 倍。指でなぞる・マウスに効く）
-  const sens = () => profile.sens || 1;
+  const SENS0 = isTouch ? 1.4 : 1; // はじめの感度（2026-11-12：スマホは上げる人が多かったので 1.4 に）
+  const sens = () => profile.sens || SENS0;
   // ---- タップした人・空いた席のほうを向く（指で画面を軽くたたく）
   let FACE = null;
   const _fv = new T3.Vector3();
@@ -1495,6 +1496,9 @@
     if (sName !== hud.st) { hud.st = sName; $('stName').textContent = sName; }
     if (sSub !== hud.sub) { hud.sub = sSub; $('stSub').textContent = sSub; }
     $('stProg').firstChild.style.width = (prog * 100).toFixed(1) + '%';
+    // ボス駅の様子（あと何人でクリアか）
+    const bst = SW.bossStatus(g), bt = bst ? (bst.ok ? '✅ ' : '⚠ ') + bst.name + '　' + bst.text : '';
+    if (bt !== hud.boss) { hud.boss = bt; $('stBoss').textContent = bt; $('stBoss').classList.toggle('hidden', !bt); $('stBoss').classList.toggle('ok', !!(bst && bst.ok)); }
     // バフ
     const bl = [];
     for (const k in pl.buffs) { const s = SW.SKILLS.find(s => s.key === k); bl.push(s.icon + ' ' + Math.ceil(pl.buffs[k]) + '秒'); }
@@ -1668,7 +1672,7 @@
     let oy = (Math.random() - 0.5) * shakeAmt * 0.06;
     roll += lurchKick * 0.05 + (pl.stagger > 0 ? Math.sin(now * 12) * 0.03 : 0);
     let yaw = pl.yaw, pitch = pl.pitch;
-    if (g.coop && MP.active && g.players[MP.me] && g.players[MP.me].down) { y = 0.45; roll = 0.5; pitch = Math.min(pitch, 0.1); } // 共闘で倒れているあいだは床から
+    if (MP.active && g.players[MP.me] && g.players[MP.me].down) { y = 0.45; roll = 0.5; pitch = Math.min(pitch, 0.1); } // 共闘で倒れているあいだは床から
     if (g.over) {
       endT += dt;
       const c = g.result.cause;
@@ -2013,6 +2017,9 @@
     G.rkTrain = rkTrain; G.rkWeek = resume ? resume.meta.rkWeek : weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
     G.rookie = resume ? !!resume.meta.rookie : mode === 'normal' && !profile.plays && !profile.rookieDone;
+    if (G.rookie && !resume && G.bossAt) { // 見習い乗車：はじめのボス駅（初級）は 5 駅目から（2026-11-12：はじめての人の多くが 2〜3 駅目で倒れていた）
+      for (const st of Object.keys(G.bossAt).map(Number)) if (SW.BOSS[G.bossAt[st]] && SW.BOSS[G.bossAt[st]].tier === 1 && st < 5) { const k = G.bossAt[st]; delete G.bossAt[st]; if (!G.bossAt[5] && !G.bossAt[6]) G.bossAt[5] = k; }
+    }
     $('rookieTag').classList.toggle('hidden', !G.rookie); document.body.classList.toggle('rookie', !!G.rookie);
     document.body.classList.toggle('rookie', !!G.rookie || !!rule); // 右上の札の分、落とし物の小さいカードを下げる
     G.moments = []; SHOT.url = null; SHOT.p = 0; SHOT.pending = null;
@@ -2547,7 +2554,7 @@
   $('pauseBtn').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
   // 片手モードは 2026-11-11 にやめた（本人：微妙）。前に選んでいた人の設定も消す
   if (profile.hand) { delete profile.hand; saveProfile(); }
-  function showSens() { const v = profile.sens || 1; $('sensR').value = v; $('sensV').textContent = v.toFixed(1) + '倍'; }
+  function showSens() { const v = profile.sens || SENS0; $('sensR').value = v; $('sensV').textContent = v.toFixed(1) + '倍'; }
   $('sensR').addEventListener('input', () => { profile.sens = Math.round(+$('sensR').value * 10) / 10; showSens(); });
   $('sensR').addEventListener('change', () => { saveProfile(); track('感度を変えた：' + (profile.sens || 1).toFixed(1)); });
   showSens();
@@ -2935,8 +2942,8 @@
   }
   const rankTxt = (x) => x && x.rank ? x.rank + '位' + (x.total ? '/' + x.total.toLocaleString() + '人（上位' + Math.max(1, Math.ceil(x.rank / x.total * 100)) + '%）' : '') : x ? '100位より下' : '-';
   // ランキングの記録に「どの版で出した点か」の印 v をつける（1 = 印なし＝2026-11-11 のアップデート前。ボス駅などを入れた版が 2）
-  const SCORE_VER = 2;
-  const verTag = (x) => x && x.v >= SCORE_VER ? '<span class="vtag" title="アップデート後（ボス駅あり）の記録">新</span>' : '';
+  const SCORE_VER = 3; // 3：ボス駅の調整（2026-11-12）
+  const verTag = (x) => x && x.v >= SCORE_VER ? '<span class="vtag" title="いちばん新しい版（ボス駅の調整後）の記録">新</span>' : '';
   async function submitFirebase(R) {
     const F = await firebaseReady(); if (!F) return null;
     const dk = todayKey(), name = rankName();
@@ -4083,7 +4090,7 @@
       return plArr(g, P, obs);
     });
     snap.ev = MP.evRing.slice(-60); snap.sc = MP.scores;
-    if (g.coop) snap.co = [g.coopRev, g.coopPen, g.players.reduce((m, P, i) => m | (P.down ? 1 << i : 0), 0)]; // 共闘：復活の回数・引かれた点・倒れている人
+    snap.co = [g.coopRev || 0, g.coopPen || 0, g.players.reduce((m, P, i) => m | (P.down ? 1 << i : 0), 0)]; // 倒れている人（共闘・対戦とも） // 共闘：復活の回数・引かれた点・倒れている人
     net().then((N) => N.set(roomP(MP.code) + '/snap', snap)).catch(() => { });
   }
   // ---- 参加者：受け取った様子を手元に写す
@@ -4145,7 +4152,7 @@
     });
     for (const [seq, i, e] of (snap.ev || [])) { if (seq > MP.seen) { MP.seen = seq; if (i === MP.me) G.events.push(e); } }
     MP.scores = snap.sc || MP.scores;
-    if (snap.co && g.coop) { g.coopRev = snap.co[0]; g.coopPen = snap.co[1]; g.players.forEach((P, i) => { P.down = !!(snap.co[2] & (1 << i)); }); }
+    if (snap.co) { if (g.coop) { g.coopRev = snap.co[0]; g.coopPen = snap.co[1]; } g.players.forEach((P, i) => { P.down = !!(snap.co[2] & (1 << i)); }); }
   }
   // ---- 1 コマ
   function mpFrame(dt, t, li) {
@@ -4178,6 +4185,7 @@
       let mv = false;
       if (MP.spect) { /* 観戦：動かさない */ }
       else if (meP.out) { if (MP.ghost || MP.watching) SW.ghostMove(b, li, dt); }
+      else if (meP.down) { /* 倒れているあいだは動かない */ }
       else if (b.seat < 0) { b.braceHeld = !!li.brace; mv = SW.movePlayer(g, b, li, dt); }
       if (li.action) MP.cnt.a++; if (li.punch) MP.cnt.p++; if (li.bracePressed) MP.cnt.bp++; if (li.fakeSleep) MP.cnt.fs++;
       if (li.skill != null && li.skill >= 0) { MP.cnt.sk++; MP.skIdx = li.skill; }
@@ -4346,7 +4354,14 @@
       const moved = Math.hypot(b.x - fp.x, b.z - fp.z);
       if (P.down) { fp.state = 'ko'; fp.x = b.x; fp.z = b.z; }
       else if (b.seat >= 0) { const s = g.seats[b.seat]; fp.state = 'seated'; fp.x = s.x; fp.z = s.z; fp.ry = s.side > 0 ? Math.PI : 0; fp.sleep = b.fakeSleep ? 2 : 0; }
-      else { fp.state = moved > 0.004 ? 'walk' : 'stand'; fp.x = b.x; fp.z = b.z; fp.ry = b.yaw + Math.PI; fp.sleep = 0; if (moved > 0.004) fp.walkPhase += moved * 18; fp.speed = 1.6; }
+      else {
+        // なめらかに動かす（ホストには 0.1 秒ごとにしか位置が届かないので、そのまま置くとカクカクする）
+        const k = moved > 1.5 ? 1 : Math.min(1, dt * 12);
+        const ox = fp.x, oz = fp.z; fp.x += (b.x - fp.x) * k; fp.z += (b.z - fp.z) * k;
+        const st = Math.hypot(fp.x - ox, fp.z - oz);
+        let dy = b.yaw + Math.PI - fp.ry; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; fp.ry += dy * Math.min(1, dt * 12);
+        fp.state = moved > 0.03 || st > 0.002 ? 'walk' : 'stand'; fp.sleep = 0; if (st > 0.002) fp.walkPhase += st * 18; fp.speed = 1.6;
+      }
       fp.expr = P.down ? 'dazed' : b.stamina <= 20 ? 'sick' : b.stamina < 45 ? 'worried' : b.punchAnim > 0 ? 'angry' : 'neutral'; fp.exprT = 1;
       poseHuman(A.H, g, dt, now);
       if (b.punchAnim > 0 && b.seat < 0) { A.H.armR.sh.rotation.set(-1.55, 0, 0); A.H.armR.el.rotation.x = -0.1; }
@@ -4358,7 +4373,7 @@
   function updateMpBoard(g) {
     if (!g.multi || !MP.active) return;
     const rows = g.players.map((P, i) => ({ i, P, sc: MP.scores[i] != null ? MP.scores[i] : P.pl.earned })).sort((a, b) => b.sc - a.sc);
-    let html = rows.map((r) => `<div class="${r.P.out ? 'out' : ''} ${r.i === MP.me ? 'me' : ''}"><i style="background:${MPCOL[r.i]}"></i>${r.P.down ? '🆘' : ''}${esc(r.P.name.slice(0, 7))}<b>${r.sc}</b></div>`).join('');
+    let html = rows.map((r) => `<div class="${r.P.out ? 'out' : ''} ${r.i === MP.me ? 'me' : ''}"><i style="background:${MPCOL[r.i]}"></i>${r.P.down ? (g.coop ? '🆘' : '💫') : ''}${esc(r.P.name.slice(0, 7))}<b>${r.sc}</b></div>`).join('');
     if (g.coop) html = `<div class="me">🤝 チーム<b>${Math.max(0, rows.reduce((t, r) => t + r.sc, 0) - (g.coopPen || 0))}</b></div>` + html;
     if (html !== MP.boardHtml) { MP.boardHtml = html; $('mpBoard').innerHTML = html; }
   }

@@ -567,8 +567,12 @@
       if (w.uc) toast(g, '…変装した駅員に見られていた！', 'bad');
     }
     amt = Math.round(amt);
+    const k0 = g.player.karma;
     g.player.karma = Math.min(C.MAX_KARMA, g.player.karma + amt);
     emit(g, { type: 'karma', amount: amt, text: why });
+    // 連行が多かったので（2026-11-12：終わり方の 33%）、50 と 80 をこえたときにはっきり知らせる
+    if (k0 < 50 && g.player.karma >= 50 && g.player.karma < C.MAX_KARMA) toast(g, '⚠ カルマ ' + Math.round(g.player.karma) + '：100 になると駅員に連行！ 関係ない人は殴らないで', 'warn');
+    else if (k0 < 80 && g.player.karma >= 80 && g.player.karma < C.MAX_KARMA) toast(g, '🚨 カルマ ' + Math.round(g.player.karma) + '：あと少しで連行！ 善い行い（席を譲る・落とし物）で減らせる', 'bad');
     return amt;
   }
   // 新バランス（お試し）：座ることの点。コンボやカルマには関係しない
@@ -628,20 +632,27 @@
   }
   // オンライン（⚔ 対戦）は脱落なし：倒れたら（膝が笑った・KO・連行・心が折れた）その場でやり直し。スコアは 0 から、徳は 30 から（はじめも徳 30）
   const MP_TOKU = 30;
+  // 倒れたら、まず床に倒れる（ほかの人には倒れた姿・本人は床から見る）。MP_DOWN 秒たったらやり直し
+  const MP_DOWN = 1.8;
   function mpRespawn(g, cause) {
     const P = g.players[g.pi], pl = P.pl;
     if (pl.seat >= 0) { freeSeat(g, g.seats[pl.seat], -1); pl.seat = -1; }
     if (pl.carrying) { const it = pl.carrying; pl.carrying = null; [it.x, it.z] = aisleClamp(pl.x, pl.z); it.taken = false; it.t0 = g.t; g.items.push(it); }
-    pl.earned = 0; pl.toku = MP_TOKU; pl.karma = 0; pl.stamina = 100; pl.mind = 100; pl.combo = 0; pl.stBase = g.stats.stations;
-    pl.fakeSleep = false; pl.mode = null; pl.stagger = 0; pl.hitFlash = 0.8; pl.buffs = {};
-    P.respawns = (P.respawns || 0) + 1;
+    pl.fakeSleep = false; pl.mode = null; pl.stagger = 0;
+    P.down = true; P.respawnAt = g.t + MP_DOWN;
     toast(g, '💫 ' + CAUSES[cause].title + '…！ スコア 0・徳 ' + MP_TOKU + ' からやり直し', 'bad');
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'shake', amount: 0.8 });
     toOthers(g, { type: 'toast', text: P.name + ' が' + CAUSES[cause].title + '！（スコア 0 からやり直し）', kind: 'warn' });
   }
+  function mpRespawnNow(g, P) {
+    const pl = P.pl;
+    pl.earned = 0; pl.toku = MP_TOKU; pl.karma = 0; pl.stamina = C.MAX_STAMINA; pl.mind = C.MAX_MIND; pl.combo = 0; pl.stBase = g.stats.stations;
+    pl.hitFlash = 0.6; pl.buffs = {};
+    P.down = false; P.respawnAt = 0; P.respawns = (P.respawns || 0) + 1;
+  }
   function gameOver(g, cause, extra) {
     if (g.practice && !g.multi && cause !== 'clear') { practiceSave(g, cause); return; }
-    if (g.multi && !g.coop && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out) mpRespawn(g, cause); return; }
+    if (g.multi && !g.coop && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out && !P.down) mpRespawn(g, cause); return; }
     if (g.multi) {
       const P = g.players[g.pi]; if (!P || P.out) return;
       P.out = true; P.outT = g.t; P.outStation = g.station; g.outCount = (g.outCount || 0) + 1; P.outOrder = g.outCount;
@@ -1137,7 +1148,7 @@
   // プレイヤー同士のパンチ：元気な相手はよろけるだけ。具合が悪そう（体力 20 以下）ならトドメで脱落
   function punchPlayer(g, j) {
     const me = g.pi, T = g.players[j];
-    if (!T || T.out) return;
+    if (!T || T.out || T.down) return;
     if (g.coop) return; // 共闘：仲間はなぐれない
     const tp = T.pl;
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hitPlayer', i: j });
@@ -1297,6 +1308,7 @@
       const P = g.players[i];
       setCtx(g, i);
       if (P.out) { if (P.ghost) ghostStep(g, dt, (inputs && inputs[i]) || {}); continue; }
+      if (P.respawnAt) { if (g.t >= P.respawnAt) mpRespawnNow(g, P); else continue; } // ⚔ 対戦：倒れているあいだは動けない
       const inp = P.cpu ? botInput(g, i) : ((inputs && inputs[i]) || {});
       playerStep(g, dt, inp);
     }
@@ -1859,18 +1871,18 @@
   // たちっぱ線では 3〜4 駅目・6〜7 駅目・終点の 1〜2 つ手前にボス駅が来る（どの駅になるかは毎回ランダム。今日のダイヤはみんな同じ）
   // ボス駅で乗ってくる「困った人たち」を、次の駅に着くまでに片付ければボーナス。残っていると精神ダメージ
   const BOSS = {
-    taiiku: { tier: 1, name: '体育大学前', kind: 'gym', n: [3, 4], msg: '体操部が乗ってくる。つり革で技をする人を注意しよう' },
-    zoo: { tier: 1, name: '動物園前', kind: 'animal', n: [3, 4], msg: '動物が乗ってくる！？ 追い払おう' },
-    tori: { tier: 1, name: '撮り鉄の聖地', kind: 'tori', n: [3, 4], msg: '撮り鉄が通路をふさぐ。注意しよう' },
-    senkyo: { tier: 1, name: '選挙事務所前', kind: 'cand', n: [1, 2], msg: '候補者が車内で演説を始める…' },
-    yuen: { tier: 1, name: '遊園地前', kind: 'balloon', n: [3, 4], msg: '風船を持った子どもたち。割れるとびっくり' },
-    furyo: { tier: 2, name: '不良高校前', kind: 'yanki', n: [4, 5], msg: 'ヤンキーが大勢乗ってくる。床に座りこむ・客にからむ' },
-    hanabi: { tier: 2, name: '花火大会前', kind: 'yukata', n: [11, 13], survive: true, msg: '浴衣の人で超満員！ 次の駅まで倒れずに耐えろ' },
-    keiba: { tier: 2, name: '競馬場前', kind: 'keiba', n: [3, 4], msg: '馬券が外れた人たちが八つ当たり…' },
+    taiiku: { tier: 1, name: '体育大学前', kind: 'gym', n: [3, 3], msg: '体操部が乗ってくる。つり革で技をする人を注意しよう' },
+    zoo: { tier: 1, name: '動物園前', kind: 'animal', n: [3, 3], msg: '動物が乗ってくる！？ 追い払おう' },
+    tori: { tier: 1, name: '撮り鉄の聖地', kind: 'tori', n: [3, 3], msg: '撮り鉄が通路をふさぐ。注意しよう' },
+    senkyo: { tier: 1, name: '選挙事務所前', kind: 'cand', n: [3, 3], msg: '候補者が車内で演説を始める…' },
+    yuen: { tier: 1, name: '遊園地前', kind: 'balloon', n: [3, 3], msg: '風船を持った子どもたち。割れるとびっくり' },
+    furyo: { tier: 2, name: '不良高校前', kind: 'yanki', n: [3, 3], msg: 'ヤンキーが大勢乗ってくる。床に座りこむ・客にからむ' },
+    hanabi: { tier: 2, name: '花火大会前', kind: 'yukata', n: [11, 13], survive: true, msg: '浴衣の人で超満員！ 次の駅まで体力を 40 以上残して耐えろ' },
+    keiba: { tier: 2, name: '競馬場前', kind: 'keiba', n: [3, 3], msg: '馬券が外れた人たちが八つ当たり…' },
     ninja: { tier: 2, name: '忍者の里', kind: 'ninja', n: [3, 3], msg: 'ふつうの乗客にまぎれた忍者を見破れ（人まちがいに注意）' },
     josei: { tier: 2, name: '女性専用車両の乗換駅', kind: 'lady', n: [9, 11], hands: true, msg: '女性客がどっと乗ってくる。近くを通るときは手を挙げて（踏ん張る）通ろう' },
-    reien: { tier: 3, name: 'うらめし霊園前', kind: 'ghost', n: [3, 4], msg: '幽霊が乗客に乗り移る！ 🧂 塩をまいて除霊しろ。次の駅までに' },
-    shuden: { tier: 3, name: '終電の飲み屋街', kind: 'nomi', n: [5, 6], msg: '酔っぱらいだらけ。からまれる前に声をかけよう' },
+    reien: { tier: 3, name: 'うらめし霊園前', kind: 'ghost', n: [3, 3], msg: '幽霊が乗客に乗り移る！ 🧂 塩をまいて除霊しろ。次の駅までに' },
+    shuden: { tier: 3, name: '終電の飲み屋街', kind: 'nomi', n: [4, 4], msg: '酔っぱらいだらけ。からまれる前に声をかけよう' },
     maou: { tier: 3, name: '魔王城前', maou: true, msg: '「車両の魔王」と手下が乗ってくる…！ 魔王を倒せ' },
     rojin: { tier: 0, name: 'ほのぼの老人ホーム前', event: true, msg: 'お年寄りがたくさん乗ってくる。席を譲るチャンス' },
   };
@@ -1890,6 +1902,21 @@
     nomi: { types: ['drunk', 'salaryman'], name: '酔っぱらい', lines: ['もう一軒いこうよぉ〜', 'ういっく…', '部長〜聞いてくださいよ〜'], note: '🍺 べろべろに酔っている', label: '「大丈夫ですか？」と声をかける', reply: '…すみませぇん（寝る）', pts: 20, scary: 0.2, approach: true, near: { r: 1.5, cont: 0.7 } },
   };
   const BOSS_PTS = [0, 60, 100, 150];
+  const BOSS_LEFT = 1, SURVIVE_STA = 40;
+  // ボス駅で、まだ片付いていない困った人の数（幽霊に乗り移られた人もふくむ）
+  function bossLeft(g, b) {
+    return b.ids.filter((id) => { const p = person(g, id); return p && p.state !== 'gone' && p.state !== 'exit' && p.state !== 'ko' && (p.possessed || (p.role === 'bx' && !p.bxDone)); }).length;
+  }
+  // 画面に出すボス駅の様子（game.js の HUD）
+  function bossStatus(g) {
+    const b = g.boss; if (!b) return null;
+    const B = BOSS[b.key];
+    if (b.survive) return { name: B.name, text: '体力 ' + SURVIVE_STA + ' 以上で耐えろ', ok: g.player.stamina >= SURVIVE_STA };
+    if (b.hands) return { name: B.name, text: '手を挙げて通る・ミス ' + b.fail + '/1', ok: b.fail <= 1 };
+    if (b.maou) return { name: B.name, text: '車両の魔王を倒せ', ok: false };
+    const left = bossLeft(g, b), need = Math.max(0, left - BOSS_LEFT);
+    return { name: B.name, text: need ? 'あと ' + need + ' 人' + (B.kind === 'ghost' ? '（🧂 塩）' : '') : 'クリア！', ok: !need, left };
+  }
   function planBoss(g) {
     g.bossAt = {};
     if (g.bossRush) { // ボス駅ラッシュ：初級→中級→最終を、それぞれ順番をまぜて、くり返す（毎駅がボス駅）
@@ -1925,7 +1952,7 @@
     const room = () => C.MAX_PEOPLE + 16 - alive - g.boardQueue.length;
     const put = (arr) => { for (const q of arr) { while (room() <= 0) { const i = g.boardQueue.findIndex((x) => !x.v); if (i < 0) return; g.boardQueue.splice(i, 1); } g.boardQueue.push(q); } };
     if (B.event) { for (let i = 0; i < 8; i++) put([{ at: 0, type: 'elderly' }]); g.boss = null; return true; }
-    if (B.maou) { put([{ at: 0, type: 'emperor', v: 'emperor' }, { at: 0, type: 'henchman', v: 'hench' }, { at: 0, type: 'henchman', v: 'hench' }, { at: 0, type: 'henchman', v: 'hench' }]); g.boss.maou = true; return true; }
+    if (B.maou) { put([{ at: 0, type: 'emperor', v: 'emperor' }, { at: 0, type: 'henchman', v: 'hench' }, { at: 0, type: 'henchman', v: 'hench' }]); g.boss.maou = true; return true; } // 手下は 2 人（2026-11-12：クリア率 6% だったので 3→2）
     const X = BX[B.kind], n = r.int(B.n[0], B.n[1]);
     for (let i = 0; i < n; i++) put([{ at: 0, type: r.pick(X.types), v: 'bx:' + B.kind }]);
     if (B.hands) { g.boss.hands = true; g.nextChikanCheck = 4; }
@@ -2033,10 +2060,11 @@
     const B = BOSS[b.key];
     const alive = (id) => { const p = person(g, id); return p && p.state !== 'gone' && p.state !== 'exit' && p.state !== 'ko' && (p.possessed || (p.role === 'bx' && !p.bxDone)) ? p : null; };
     let clear;
-    if (b.survive) clear = !g.over;
-    else if (b.hands) clear = b.fail === 0;
+    // 2026-11-12：ボス駅ごとのクリア率の差が大きかった（2〜86%）ので、条件をそろえた：困った人は 1 人までなら残してもクリア（BOSS_LEFT）
+    if (b.survive) clear = !g.over && g.player.stamina >= SURVIVE_STA;
+    else if (b.hands) clear = b.fail <= 1;
     else if (b.maou) clear = !g.people.some((p) => p.role === 'emperor' && p.state !== 'ko' && p.state !== 'gone' && p.state !== 'exit');
-    else clear = !b.ids.some(alive);
+    else clear = bossLeft(g, b) <= BOSS_LEFT;
     if (b.key === 'reien') {
       const left = b.ids.map(alive).filter((p) => p && p.possessed);
       for (const p of left) { p.possessed = false; leave(g, p); bubble(g, p, '…（ふらふらと降りていく）', 2); }
@@ -2117,7 +2145,7 @@
       p.role = 'hench'; p.wantSeat = false; p.brute = { hp: 3, dmg: 9, guard: 0.25 }; p.boss = g.emperorId; p.dest = boss ? boss.dest : capDest(g, st + 4);
       p.gIdx = g.people.filter(q => q.role === 'hench' && q.boss === g.emperorId).length; p.menT = g.r.range(4, 9);
     }
-    if (p.maouGang) { p.look.costume = p.role === 'emperor' ? 'maou' : 'maouHench'; if (p.role === 'emperor') { p.dispName = '車両の魔王'; p.brute = { hp: 9, dmg: 22, guard: 0.45 }; p.look.top = '#3a1052'; p.look.topName = '紫'; } else { p.dispName = '魔王の手下'; p.brute.hp = 4; } p.dest = capDest(g, st + 2); }
+    if (p.maouGang) { p.look.costume = p.role === 'emperor' ? 'maou' : 'maouHench'; if (p.role === 'emperor') { p.dispName = '車両の魔王'; p.brute = { hp: 7, dmg: 16, guard: 0.35 }; p.look.top = '#3a1052'; p.look.topName = '紫'; } else { p.dispName = '魔王の手下'; p.brute.hp = 3; } p.dest = capDest(g, st + 2); } // 2026-11-12：クリア率 6% だったので弱めた（魔王 hp 9→7・ダメージ 22→16、手下 hp 4→3）
   }
   // テスト用：その場に悪者を出す
   function spawnVillain(g, v, x, z, typeOverride) {
@@ -2740,11 +2768,11 @@
   }
 
   return {
-    PTYPES, diagnose, villainKO, BOSS,
+    PTYPES, diagnose, villainKO, BOSS, bossStatus,
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     DAILY_RULES, dailyRule, hasRule, saveGame, loadGame,
     teamScore, reviveCost,
     create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
-    _internal: { bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
+    _internal: { addKarma, bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });
