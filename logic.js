@@ -290,6 +290,7 @@
     if (opts.mikiwame) { g.mikiwame = true; g.villainKinds = []; g.noBoss = true; g.nextChikanCheck = 1e9; g.nextItemCheck = 1e9; g.mkFree = []; Object.assign(g.stats, { mkSits: 0, mkHits: 0, mkCombo: 0, mkBest: 0, mkGive: 0 }); } // 見極め線（MIKIWAME の項）
     if (opts.coop && g.multi) { g.coop = true; g.coopRev = 0; g.coopPen = 0; } // 共闘モード（COOP の項）
     if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
+    if (opts.bossRush) { g.bossRush = true; g.endless = true; g.villainKinds = []; g.noBoss = false; } // ボス駅ラッシュ（倒れるまで、毎駅がボス駅）
     if (opts.bossTest) { g.bossTest = opts.bossTest; g.endless = true; g.villainKinds = []; g.noBoss = false; }
     planBoss(g);
     g.seenVillain = {};
@@ -1563,7 +1564,7 @@
     const thiefAboard = g.people.some(p => p.role === 'thief' && p.state !== 'ko');
     if (!g.endless && !g.mikiwame && st >= 2 && st <= lastStation(g) - 3 && !thiefAboard && !g.jiji && (g.thiefCount || 0) < 2 && g.r.chance(g.hard ? 0.4 : 0.25) && g.boardQueue.length)
       g.boardQueue.splice(g.r.int(0, g.boardQueue.length - 1), 0, { at: 0, type: 'thief' });
-    if (g.endless && st >= 2 && !thiefAboard && g.r.chance(0.3) && g.boardQueue.length) g.boardQueue.splice(0, 0, { at: 0, type: 'thief' });
+    if (g.endless && !g.bossRush && st >= 2 && !thiefAboard && g.r.chance(0.3) && g.boardQueue.length) g.boardQueue.splice(0, 0, { at: 0, type: 'thief' });
     if (!bossBoard(g, st)) planVillains(g, st);
     g.boardQueue.forEach((q, k) => { q.at = g.phaseT + k * 0.32; });
   }
@@ -1862,6 +1863,12 @@
   const BOSS_PTS = [0, 60, 100, 150];
   function planBoss(g) {
     g.bossAt = {};
+    if (g.bossRush) { // ボス駅ラッシュ：初級→中級→最終を、それぞれ順番をまぜて、くり返す（毎駅がボス駅）
+      const rr = rng((g.seed ^ 0xb055a5a5) >>> 0), sh = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rr.int(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      let order = []; while (order.length < 150) for (const t of [1, 2, 3]) order = order.concat(sh(Object.keys(BOSS).filter((k) => BOSS[k].tier === t)));
+      for (let st = 1; st <= order.length; st++) g.bossAt[st] = order[st - 1];
+      return;
+    }
     if (g.bossTest) { const all = Object.keys(BOSS); for (let st = 1; st <= 120; st++) g.bossAt[st] = g.bossTest === 'all' ? all[(st - 1) % all.length] : g.bossTest; return; }
     if (g.tutorial || g.jiji || opts_noBoss(g)) return;
     const r = rng((g.seed ^ 0xb055b055) >>> 0), last = lastStation(g);
@@ -2000,6 +2007,8 @@
       if (left.length) hurtMind(g, Math.min(30, 10 * left.length), '取りつかれたまま降りていった');
     }
     for (const id of b.ids) { const p = alive(id); if (p) { p.bxDone = true; p.dest = Math.min(p.dest, g.station + 1); } }
+    emit(g, { type: 'bossResult', key: b.key, name: B.name, tier: B.tier, ok: !!clear }); // ボス駅ごとのクリア率を数える（game.js が GoatCounter に送る）
+    g.stats.bossLog = (g.stats.bossLog || []).concat([[b.key, clear ? 1 : 0]]);
     if (clear) { deed(g, BOSS_PTS[b.tier], '🏆 ' + B.name + '（ボス駅）クリア！'); g.stats.bossClear = (g.stats.bossClear || 0) + 1; emit(g, { type: 'sfx', name: 'clear' }); }
     else { hurtMind(g, 12, 'ボス駅をクリアできなかった'); toast(g, '😵 ' + B.name + '…クリアならず', 'bad'); }
   }

@@ -18,7 +18,7 @@
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
   const NEW_UNTIL = '2026-11-25'; // この日まで、新しく入ったもの（今日のルール・練習乗車）に「NEW」の印
-  const MODE_JA = { ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const MODE_JA = { bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -1589,6 +1589,7 @@
         case 'lurch': lurchKick = 1; sfx('lurch'); break;
         case 'brace': if (e.ok) addPop('踏ん張った！'); else addToast('よろけた！ 体力-7', 'bad'); $('warn').classList.add('hidden'); break;
         case 'chikan': addToast('…どこかで困っている人がいる？（絡まれているかも）', 'warn'); break;
+        case 'bossResult': if (!RP.active && !(MP.active && !MP.isHost)) track('ボス駅：' + e.name + '：' + (e.ok ? 'クリア' : '失敗') + (G.modeName === 'bossrush' ? '（ラッシュ）' : '')); break;
         case 'thiefSteal': if (!G.__thiefTold) { G.__thiefTold = true; addToast('…だれかが落とし物をこっそり持っていった？（泥棒かも）', 'warn'); } break;
         case 'rare': { const p = SW.person(g, e.id); if (p) addToast(p.type === 'ceo' ? '金のネクタイの紳士が乗ってきた…' : '…なにか様子のおかしい乗客が乗ってきた', 'warn'); break; }
         case 'arrive': sfx('arrive'); showAnn(g.ann); speak(SW.stationName(g, g.station) + '、' + SW.stationName(g, g.station)); break;
@@ -1934,7 +1935,7 @@
     $('modeList').innerHTML = list.map(([k, name, desc, cond]) => profile.unlock[k]
       ? `<button class="btn" data-mode="${k}">${name}</button><p class="modeinfo">${desc}${profile.bests[k] ? '・ベスト ' + profile.bests[k] : ''}</p>`
       : `<button class="btn" disabled style="opacity:.45">🔒 ？？？</button><p class="modeinfo">${cond}</p>`).join('');
-    $('modeList').innerHTML = `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
+    $('modeList').innerHTML = `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
     // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
     if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
       const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
@@ -1958,10 +1959,11 @@
     const seed = mode === 'daily' ? dailySeed() : rkTrain >= 0 ? rkSeed(weekKey(), rkTrain) : (Math.random() * 1e9) | 0;
     const bossTest = mode.startsWith('bosstest:') ? mode.slice(9) : null; // ボス駅テスト（ランキングには載らない）
     const practice = mode === 'practice'; // 練習乗車：たちっぱ線と同じ路線で、倒れない
+    const bossRush = mode === 'bossrush'; // ボス駅ラッシュ：倒れるまで毎駅がボス駅
     const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = SW.create({ seed, mode: bossTest ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
     G.rkTrain = rkTrain; G.rkWeek = weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
@@ -1987,6 +1989,7 @@
     if (rule) { addToast('📅 今日のルール「' + rule.icon + ' ' + rule.name + '」：' + rule.desc, 'warn'); track('今日のルール：' + rule.name + '：出発'); }
     document.body.classList.toggle('nosk', mikiwame);
     if (mikiwame) addToast('👀 見極め線：様子のカードはなし。しぐさだけで降りる人を読もう。座れたら次の駅で席を譲って、また読む', 'good');
+    if (bossRush) addToast('⚠ ボス駅ラッシュ：毎駅がボス駅！ 倒れるまで、いくつクリアできるか', 'warn');
     if (rkTrain >= 0) addToast('🏅 ランク線：今週の電車 No.' + (rkTrain + 1) + '。同じ電車を走った、レートの近い人と点数で勝負', 'good');
     if (practice) addToast('🔰 練習乗車：体力や精神が 0 になっても倒れません（ランキングには載りません）', 'good');
     else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
@@ -2317,7 +2320,7 @@
     const causeTxt = { clear: '🎉 終点到着！', collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', broken: '🧠 心が折れた…' }[r.cause];
     const stName = SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g)));
     $('rCause').textContent = causeTxt; $('rCause').className = 'res-cause ' + (r.cause === 'clear' ? 'good' : 'bad');
-    $('rText').innerHTML = `<b class="dg">${dg.icon} あなたは「${dg.name}」タイプ${dgNew ? ' <span class="pill">NEW</span>' : ''}</b><br><span style="color:var(--sub)" title="${dg.desc}">${dg.why}${g.endless ? '（' + s.stations + '駅）' : ''}</span>${g.practice ? `<br><b style="color:#ff8a5e">🔰 練習乗車：本番なら ${s.saves ? s.saves + ' 回終わってた' : '一度も倒れなかった！'}</b>` : ''}${g.mikiwame ? `<br><b style="color:#7fd1ff">👀 見極め線：座れた ${s.mkSits} 回・🎯 読み的中 ${s.mkHits} 回（最大 ${s.mkBest} 連続）</b>` : ''}`;
+    $('rText').innerHTML = `<b class="dg">${dg.icon} あなたは「${dg.name}」タイプ${dgNew ? ' <span class="pill">NEW</span>' : ''}</b><br><span style="color:var(--sub)" title="${dg.desc}">${dg.why}${g.endless ? '（' + s.stations + '駅）' : ''}</span>${g.practice ? `<br><b style="color:#ff8a5e">🔰 練習乗車：本番なら ${s.saves ? s.saves + ' 回終わってた' : '一度も倒れなかった！'}</b>` : ''}${g.bossRush ? `<br><b style="color:#ffb35e">⚠ ボス駅ラッシュ：クリア ${s.bossClear || 0} 駅 / 挑戦 ${(s.bossLog || []).length} 駅</b><br><span class="small" style="color:var(--sub)">${(s.bossLog || []).map(([k, ok]) => (ok ? '○' : '×') + esc(SW.BOSS[k].name)).join('　')}</span>` : ''}${g.mikiwame ? `<br><b style="color:#7fd1ff">👀 見極め線：座れた ${s.mkSits} 回・🎯 読み的中 ${s.mkHits} 回（最大 ${s.mkBest} 連続）</b>` : ''}`;
     $('rScore').textContent = sc.total;
     $('rTitle').textContent = '称号「' + sc.title + '」' + (newBest ? ' 🆕自己ベスト！' : '');
     $('rBrk').innerHTML = `<span>集めた徳</span><span>${sc.earned}</span><span>駅ボーナス（${s.stations}駅）</span><span>+${sc.stationBonus}</span><span>完走ボーナス</span><span>+${sc.clearBonus}</span><span>カルマ</span><span>−${sc.karmaPen}</span>`;
@@ -2335,6 +2338,8 @@
       const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', broken: '心が折れた' }[r.cause] || r.cause;
       const band = sc.total >= 2000 ? '2000〜' : sc.total >= 1000 ? '1000〜1999' : sc.total >= 500 ? '500〜999' : sc.total >= 200 ? '200〜499' : '0〜199';
       track('結果：' + (MODE_JA[mode] || mode) + '：' + causeJa);
+      if (g.boss && r.cause !== 'clear' && SW.BOSS[g.boss.key]) track('ボス駅：' + SW.BOSS[g.boss.key].name + '：倒れた' + (mode === 'bossrush' ? '（ラッシュ）' : '')); // どのボス駅でつまずいたか
+      if (mode === 'bossrush') track('ボス駅ラッシュ：クリア ' + Math.min(20, g.stats.bossClear || 0) + ' 駅');
       track('スコア：' + band);
       if (!g.endless) track('終わった駅：' + Math.min(g.stats.stations, SW.lastStation(g)) + '駅目');
       if (g.rookie) { track('見習い乗車：' + causeJa); track('見習い乗車：終わった駅：' + Math.min(g.stats.stations, SW.lastStation(g)) + '駅目'); }
@@ -2347,7 +2352,7 @@
   }
   function shareText(R) {
     const s = R.stats;
-    const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線' }[R.mode] || '') + '】';
+    const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線', bossrush: 'ボス駅ラッシュ' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
     return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n${R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
