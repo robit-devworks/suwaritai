@@ -2001,6 +2001,117 @@
     else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
   }
+  // ================================================================ オンラインの待合室（ランダムマッチ・レート戦）
+  // suwaritai/mm/q/{uid} に並ぶ。いちばん長く待っている人（リーダー）が相手を選んで部屋を作り、相手の q に room（合言葉）を書く。
+  // 書かれた人はその部屋に入る。ホストは人がそろうか 12 秒たったら自動で始める。レート戦はオンライン対戦のレート（suwaritai/mm/r）が動く
+  const MM = { on: false, kind: null, t0: 0, pollT: 0, hbT: 0, count: 0 };
+  const mmRateNow = () => (profile.mmr && profile.mmr.s === rkSeason() ? profile.mmr.r : RK_START);
+  async function mmJoin(kind) {
+    if (!profile.name) { olNote('タイトルの「乗客名」から名前を引いてください'); return; }
+    if (MP.code) return;
+    try {
+      const N = await net();
+      MM.on = true; MM.kind = kind; MM.t0 = Date.now(); MM.pollT = 0; MM.hbT = 10;
+      await N.set('suwaritai/mm/q/' + N.uid, { n: rankName(), r: mmRateNow(), k: kind, t: N.TS, s: SW.STATS.map((d) => SW.capStats(profile.st, SW.STAT_CAP_FAIR)[d.key]).join(',') });
+      N.onDisconnectRemove('suwaritai/mm/q/' + N.uid);
+      mmRender(); track('オンライン：' + (kind === 'rate' ? 'レート戦' : 'ランダムマッチ') + 'で待った');
+    } catch (e) { MM.on = false; olNote('待合室に入れませんでした（' + (e && e.message || e) + '）'); mmRender(); }
+  }
+  async function mmCancel(silent) {
+    MM.on = false; mmRender();
+    try { const N = await net(); await N.remove('suwaritai/mm/q/' + N.uid); } catch (e) { }
+    if (!silent) olNote('');
+  }
+  function mmRender() {
+    if (!$('mmNote')) return;
+    const sec = MM.on ? Math.floor((Date.now() - MM.t0) / 1000) : 0;
+    $('mmAny').classList.toggle('hidden', MM.on); $('mmRate').classList.toggle('hidden', MM.on); $('mmCancel').classList.toggle('hidden', !MM.on);
+    $('mmNote').innerHTML = (MM.on ? `🔎 ${MM.kind === 'rate' ? '🏅 レートの近い人' : '🎲 だれか'}をさがしています…（${sec} 秒）<br>` : '') + `待合室：<b>${MM.count}</b> 人　あなたの対戦レート ${rkBadge(mmRateNow())} ${mmRateNow()}`;
+  }
+  async function mmCreateRoom(N) {
+    for (let k = 0; k < 8; k++) {
+      const code = String(1000 + Math.floor(Math.random() * 9000));
+      const ex = await N.get(roomP(code)); if (ex) continue;
+      await N.update(roomP(code), { host: N.uid, created: N.TS, state: { s: 'lobby', cpu: false, mode: 'vs' } });
+      return code;
+    }
+    return null;
+  }
+  async function mmTick(dt) {
+    if (DB || !onlineAvailable()) return;
+    // ホスト：人がそろうか 12 秒たったら始める。20 秒たっても 1 人なら待合室にもどる
+    if (MP.code && MP.isHost && MP.mmExpect && !MP.active && MP.state && MP.state.s === 'lobby') {
+      const n = mpSortedMembers().length, w = Date.now() - MP.mmT0;
+      if (n >= MP.mmExpect || (n >= 2 && w > 12000)) { MP.mmExpect = 0; $('olCpu').checked = false; MP.modeSel = 'vs'; mpStart(); }
+      else if (w > 20000 && n < 2) { const kind = MP.mmRated ? 'rate' : 'any'; MP.mmExpect = 0; await mpLeave(true); olNote('相手が来なかったので、もう一度さがします'); mmJoin(kind); }
+      return;
+    }
+    if (!MM.on && !MP.code && !$('online').classList.contains('hidden')) { // オンラインの画面を開いているあいだは、待合室の人数を 5 秒ごとに見る
+      MM.pollT -= dt; if (MM.pollT > 0) return; MM.pollT = 5;
+      const N = await net(); const q = (await N.get('suwaritai/mm/q')) || {}, now = Date.now();
+      MM.count = Object.values(q).filter((v) => v && now - (v.t || 0) < 30000).length; mmRender(); return;
+    }
+    if (!MM.on || MP.code) return;
+    MM.pollT -= dt; MM.hbT -= dt;
+    if (MM.pollT > 0) { if (Math.floor((Date.now() - MM.t0) / 1000) !== MM.lastSec) { MM.lastSec = Math.floor((Date.now() - MM.t0) / 1000); mmRender(); } return; }
+    MM.pollT = 2;
+    const N = await net(), me0 = N.uid;
+    if (MM.hbT <= 0) { MM.hbT = 10; N.update('suwaritai/mm/q/' + me0, { t: N.TS }).catch(() => { }); }
+    const q = (await N.get('suwaritai/mm/q')) || {};
+    const now = Date.now(), fresh = Object.entries(q).filter(([, v]) => v && now - (v.t || 0) < 30000);
+    MM.count = fresh.length; mmRender();
+    const me = q[me0];
+    if (!MM.on) return;
+    if (me && me.room) { // 誘われた
+      const code = me.room, rated = MM.kind === 'rate';
+      MM.on = false; await N.remove('suwaritai/mm/q/' + me0).catch(() => { });
+      MP.isHost = false; await mpEnter(code); MP.mmRated = rated; track('オンライン：マッチした（参加）');
+      return;
+    }
+    if (!me) { MM.on = false; mmRender(); return; }
+    // リーダー（同じ種類で、いちばん前から待っている人）だけが組み合わせを決める
+    const same = fresh.filter(([, v]) => v.k === MM.kind && !v.room).sort((a, b) => a[1].t - b[1].t);
+    if (!same.length || same[0][0] !== me0) return;
+    const waited = (now - MM.t0) / 1000, myR = me.r;
+    let others = same.slice(1);
+    if (MM.kind === 'rate') others = others.filter(([, v]) => Math.abs(v.r - myR) <= 150 + 15 * waited).sort((a, b) => Math.abs(a[1].r - myR) - Math.abs(b[1].r - myR));
+    others = others.slice(0, 3);
+    if (!(others.length >= 3 || (others.length >= 1 && waited >= 8))) return;
+    const code = await mmCreateRoom(N); if (!code) return;
+    MM.on = false; await N.remove('suwaritai/mm/q/' + me0).catch(() => { });
+    for (const [u] of others) await N.set('suwaritai/mm/q/' + u + '/room', code).catch(() => { });
+    MP.isHost = true; await mpEnter(code);
+    $('olPub').checked = false; $('olCpu').checked = false; MP.modeSel = 'vs';
+    MP.mmRated = MM.kind === 'rate'; MP.mmExpect = others.length + 1; MP.mmT0 = Date.now();
+    track('オンライン：マッチした（ホスト・' + (others.length + 1) + '人）');
+  }
+  $('mmAny').addEventListener('click', () => mmJoin('any'));
+  $('mmRate').addEventListener('click', () => mmJoin('rate'));
+  $('mmCancel').addEventListener('click', () => mmCancel());
+  // 対戦が終わったら、オンライン対戦のレートを動かす（人間どうしのとき。自分の分だけ書く）
+  async function mmRateUpdate(res) {
+    try {
+      const humans = res.filter((r) => !r.cpu); if (humans.length < 2) return '';
+      const N = await net(); const F = { uid: N.uid }; // 通信は net()（?online=local でも試せる）
+      const season = rkSeason(), path = 'suwaritai/mm/r/' + season + '/' + F.uid;
+      const meDoc = await N.get(path);
+      const R0 = meDoc ? meDoc.r : RK_START, games = meDoc ? meDoc.g : 0;
+      const mine = humans.find((r) => r.uid === F.uid); if (!mine) return '';
+      let sum = 0, n = 0;
+      for (const o of humans) {
+        if (o.uid === F.uid) continue;
+        const od = await N.get('suwaritai/mm/r/' + season + '/' + o.uid).catch(() => null);
+        const Ro = od ? od.r : RK_START;
+        sum += (mine.score > o.score ? 1 : mine.score === o.score ? 0.5 : 0) - 1 / (1 + Math.pow(10, (Ro - R0) / 400)); n++;
+      }
+      const delta = Math.max(-60, Math.min(60, Math.round((games < 10 ? 40 : 24) * sum / n * Math.min(1, (n + 1) / 3))));
+      const R1 = meDoc ? Math.max(0, R0 + delta) : Math.max(1440, Math.min(1560, R0 + delta));
+      await N.set(path, { r: R1, n: rankName(), g: games + 1, t: N.TS });
+      profile.mmr = { r: R1, s: season }; saveProfile();
+      track('オンライン：レート戦の結果（' + rkTier(R1)[2] + '）');
+      return `🏅 対戦レート ${R0} → <b>${R1}</b>（${R1 - R0 >= 0 ? '+' : ''}${R1 - R0}）${rkBadge(R1)}`;
+    } catch (e) { return ''; }
+  }
   // ================================================================ 一人プレイの途中保存と、募集中のオンライン部屋のお知らせ
   // 一人で遊んでいるときに「だれでも入れる」部屋が募集中なら、上にお知らせを出す。参加すると、今の一人プレイは保存して、あとで「▶ 続きから」で再開できる
   const SAVE_KEY = 'suwaritai.save';
@@ -2050,21 +2161,27 @@
       const v = (await withTimeout(F.db.ref('suwaritai/lobby').orderByChild('t').limitToLast(6).get(), 8000)).val() || {};
       const now = Date.now();
       const room = Object.entries(v).map(([code, x]) => Object.assign({ code }, x)).filter((x) => x.h !== F.uid && x.c < 4 && now - x.t < 75000 && !LOBBY.dismissed[x.code]).sort((a, b) => b.t - a.t)[0];
-      if (room) lobbyShow(room); else lobbyHide();
+      if (room) { lobbyShow(room); return; }
+      // 待合室（ランダムマッチ・レート戦）で相手を待っている人がいれば知らせる
+      const q = (await withTimeout(F.db.ref('suwaritai/mm/q').orderByChild('t').limitToLast(8).get(), 8000)).val() || {};
+      const w = Object.entries(q).filter(([u, x]) => u !== F.uid && x && !x.room && now - x.t < 30000);
+      if (w.length && !LOBBY.dismissed.mm) lobbyShow({ mm: true, n: w[0][1].n, k: w.some(([, x]) => x.k === 'any') ? 'any' : 'rate', c: w.length }); else lobbyHide();
     }).catch(() => { });
   }
   function lobbyShow(room) {
     LOBBY.shown = room;
     const el = $('lobbyBan');
-    el.innerHTML = `<span>🌐 ${nameHtml(dispName(room.n), 1)} さんが${room.m === 'coop' ? '🤝 共闘' : '⚔ 対戦'}の仲間を募集中（${room.c}/4人）</span><button id="lbGo">参加する</button><button id="lbX">✕</button>`;
+    el.innerHTML = room.mm ? `<span>${room.k === 'any' ? '🎲 ランダムマッチ' : '🏅 レート戦'}で ${room.c} 人が相手を待っています</span><button id="lbGo">参加する</button><button id="lbX">✕</button>`
+      : `<span>🌐 ${nameHtml(dispName(room.n), 1)} さんが${room.m === 'coop' ? '🤝 共闘' : '⚔ 対戦'}の仲間を募集中（${room.c}/4人）</span><button id="lbGo">参加する</button><button id="lbX">✕</button>`;
     el.classList.remove('hidden');
-    $('lbX').onclick = () => { LOBBY.dismissed[room.code] = 1; lobbyHide(); };
+    $('lbX').onclick = () => { LOBBY.dismissed[room.mm ? 'mm' : room.code] = 1; lobbyHide(); };
     $('lbGo').onclick = () => {
       const playing = state === 'play' || state === 'pause';
       if (playing && !confirm('今の一人プレイを保存して、オンラインの部屋に参加しますか？（あとでタイトルの「▶ 続きから」で再開できます）')) return;
       if (playing) { saveSolo(); if (document.pointerLockElement) document.exitPointerLock(); G = null; clearWorld(); }
       lobbyHide(); track('募集中の部屋に参加した（' + (playing ? '一人プレイから' : 'タイトルから') + '）');
-      titleScreen(); openOnline(); $('olCode').value = room.code; mpJoin();
+      titleScreen(); openOnline();
+      if (room.mm) mmJoin(room.k); else { $('olCode').value = room.code; mpJoin(); }
     };
     if (state === 'play') sfx('chime');
   }
@@ -2878,7 +2995,9 @@
     rankTab = tab;
     $('mkTabs').classList.toggle('hidden', !/^mk/.test(tab));
     document.querySelectorAll('[data-mt]').forEach((x) => x.classList.toggle('on', 'mk' + x.dataset.mt === tab));
-    if (tab === 'rk') { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'rk')); loadRanking(tab); return; }
+    $('rkTabs').classList.toggle('hidden', tab !== 'rk' && tab !== 'rkon');
+    document.querySelectorAll('[data-kt]').forEach((x) => x.classList.toggle('on', x.dataset.kt === tab));
+    if (tab === 'rk' || tab === 'rkon') { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'rk')); loadRanking(tab); return; }
     if (/^mk/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'mkweek')); $('coopTabs').classList.add('hidden'); loadRanking(tab); return; }
     $('coopTabs').classList.toggle('hidden', !/^coop/.test(tab));
     document.querySelectorAll('[data-ct]').forEach((x) => x.classList.toggle('on', 'coop' + x.dataset.ct === tab));
@@ -2910,19 +3029,21 @@
     return html;
   }
   // 共闘ランキング（人数ごと）
+  document.querySelectorAll('[data-kt]').forEach((b) => b.addEventListener('click', () => setRankTab(b.dataset.kt)));
   document.querySelectorAll('[data-mt]').forEach((b) => b.addEventListener('click', () => setRankTab('mk' + b.dataset.mt)));
   document.querySelectorAll('[data-ct]').forEach((b) => b.addEventListener('click', () => setRankTab('coop' + b.dataset.ct)));
   // ランク線のレートのランキング（今のシーズン）
-  async function loadRk(listEl) {
+  async function loadRk(listEl, tab) {
+    const online = tab === 'rkon'; // rk：ひとり（ランク線）、rkon：オンライン対戦のレート
     try {
       if (DB) { $('rankNote').textContent = 'ランク線は遊ぶサイトで'; listEl.innerHTML = '<p class="small">Claude 版ではランク線は遊べません</p>'; return; }
       const F = await firebaseReady(); if (!F) throw new Error('none');
       const season = rkSeason();
-      const snap = await withTimeout(F.db.ref('suwaritai/rk/r/' + season).orderByChild('r').limitToLast(TOP_N).get(), 10000);
-      if (rankTab !== 'rk') return;
+      const snap = await withTimeout(F.db.ref('suwaritai/' + (online ? 'mm' : 'rk') + '/r/' + season).orderByChild('r').limitToLast(TOP_N).get(), 10000);
+      if (rankTab !== tab) return;
       const arr = []; snap.forEach((c) => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), r: v.r || 0, g: v.g || 0 }); });
       arr.sort((a, b) => b.r - a.r);
-      $('rankNote').textContent = '🏅 ランク線のレート（' + season.replace('-', '年') + '月のシーズン）・' + arr.length + '人';
+      $('rankNote').textContent = (online ? '🌐 オンライン対戦のレート（レート戦）' : '🏅 ランク線のレート（ひとり）') + '・' + season.replace('-', '年') + '月のシーズン・' + arr.length + '人';
       let prev = null, rank = 0;
       listEl.innerHTML = arr.length ? arr.map((x, i) => { if (x.r !== prev) { rank = i + 1; prev = x.r; } const me = x.id === F.uid; return `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name)}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${rkBadge(x.r)}・${x.g} 回</div></span><span class="sc">${x.r}</span></div>`; }).join('') : '<p class="small">まだだれもいません。ランク線で一番乗りしよう！</p>';
     } catch (e) { $('rankNote').textContent = 'ランク線のランキングを読めませんでした'; }
@@ -2952,7 +3073,7 @@
     if (!DB && !fbAllowed) { $('rankNote').textContent = 'この端末の記録'; local(); return; }
     $('rankNote').textContent = '読み込み中…'; listEl.innerHTML = '';
     if (/^coop/.test(tab)) { loadCoop(tab, listEl); return; }
-    if (tab === 'rk') { loadRk(listEl); return; }
+    if (tab === 'rk' || tab === 'rkon') { loadRk(listEl, tab); return; }
     try {
       const b = await fetchBoard(tab);
       if (!b) throw new Error('none');
@@ -3239,14 +3360,14 @@
     Object.assign(MP, {
       active: false, code: null, isHost: false, uid: null, hostUid: null, me: -1, offs: [], members: {}, state: null, players: [],
       remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, cnt: { a: 0, p: 0, bp: 0, fs: 0, sk: 0 }, skIdx: -1,
-      seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
+      seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', mmRated: false, mmExpect: 0, mmT0: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
     });
   }
   mpReset();
   const onlineAvailable = () => NET_LOCAL || fbAllowed;
   function olNote(t) { $('olNote').textContent = t || ''; }
   function openOnline() {
-    backTo = 'title'; show('online'); olNote('');
+    backTo = 'title'; show('online'); olNote(''); mmRender(); MM.pollT = 0;
     showName();
     $('olMenu').classList.toggle('hidden', !!MP.code); $('olRoom').classList.toggle('hidden', !MP.code);
     track('オンライン：画面を開いた');
@@ -3280,7 +3401,7 @@
     } catch (e) { olNote('見られませんでした（' + (e && e.message || e) + '）'); }
   }
   $('olCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') mpJoin(); });
-  $('olBack').addEventListener('click', () => { if (MP.code) mpLeave(true); else titleScreen(); });
+  $('olBack').addEventListener('click', () => { if (MP.code) mpLeave(true); else { if (MM.on) mmCancel(true); titleScreen(); } });
   $('olStart').addEventListener('click', () => mpStart());
   $('olCopy').addEventListener('click', () => { try { const p = navigator.clipboard.writeText('スワリタイ！のオンライン対戦で遊ぼう。合言葉は ' + MP.code + '\n' + SHARE_URL.split('?')[0]); if (p && p.catch) p.catch(() => { }); olNote('合言葉をコピーしました'); } catch (e) { } });
   // 対戦／共闘の切りかえ（ホストだけ）
@@ -3386,7 +3507,7 @@
     if (players.length < 2) { olNote('2 人以上（CPU をふくむ）で始められます'); return; }
     try {
       await N.remove(roomP(MP.code) + '/snap');
-      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', t: N.TS } });
+      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', rated: !!MP.mmRated, t: N.TS } });
     } catch (e) { olNote('スタートできませんでした（' + (e && e.message || e) + '）'); }
   }
   function mpBegin(st) {
@@ -3642,6 +3763,7 @@
     }
     $('mpAgain').classList.toggle('hidden', !MP.isHost);
     if (!MP.isHost) $('mpResNote').insertAdjacentHTML('beforeend', '<br>（ホストが「もう一回」を押すと、同じ部屋で始まります）');
+    if (v.rated) mmRateUpdate(res).then((t) => { if (t && state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>' + t); });
     show('mpres');
     sfx(myRank === 1 || v.coop ? 'clear' : 'over');
     if (!v.coop) track('オンライン：結果 ' + myRank + '位');
@@ -3763,6 +3885,7 @@
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
     try { lobbyTick(dt); } catch (e) { }
+    mmTick(dt).catch(() => { });
     const t = now / 1000;
     if (RP.active && G && (state === 'play' || state === 'pause')) {
       rpTick(dt);

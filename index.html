@@ -205,7 +205,7 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .tabs button{flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-weight:800;font-size:13px}
 .tabs button.on{background:var(--accent);color:#fff}
 #rankTabs button{padding:8px 2px;font-size:12px;white-space:nowrap;min-width:0}
-#rankTabs2,#coopTabs,#mkTabs{margin-top:-4px}#rankTabs2 button{padding:8px 2px;font-size:13px}#coopTabs button,#mkTabs button{padding:5px 2px;font-size:12px}
+#rankTabs2,#coopTabs,#mkTabs,#rkTabs{margin-top:-4px}#rkTabs button{padding:5px 2px;font-size:12px}#rankTabs2 button{padding:8px 2px;font-size:13px}#coopTabs button,#mkTabs button{padding:5px 2px;font-size:12px}
 .rk{display:flex;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;align-items:center}
 .rk .n{width:34px;font-variant-numeric:tabular-nums;text-align:right;color:var(--sub);font-weight:800}
 .rk .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -652,6 +652,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h2>ランキング</h2>
     <div class="tabs" id="rankTabs"><button data-rt="day" class="on">今日</button><button data-rt="week">今週</button><button data-rt="normal">歴代</button><button data-rt="daily">ダイヤ</button></div>
     <div class="tabs" id="rankTabs2"><button data-rt="rk">🏅 ランク</button><button data-rt="mkweek">👀 見極め</button><button data-rt="coop2">🤝 共闘</button></div>
+    <div class="tabs hidden" id="rkTabs"><button data-kt="rk" class="on">ひとり（ランク線）</button><button data-kt="rkon">オンライン対戦</button></div>
     <div class="tabs hidden" id="mkTabs"><button data-mt="week" class="on">今週</button><button data-mt="best">歴代</button></div>
     <div class="tabs hidden" id="coopTabs"><button data-ct="2" class="on">2人</button><button data-ct="3">3人</button><button data-ct="4">4人</button></div>
     <div id="rankNote" class="small"></div>
@@ -730,8 +731,10 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="online" class="screen hidden">
   <div class="card">
     <h2>🌐 オンライン対戦 <span class="pill">β・フレンド戦</span></h2>
-    <p class="small">合言葉の部屋に 2〜4 人。7 駅の短い路線。<br>⚔ 対戦：いちばん徳を積んだ人の勝ち。具合が悪そうなライバルはパンチでトドメ。<br>🤝 共闘：みんなのスコアの合計で勝負。倒れた仲間は徳で復活できる。人数ごとのランキングあり。</p>
+    <p class="small">🎲 ランダムマッチ：待合室のだれかと対戦。🏅 レート戦：レートの近い人と対戦して、対戦レートが上下する。<br>合言葉の部屋（友だちと）は 2〜4 人。7 駅の短い路線。<br>⚔ 対戦：いちばん徳を積んだ人の勝ち。具合が悪そうなライバルはパンチでトドメ。<br>🤝 共闘：みんなのスコアの合計で勝負。倒れた仲間は徳で復活できる。人数ごとのランキングあり。</p>
     <div id="olMenu">
+      <div id="mmBox"><div class="row"><button class="btn main" id="mmAny">🎲 ランダムマッチ</button><button class="btn main" id="mmRate">🏅 レート戦</button></div><button class="btn sub2 hidden" id="mmCancel">さがすのをやめる</button><p class="small" id="mmNote" style="margin:4px 0 10px"></p></div>
+      <p class="small" style="margin:0 0 4px;color:var(--sub)">👫 友だちと遊ぶ（合言葉の部屋）</p>
       <div class="namebox">乗客名 <b id="olNameShow"></b><input id="olName" type="hidden"></div>
       <button class="btn main" id="olCreate">🚪 部屋をつくる</button>
       <div class="row"><input id="olCode" class="olcodein" inputmode="numeric" maxlength="4" placeholder="合言葉（4けた）" autocomplete="off"><button class="btn" id="olJoin">入る</button></div>
@@ -829,7 +832,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111044730"></script>
-<script src="game.js?v=20261111044730"></script>
+<script src="logic.js?v=20261111045818"></script>
+<script src="game.js?v=20261111045818"></script>
 </body>
 </html>
