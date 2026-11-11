@@ -1580,7 +1580,7 @@
       if (e.type === 'drop') tip('drop', '落とし物！ 拾って持ち主に届けよう。持ち主は「あれ？」と探しはじめる');
       switch (e.type) {
         case 'toast': addToast(e.text, e.kind); break;
-        case 'points': addPop(`+${e.amount} 徳<small>${e.text}</small>`); if (e.combo > 1) { addToast('善行コンボ ×' + e.combo + '！', 'good'); sfx('combo'); } break;
+        case 'points': if (e.amount >= 50 && G) addMoment(e.amount, e.text); addPop(`+${e.amount} 徳<small>${e.text}</small>`); if (e.combo > 1) { addToast('善行コンボ ×' + e.combo + '！', 'good'); sfx('combo'); } break;
         case 'mind': addPop(`${e.amount} 精神<small>${e.text}</small>`, 'm'); if (e.amount <= -8) shakeAmt = Math.max(shakeAmt, 0.3); break;
         case 'karma': if (e.amount > 0) addPop(`+${e.amount} カルマ<small>${e.text}</small>`, 'k'); else addPop(`${e.amount} カルマ<small>${e.text}</small>`, 'k'); break;
         case 'sfx': sfx(e.name); break;
@@ -1589,7 +1589,7 @@
         case 'lurch': lurchKick = 1; sfx('lurch'); break;
         case 'brace': if (e.ok) addPop('踏ん張った！'); else addToast('よろけた！ 体力-7', 'bad'); $('warn').classList.add('hidden'); break;
         case 'chikan': addToast('…どこかで困っている人がいる？（絡まれているかも）', 'warn'); break;
-        case 'bossResult': if (!RP.active && !(MP.active && !MP.isHost)) track('ボス駅：' + e.name + '：' + (e.ok ? 'クリア' : '失敗') + (G.modeName === 'bossrush' ? '（ラッシュ）' : '')); break;
+        case 'bossResult': if (e.ok && G) addMoment(80 + e.tier * 60, '🏆 ボス駅「' + e.name + '」をクリア'); if (!RP.active && !(MP.active && !MP.isHost)) track('ボス駅：' + e.name + '：' + (e.ok ? 'クリア' : '失敗') + (G.modeName === 'bossrush' ? '（ラッシュ）' : '')); break;
         case 'thiefSteal': if (!G.__thiefTold) { G.__thiefTold = true; addToast('…だれかが落とし物をこっそり持っていった？（泥棒かも）', 'warn'); } break;
         case 'rare': { const p = SW.person(g, e.id); if (p) addToast(p.type === 'ceo' ? '金のネクタイの紳士が乗ってきた…' : '…なにか様子のおかしい乗客が乗ってきた', 'warn'); break; }
         case 'arrive': sfx('arrive'); showAnn(g.ann); speak(SW.stationName(g, g.station) + '、' + SW.stationName(g, g.station)); break;
@@ -1974,6 +1974,7 @@
     G.rookie = resume ? !!resume.meta.rookie : mode === 'normal' && !profile.plays && !profile.rookieDone;
     $('rookieTag').classList.toggle('hidden', !G.rookie); document.body.classList.toggle('rookie', !!G.rookie);
     document.body.classList.toggle('rookie', !!G.rookie || !!rule); // 右上の札の分、落とし物の小さいカードを下げる
+    G.moments = []; SHOT.url = null; SHOT.p = 0; SHOT.pending = null;
     G.rule = rule; $('ruleTag').textContent = rule ? rule.icon + ' ' + rule.name : ''; $('ruleTag').classList.toggle('hidden', !rule);
     inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null); showInapp(false);
@@ -2536,20 +2537,88 @@
       if (g.rookie) { track('見習い乗車：' + causeJa); track('見習い乗車：終わった駅：' + Math.min(g.stats.stations, SW.lastStation(g)) + '駅目'); }
       for (const a of newAch) { const ach = SW.ACHIEVEMENTS.find(x => x.id === a); if (ach) track('実績：' + ach.name); }
     }
-    $('bShareX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(lastResult));
+    lastResult.moment = momentText(g); setShareHref(); showNudge(g);
     $('bRetry').textContent = mode === 'practice' ? '🚃 本番に挑戦！' : 'もう一回乗る';
     show('result');
     submitScore(lastResult);
   }
+  // ---- シェアのきっかけ：見せ場（大きな善行・ボス駅クリア・めずらしいこと・新記録）をためて、結果画面で「自慢しよう」と出す
+  const SHOT = { url: null, p: 0, pending: null, label: '' };
+  function addMoment(p, text) {
+    if (!G || RP.active || (MP.active && !MP.isHost)) return;
+    G.moments = G.moments || []; G.moments.push({ p, t: text });
+    if (p > SHOT.p && state === 'play') { SHOT.pending = text; SHOT.pp = p; } // その瞬間の画面を写真に
+  }
+  function takeShot() {
+    try {
+      const src = renderer.domElement, k = 720 / Math.max(src.width, src.height), cv = document.createElement('canvas');
+      cv.width = Math.round(src.width * k); cv.height = Math.round(src.height * k);
+      const c = cv.getContext('2d'); c.drawImage(src, 0, 0, cv.width, cv.height);
+      const fs = Math.round(cv.width * 0.05); c.font = 'bold ' + fs + 'px ' + FONT; c.textAlign = 'center';
+      c.lineWidth = fs * 0.22; c.strokeStyle = 'rgba(0,0,0,.85)'; c.strokeText(SHOT.pending, cv.width / 2, fs * 1.6); c.fillStyle = '#ffd447'; c.fillText(SHOT.pending, cv.width / 2, fs * 1.6);
+      const f2 = Math.round(fs * 0.6); c.font = 'bold ' + f2 + 'px ' + FONT; c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, cv.height - f2 * 1.8, cv.width, f2 * 1.8);
+      c.fillStyle = '#fff'; c.fillText('スワリタイ！　#スワリタイ', cv.width / 2, cv.height - f2 * 0.6);
+      SHOT.url = cv.toDataURL('image/jpeg', 0.85); SHOT.p = SHOT.pp; SHOT.label = SHOT.pending;
+    } catch (e) { }
+    SHOT.pending = null;
+  }
+  function momentText(g) {
+    const m = (g.moments || []).slice(), s = g.stats, R = lastResult;
+    if (R && /自己ベスト/.test($('rTitle').textContent) && R.sc.total >= 300) m.push({ p: 260, t: '🆕 自己ベスト ' + R.sc.total + ' 点' });
+    if (s.ceo) m.push({ p: 350, t: '🎩 謎の紳士に席を譲った' });
+    if (s.alien) m.push({ p: 380, t: '👽 宇宙人に席を譲った' });
+    if (g.mikiwame && s.mkBest >= 5) m.push({ p: 300 + s.mkBest, t: '🎯 見極め線で ' + s.mkBest + ' 連続で読み的中' });
+    if (g.bossRush && (s.bossClear || 0) >= 3) m.push({ p: 250 + s.bossClear * 10, t: '⚠ ボス駅ラッシュで ' + s.bossClear + ' 駅クリア' });
+    m.sort((a, b) => b.p - a.p);
+    return m.length && m[0].p >= 150 ? m[0].t : '';
+  }
+  function setShareHref() { if (lastResult) $('bShareX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(lastResult)); }
+  // シェアのお礼：1 日 1 回、名前ガチャ +1
+  function shareReward() {
+    if (profile.shareDay === todayKey()) return;
+    profile.shareDay = todayKey(); profile.nameTickets = ticketsLeft() + 1; saveProfile();
+    setTimeout(() => addToast('🎟 シェアのお礼：名前ガチャが 1 回ふえた！（1 日 1 回）', 'good'), 600);
+    track('シェアのお礼をもらった');
+  }
+  // 結果画面の「自慢しよう」：見せ場があればそれを、なければ今週のお題を出す
+  function showNudge(g, extra) {
+    const R = lastResult; if (!R) return;
+    const mt = extra || R.moment;
+    const reward = profile.shareDay === todayKey() ? '' : '<small>シェアすると名前ガチャ +1（1 日 1 回）</small>';
+    $('rNudge').innerHTML = (mt ? `<b>📣 ${esc(mt)}${/[！!]$/.test(mt) ? '' : '！'}</b><span>みんなに自慢しよう</span>` : `<b>📝 今週のお題：${esc(weekTheme())}</b><span>#スワリタイ で投稿しよう</span>`) + reward
+      + `<div><a class="btn main" id="nuX" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a>${SHOT.url ? '<button class="btn" id="nuShot">📸 見せ場の写真</button>' : ''}</div>`;
+    if (extra) { R.moment = extra; setShareHref(); }
+    $('nuX').href = $('bShareX').href;
+    $('nuX').onclick = () => { track('自慢しようからシェア'); shareReward(); try { navigator.clipboard && navigator.clipboard.writeText(shareText(R)).catch(() => { }); } catch (e) { } };
+    if ($('nuShot')) $('nuShot').onclick = () => shareShot();
+    $('rNudge').classList.remove('hidden');
+  }
+  async function shareShot() {
+    if (!SHOT.url) return;
+    track('見せ場の写真をシェア・保存した');
+    const blob = await (await fetch(SHOT.url)).blob(), file = 'suwaritai-mise.jpg';
+    try { if (isTouch && navigator.canShare && navigator.canShare({ files: [new File([blob], file, { type: 'image/jpeg' })] })) { await navigator.share({ files: [new File([blob], file, { type: 'image/jpeg' })], text: shareText(lastResult) }); shareReward(); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { if (window.claude && window.claude.use) { const dl = await window.claude.use('downloads'); if (dl) { await dl.save({ filename: file, data: blob }); return; } } } catch (e) { }
+    const a = document.createElement('a'); a.href = SHOT.url; a.download = file; document.body.appendChild(a); a.click(); a.remove();
+  }
+  // ---- シェア：今日のダイヤは Wordle のような絵文字の結果（1 駅 1 マス）。見せ場があれば先頭に
+  const WEEK_THEMES = ['ボス駅ラッシュで何駅まで行けた？', '今日のダイヤ、どの駅で倒れた？', '見極め線で何連続で読めた？', 'あなたの乗客タイプ診断は？', 'ランク線の段位は？', 'いちばん笑えた倒れかたは？'];
+  function weekTheme() { const d = new Date(weekKey() + 'T00:00:00'); return WEEK_THEMES[Math.floor(d.getTime() / (7 * 86400000)) % WEEK_THEMES.length]; }
   function shareText(R) {
-    const s = R.stats;
+    const s = R.stats, grid = (s.stLog || []).join('');
+    if (R.mode === 'daily') { // 今日のダイヤ：ネタバレなしで、くらべたくなる形
+      const top = R.rk && R.rk.rank && R.rk.total ? Math.max(1, Math.ceil(R.rk.rank / R.rk.total * 100)) : 0;
+      const pct = top && top <= 50 ? '（上位' + top + '%）' : R.rk && R.rk.rank && R.rk.rank <= 100 ? '（' + R.rk.rank + '位）' : '';
+      return `${R.moment ? R.moment + '\n\n' : ''}スワリタイ！ 今日のダイヤ ${todayKey().slice(5).replace('-', '/').replace(/^0/, '')}\n${R.rule ? R.rule.icon + R.rule.name + '\n' : ''}${grid}\n${R.sc.total}点${pct}\n\nあなたは何点？\n${SHARE_URL}\n\n#スワリタイ`;
+    }
     const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線', bossrush: 'ボス駅ラッシュ' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
-    return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n${R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
+    return `${R.moment ? R.moment + '\n\n' : ''}${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n${grid ? grid + '\n' : ''}${R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
   }
   $('bShareX').addEventListener('click', () => {
     track('X でシェアを押した');
+    shareReward();
     if (!lastResult) return;
     try { const p = navigator.clipboard && navigator.clipboard.writeText(shareText(lastResult)); if (p && p.catch) p.catch(() => { }); } catch (e) { }
   });
@@ -2706,6 +2775,7 @@
         if (!DB) recUpload(R, res, rec);
         const rk = (x) => x ? (x.rank ? x.rank + '位' : '100位より下') : '-';
         const main = res && (R.mode === 'daily' ? res.daily : res.day);
+        if (main && R === lastResult) { R.rk = { rank: main.rank, total: main.total }; setShareHref(); }
         if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${rankTxt(main)}・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
         else if (state === 'result') $('rRank').textContent = '';
         if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : 'day');
@@ -2824,7 +2894,7 @@
       const nCpu = opps.filter((o) => o.cpu).length;
       txt += `<br>同じ電車の ${opps.length + 1} 人中 ${place} 位` + (nCpu ? `（うち CPU ${nCpu}）` : '');
       if (held) txt += '<br>⚠ 点数が高すぎるので、レートは保留にしました';
-      if (t1[0] > t0[0]) { txt += `<br>🎉 段位が上がった！ ${t1[1]} ${t1[2]}`; sfx('clear'); }
+      if (t1[0] > t0[0]) { txt += `<br>🎉 段位が上がった！ ${t1[1]} ${t1[2]}`; sfx('clear'); showNudge(G, t1[1] + ' ランク線で「' + t1[2] + '」に昇格'); }
       if (state === 'result') { $('rRank').innerHTML = txt; }
       // リプレイを載せる（同じ電車の人がいつでも見られるように）
       if (rec && rec.done) { try { const d = await gz(JSON.stringify({ v: 1, seed: rec.seed, mode: 'normal', fr: rec.fr })); if (d.length < 900000) await withTimeout(F.db.ref('suwaritai/rk/rp/' + wk + '/' + i + '/' + F.uid).set({ n: name, s: score, d, t: F.TS }), 20000); } catch (e) { } }
@@ -3948,6 +4018,7 @@
       }
     }
     renderer.render(scene, camera);
+    if (SHOT.pending) takeShot();
   }
   // 起動
   function boot() {

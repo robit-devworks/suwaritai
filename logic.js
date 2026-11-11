@@ -644,6 +644,7 @@
     if (g.over) return;
     g.over = true;
     g.result = Object.assign({ cause }, CAUSES[cause], extra || {});
+    if (cause !== 'clear') stLogPush(g, true);
     emit(g, { type: cause === 'clear' ? 'clear' : 'gameover', cause });
   }
   function finalScore(g) {
@@ -763,7 +764,7 @@
     }
     seat.occ = 0; seat.res = -1; pl.seat = seat.id; pl.x = seat.x; pl.z = seat.z * 0.92; pl.sitT = g.t;
     pl.yaw = seat.side > 0 ? 0 : Math.PI; pl.pitch = 0;
-    g.stats.sits++;
+    g.stats.sits++; pl.segSat = true;
     if (g.mikiwame) mkSit(g, seat);
     if (g.t - seat.freedAt < 1.0 && seat.freedAt > 0) { g.stats.quickSits++; if (g.bal2) bonusPts(g, 15, '⚡ 秒速着席'); }
     if (seat.freedBy >= 0) { const q = person(g, seat.freedBy); if (q && q.oversleep) g.stats.oversleepSteal++; }
@@ -1417,6 +1418,7 @@
         emit(g, { type: 'sfx', name: 'brake' });
         withEach(g, () => bossJudge(g));
         if (g.mikiwame) mkArrive(g);
+        if (!g.multi) stLogPush(g, false);
         if (g.station >= lastStation(g)) {
           if (g.multi) { withEach(g, () => gameOver(g, 'clear')); g.over = true; g.result = { cause: 'end' }; return; }
           gameOver(g, 'clear'); return;
@@ -2003,6 +2005,13 @@
     return null;
   }
   // 次の駅に着いたら、ボス駅の結果
+  // 1 駅ごとの結果（シェアの絵文字に使う）：🏆 ボス駅クリア・💀 ボス駅失敗・🟩 座れた・🟨 立ちっぱなし・🟥 倒れた
+  function stLogPush(g, fell) {
+    const pl = g.player, s = g.stats; s.stLog = s.stLog || [];
+    let m = fell ? '🟥' : (pl.segSat || pl.seat >= 0) ? '🟩' : '🟨';
+    if (!fell && s.lastBoss != null) { m = s.lastBoss ? '🏆' : '💀'; }
+    s.stLog.push(m); s.lastBoss = null; pl.segSat = pl.seat >= 0;
+  }
   function bossJudge(g) {
     const b = g.boss; if (!b || g.station < b.deadline) return;
     g.boss = null;
@@ -2020,7 +2029,7 @@
     }
     for (const id of b.ids) { const p = alive(id); if (p) { p.bxDone = true; p.dest = Math.min(p.dest, g.station + 1); } }
     emit(g, { type: 'bossResult', key: b.key, name: B.name, tier: B.tier, ok: !!clear }); // ボス駅ごとのクリア率を数える（game.js が GoatCounter に送る）
-    g.stats.bossLog = (g.stats.bossLog || []).concat([[b.key, clear ? 1 : 0]]);
+    g.stats.bossLog = (g.stats.bossLog || []).concat([[b.key, clear ? 1 : 0]]); g.stats.lastBoss = clear ? 1 : 0;
     if (clear) { deed(g, BOSS_PTS[b.tier], '🏆 ' + B.name + '（ボス駅）クリア！'); g.stats.bossClear = (g.stats.bossClear || 0) + 1; emit(g, { type: 'sfx', name: 'clear' }); }
     else { hurtMind(g, 12, 'ボス駅をクリアできなかった'); toast(g, '😵 ' + B.name + '…クリアならず', 'bad'); }
   }

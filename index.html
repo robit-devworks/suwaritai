@@ -224,6 +224,7 @@ body.tpv #cross,body.tpv #target{display:none!important}
 #lobbyBan{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 64px);transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:6px;width:min(420px,calc(100% - 20px));background:rgba(20,40,70,.95);border:2px solid #7fd1ff;border-radius:14px;padding:8px 10px;color:#fff;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
 #lobbyBan span{flex:1;line-height:1.35}#lobbyBan .av{width:16px;height:16px}
 #lobbyBan button{flex:none;border:0;border-radius:10px;padding:6px 10px;font-weight:800;font-size:13px;background:#7fd1ff;color:#0b2033}#lobbyBan #lbX{background:transparent;color:#bcd;padding:6px}
+#rNudge{margin:6px 0;padding:8px 10px;border:2px solid #ffd447;border-radius:14px;background:rgba(255,212,71,.08);text-align:center}#rNudge b{display:block;color:#ffd447;font-size:14px}#rNudge span,#rNudge small{display:block;font-size:12px;color:var(--sub)}#rNudge small{color:#9be39b}#rNudge div{display:flex;gap:6px;margin-top:6px}#rNudge .btn{flex:1;margin:0;padding:8px;font-size:13px}
 .vtag{display:inline-block;font-size:9px;line-height:1;padding:2px 4px;margin-right:4px;border-radius:4px;background:#2f9e6b;color:#fff;vertical-align:1px}
 .rk .sc{font-weight:800;color:var(--toku)}
 .rk.me{background:rgba(255,212,71,.12);border-radius:8px}
@@ -329,7 +330,7 @@ html.pland #title .nmlbl{display:none}
 .newach{margin-top:8px;font-size:13px;color:var(--good);text-align:center}
 #result .card{display:flex;flex-direction:column}
 #result .rL,#result .rR{display:contents}
-#rCause{order:1}#rText{order:2}#rScore{order:3}#rTitle{order:4}#rBrk{order:5}#rStats{order:6}#rAch{order:7}#rRank{order:8}
+#rCause{order:1}#rText{order:2}#rScore{order:3}#rTitle{order:4}#rBrk{order:5}#rStats{order:6}#rAch{order:7}#rRank{order:8}#rNudge{order:8}
 #result .rR .row{order:9}#bToTitle{order:10}#rMiniBox{order:11}
 .modeinfo{font-size:12px;color:var(--sub);margin:-4px 0 6px;text-align:center}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;background:var(--bg);font-size:16px;color:var(--sub);text-align:center;padding:20px}
@@ -802,6 +803,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="rtitle" id="rTitle"></div>
     <div class="newach" id="rAch"></div>
     <p class="small" id="rRank"></p>
+    <div id="rNudge" class="hidden"></div>
     <div id="rMiniBox" class="hidden" style="margin-top:10px"><div id="rMini"></div><button class="btn sub2" id="bRankR" style="margin-top:6px">🏆 みんなのランキングを見る</button></div>
     </div>
     <div class="rR">
@@ -832,7 +834,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111045818"></script>
-<script src="game.js?v=20261111045818"></script>
+<script src="logic.js?v=20261111052340"></script>
+<script src="game.js?v=20261111052340"></script>
 </body>
 </html>
