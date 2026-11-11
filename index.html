@@ -273,12 +273,13 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 #rpBar{position:fixed;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));z-index:40;width:min(560px,calc(100% - 20px));background:rgba(12,14,20,.82);border:1px solid var(--line);border-radius:14px;padding:8px 10px;backdrop-filter:blur(4px)}
 .rpTop{display:flex;gap:8px;align-items:center;font-size:14px;overflow:hidden;white-space:nowrap}
 .rpTag{background:#e85d75;color:#fff;border-radius:6px;padding:1px 6px;font-size:12px;font-weight:800}
-.rpCtl{display:flex;gap:6px;margin-top:6px}
+.rpCtl{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.rpCtl #rpVid,.rpCtl #rpClip{flex:1 1 40%}.rpCtl #rpClip.pulse{border-color:var(--toku);color:var(--toku);animation:blink .6s infinite alternate}
 .rpCtl button{font:inherit;font-size:13px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer;flex:0 0 auto}
 .rpCtl #rpLike{flex:1}.rpCtl button:disabled{opacity:.7;cursor:default}
 .rpProgW{height:4px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:6px;overflow:hidden}
 #rpProg{display:block;height:100%;width:0;background:#ffd447}
 .rpMark{font-size:10px;color:var(--sub);text-align:right;margin-top:3px}
+#shareMenu{position:fixed;inset:0;z-index:58;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}#shareMenu.hidden{display:none}#shareMenu .card{max-width:380px;width:calc(100% - 28px)}#shareMenu .btn{display:block;margin:6px 0;width:100%;text-align:center}#shareMenu .btn:disabled{opacity:.45}
 #vidBox{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}#vidBox.hidden{display:none}#vidBox .card{max-width:420px;width:calc(100% - 28px);max-height:calc(100% - 24px);overflow:auto}#vidBox video{width:100%;max-height:50vh;border-radius:10px;background:#000}#vidBox .btn{display:block;margin:6px 0}
 body.vrec #rpPlay,body.vrec #rpSpeed,body.vrec #rpTpv{opacity:.4;pointer-events:none}
 #rpEnd{position:fixed;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)}
@@ -544,9 +545,25 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="fx"><div id="hitFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
 
 <div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spTpv">🎥 3人称</button><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
-<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpLike">🤍 いいね</button><button id="rpVid" class="hidden">📹 動画にする</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
+<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpLike">🤍 いいね</button><button id="rpVid" class="hidden" title="いちばん大きな出来事を自動で選んで動画にする">📹 おまかせ</button><button id="rpClip" class="hidden" title="始まりと終わりを自分で選んで動画にする（最大 1 分）">✂ 選ぶ</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
 <div id="rpEnd" class="hidden"><div class="card"><h3 id="rpEndT"></h3><button class="btn main" id="rpLike2">🤍 いいね</button><button class="btn sub2" id="rpAgain">もう一度見る</button><button class="btn sub2" id="rpBack">ランキングにもどる</button></div></div>
 <div id="vidBox" class="hidden"></div>
+<div id="shareMenu" class="hidden"><div class="card"><h3>📣 シェアする</h3>
+  <div id="smTop">
+    <a class="btn" id="smText" target="_blank" rel="noopener" style="text-decoration:none">📝 文だけ（𝕏 に投稿）</a>
+    <button class="btn" id="smCard">🖼 スコアカード（画像）</button>
+    <button class="btn" id="smVid">🎬 動画</button>
+    <p class="small" id="smVidNote" style="margin:2px 0 6px;color:var(--sub)"></p>
+  </div>
+  <div id="smVidBox" class="hidden">
+    <button class="btn main" id="smAuto">📹 おまかせ（すぐできる）</button>
+    <p class="small" style="margin:0 0 8px;color:var(--sub)">いちばん大きな出来事を自動で選んで、15 秒くらいの動画にします</p>
+    <button class="btn" id="smClip">✂ 自分で選ぶ</button>
+    <p class="small" style="margin:0 0 8px;color:var(--sub)">リプレイを見ながら「✂ 選ぶ」で始まり、もう一度押して終わり（最大 1 分）</p>
+    <button class="btn sub2" id="smBack">← もどる</button>
+  </div>
+  <button class="btn sub2" id="smClose">とじる</button>
+</div></div>
 <div id="lobbyBan" class="hidden"></div>
 <div id="hud" class="hidden">
   <div id="carryCard" class="hidden"></div>
@@ -697,7 +714,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <kbd>Esc / P</kbd><span>一時停止（全画面のままなら P）</span>
     </div>
     <p class="small">📱 スマホは、人や空いた席を<b>軽くタップ</b>するとそっちを向きます。一時停止（Ⅱ）で<b>視点の感度</b>と<b>✋ 片手モード</b>（右手・左手）を選べます。片手モードはスティックを少し倒すと見回す、大きく倒すと歩きます。</p>
-    <p class="small">🎬 遊び終わったら、結果画面で<b>自分のリプレイ</b>が見られます（前回の分はランキングの画面からも）。「📹 動画にする」で見せ場をまとめた<b>ダイジェスト動画</b>を作って、X などにシェアできます。</p>
+    <p class="small">🎬 遊び終わったら、結果画面で<b>自分のリプレイ</b>が見られます（前回の分はランキングの画面からも）。「📹 おまかせ」でいちばん大きな出来事の<b>動画</b>、「✂ 選ぶ」で好きな場面（最大 1 分）を動画にして、X などにシェアできます。</p>
     <p class="small">スコア ＝ 集めた徳 ＋ 駅ごとのボーナス ＋ 完走ボーナス − カルマ</p>
     <p class="small">作者：ROBIT（<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">𝕏 @ROBITdesuyo</a>）　アップデート情報も X で<br>作者のほかのゲーム：<a class="dg-link" data-from="遊び方" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--accent)">🎮 デストロイ碁（石を壊す囲碁バトル）</a></p>
     <p class="small">ランキングには「乗客名」とスコアだけを記録します（ログインは不要。端末ごとに自動で番号がつきます）。遊ばれた回数を GoatCounter で数えています（Cookie なし・個人は分かりません）。</p>
@@ -869,7 +886,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="rR">
     <div class="brk" id="rBrk"></div>
     <div class="stats" id="rStats"></div>
-    <div class="row"><a class="btn" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn" id="bShareImg">🖼 画像</button><a class="btn follow-x" id="bFollow" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="text-decoration:none">🔔 フォロー</a></div>
+    <div class="row"><button class="btn" id="bShare">📣 シェアする</button><a class="btn hidden" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn hidden" id="bShareImg">🖼 画像</button><a class="btn follow-x" id="bFollow" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="text-decoration:none">🔔 フォロー</a></div>
     <p class="other-game"><a class="dg-link" data-from="結果" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener">🎮 作者の別ゲーム：デストロイ碁（囲碁バトル）›</a></p>
     <button class="btn sub2 hidden" id="bMyRp">🎬 今の自分のリプレイを見る（動画にもできる）</button>
     <div class="row"><button class="btn main" id="bRetry">もう一回乗る</button></div>
@@ -895,7 +912,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261111071559"</script><script src="logic.js?v=20261111071559"></script>
-<script src="game.js?v=20261111071559"></script>
+<script>window.SW_VER="20261111095924"</script><script src="logic.js?v=20261111095924"></script>
+<script src="game.js?v=20261111095924"></script>
 </body>
 </html>

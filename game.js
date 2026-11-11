@@ -11,6 +11,8 @@
   const BAL2 = /[?&]bal=2\b/.test(location.search) || !!window.__SW_BAL2;
   if (isTouch) document.body.classList.add('touch');
   const SHARE_URL = window.SUWARITAI_URL || (location.href.split('?')[0].split('#')[0] + '?ref=share');
+  // シェアの URL には自分の招待の印をつける（その URL から来た人が 1 回遊ぶと、2 人ともチケット）
+  const shareUrl = () => SHARE_URL + (profile.fbUid && !window.SUWARITAI_URL ? '&inv=' + profile.fbUid : '');
 
   // ================================================================ 数える（GoatCounter）
   // 遊ばれ方の回数だけを数える（個人は分からない）。公開サイトで count.js が読めたときだけ動く
@@ -26,6 +28,9 @@
   let profile = { name: '', best: 0, bestTitle: '', daily: { date: '', score: 0 }, ach: {}, chikanTotal: 0, plays: 0, unlock: {}, sound: true, bests: {} };
   try { const s = localStorage.getItem(STORE_KEY); if (s) profile = Object.assign(profile, JSON.parse(s)); } catch (e) { }
   function saveProfile() { try { localStorage.setItem(STORE_KEY, JSON.stringify(profile)); } catch (e) { } }
+  // 招待のリンク（?inv=招待した人の uid か robit）で来た、はじめての人だけ覚える。1 回遊び終わると、2 人にチケット
+  const INV_IN = (() => { try { const v = new URLSearchParams(location.search).get('inv'); return v && /^[A-Za-z0-9_-]{2,40}$/.test(v) ? v : null; } catch (e) { return null; } })();
+  if (INV_IN && !profile.invBy && !profile.invDone && !(profile.plays > 0)) { profile.invBy = INV_IN; saveProfile(); }
   // 今週（月曜はじまり）の月曜の日付
   function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -2664,6 +2669,7 @@
     $('bRetry').textContent = mode === 'practice' ? '🚃 本番に挑戦！' : 'もう一回乗る';
     show('result');
     myRpKeep(g);
+    if (g.modeName !== 'tutorial') invRedeem();
     submitScore(lastResult);
   }
   // ---- シェアのきっかけ：見せ場（大きな善行・ボス駅クリア・めずらしいこと・新記録）をためて、結果画面で「自慢しよう」と出す
@@ -2733,12 +2739,12 @@
     if (R.mode === 'daily') { // 今日のダイヤ：ネタバレなしで、くらべたくなる形
       const top = R.rk && R.rk.rank && R.rk.total ? Math.max(1, Math.ceil(R.rk.rank / R.rk.total * 100)) : 0;
       const pct = top && top <= 50 ? '（上位' + top + '%）' : R.rk && R.rk.rank && R.rk.rank <= 100 ? '（' + R.rk.rank + '位）' : '';
-      return `${R.moment ? R.moment + '\n\n' : ''}スワリタイ！ 今日のダイヤ ${todayKey().slice(5).replace('-', '/').replace(/^0/, '')}\n${R.rule ? R.rule.icon + R.rule.name + '\n' : ''}${grid}\n${R.sc.total}点${pct}\n\nあなたは何点？\n${SHARE_URL}\n\n#スワリタイ`;
+      return `${R.moment ? R.moment + '\n\n' : ''}スワリタイ！ 今日のダイヤ ${todayKey().slice(5).replace('-', '/').replace(/^0/, '')}\n${R.rule ? R.rule.icon + R.rule.name + '\n' : ''}${grid}\n${R.sc.total}点${pct}\n\nあなたは何点？\n${shareUrl()}\n\n#スワリタイ`;
     }
     const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線', bossrush: 'ボス駅ラッシュ' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
-    return `${R.moment ? R.moment + '\n\n' : ''}${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n${grid ? grid + '\n' : ''}${R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
+    return `${R.moment ? R.moment + '\n\n' : ''}${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n${grid ? grid + '\n' : ''}${R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`}\n\n▶ ブラウザですぐ遊べます（無料）\n${shareUrl()}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
   }
   $('bShareX').addEventListener('click', () => {
     track('X でシェアを押した');
@@ -2835,6 +2841,7 @@
       const auth = app.auth();
       const prev = await new Promise(res => { const off = auth.onAuthStateChanged(u => { off(); res(u); }); });
       const user = prev || (await auth.signInAnonymously()).user;
+      if (profile.fbUid !== user.uid) { profile.fbUid = user.uid; saveProfile(); if (lastResult) setShareHref(); } // シェアの招待の印に使う
       return { db: app.database(), uid: user.uid, TS: fb.database.ServerValue.TIMESTAMP };
     })(), 12000).catch(e => { fbWait = null; throw e; });
     return fbWait.then(fbTouch);
@@ -3129,7 +3136,45 @@
     return crownCache;
   }
   const crownOf = (b, id) => { const c = b && b.crown && b.crown[id]; return c && c.until >= todayKey() ? '<span class="crown" title="先週の今週ランキング 1 位">👑</span>' : ''; };
+  // ---- 招待：来た人は 1 回遊び終わったら suwaritai/inv/r/{自分} に { by: 招待した人 } を書く（1 回だけ。自分で自分はだめ）→ チケット 3 枚
+  //      招待した人は、自分が by になっている記録を数えて、まだもらっていない分だけ 1 人 2 枚（1 週間に 5 人まで）
+  const INV_NEW = 3, INV_PER = 2, INV_WEEK = 5;
+  function invBanner(title, text) {
+    const bn = document.createElement('div'); bn.id = 'giftBanner';
+    bn.innerHTML = `<b>${title}</b><span>${text}</span><div><button class="btn main" id="giftGo">🎲 名前ガチャを引く</button><button class="btn sub2" id="giftX">あとで</button></div>`;
+    document.body.appendChild(bn); sfx('clear');
+    $('giftX').addEventListener('click', () => bn.remove());
+    $('giftGo').addEventListener('click', () => { bn.remove(); if (state === 'play') return; backTo = state === 'result' ? 'result' : 'title'; renderNameGacha(); show('namegacha'); });
+  }
+  async function invRedeem() {
+    if (!profile.invBy || profile.invDone || DB || !fbAllowed) return;
+    try {
+      const F = await firebaseReady(); if (!F) return;
+      if (F.uid === profile.invBy) { profile.invDone = 1; saveProfile(); return; } // 自分の招待リンクは数えない
+      await withTimeout(F.db.ref('suwaritai/inv/r/' + F.uid).set({ by: profile.invBy, t: F.TS }), 10000);
+      profile.invDone = 1; profile.nameTickets = ticketsLeft() + INV_NEW; saveProfile();
+      track('招待で遊び終わった' + (profile.invBy === 'robit' ? '（作者の投稿）' : ''));
+      invBanner('🎟 ようこそ！ 招待のお礼', '名前ガチャチケット 🎟×' + INV_NEW + ' をプレゼント！ あなたもシェアして友だちを呼ぶと、1 人ごとに 🎟×' + INV_PER);
+    } catch (e) { profile.invDone = 1; saveProfile(); } // もう書いてあった（2 回目）など
+  }
+  let invChecked = false;
+  async function invCheck() {
+    if (invChecked || DB || !fbAllowed) return; invChecked = true;
+    try {
+      const F = await firebaseReady(); if (!F) return;
+      const v = (await withTimeout(F.db.ref('suwaritai/inv/r').orderByChild('by').equalTo(F.uid).get(), 8000)).val() || {};
+      const got = profile.invGot || [], wk = weekKey();
+      if (!profile.invWk || profile.invWk.wk !== wk) profile.invWk = { wk, n: 0 };
+      let n = 0;
+      for (const uid of Object.keys(v)) { if (got.includes(uid) || uid === F.uid) continue; if (profile.invWk.n >= INV_WEEK) break; got.push(uid); profile.invWk.n++; n++; }
+      if (!n) return;
+      profile.invGot = got.slice(-500); profile.nameTickets = ticketsLeft() + n * INV_PER; saveProfile();
+      track('招待のお礼を受け取った（' + n + '人）');
+      invBanner('🎉 あなたのシェアから ' + n + ' 人が遊びに来ました！', 'お礼に名前ガチャチケット 🎟×' + n * INV_PER + '（1 週間に ' + INV_WEEK + ' 人まで）');
+    } catch (e) { invChecked = false; }
+  }
   async function claimGifts() {
+    invCheck();
     if (giftChecked || DB || !fbAllowed) return; giftChecked = true;
     try {
       const F = await firebaseReady(); if (!F) return;
@@ -3407,7 +3452,7 @@
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     $('rpName').innerHTML = (RP.list ? `<small>${RP.k + 1}/${RP.list.list.length}</small> ` : '') + nameHtml(RP.name) + ` <b>${RP.score}</b>点`;
     $('rpBar').classList.remove('hidden'); $('rpEnd').classList.add('hidden'); document.body.classList.add('replay');
-    $('rpLike').classList.toggle('hidden', !!o.own); $('rpLike2').classList.toggle('hidden', !!o.own); $('rpVid').classList.toggle('hidden', !o.own || !vidType());
+    $('rpLike').classList.toggle('hidden', !!o.own); $('rpLike2').classList.toggle('hidden', !!o.own); $('rpVid').classList.toggle('hidden', !o.own || !vidType()); $('rpClip').classList.toggle('hidden', !o.own || !vidType()); RP.clipA = null; $('rpClip').textContent = '✂ 選ぶ'; $('rpClip').classList.remove('pulse');
     $('rpBack').textContent = o.own ? 'もどる' : 'ランキングにもどる';
     rpButtons();
   }
@@ -3418,7 +3463,7 @@
   function myRpKeep(g) {
     if (!REC || REC.fr.length < 10 || !lastResult) { $('bMyRp').classList.add('hidden'); return; }
     REC.done = true;
-    MYRP = { seed: REC.seed, mode: REC.mode, mk: REC.mk ? 1 : 0, fr: REC.fr, n: rankName(), s: lastResult.sc.total, m: lastResult.mode, at: Date.now() };
+    MYRP = { seed: REC.seed, mode: REC.mode, mk: REC.mk ? 1 : 0, fr: REC.fr, n: rankName(), s: lastResult.sc.total, m: lastResult.mode, rt: g.result && g.result.title ? (g.result.cause === 'clear' ? '🏁 ' : '💀 ') + g.result.title : '', at: Date.now() };
     $('bMyRp').classList.remove('hidden');
     if (typeof CompressionStream !== 'undefined') {
       const keep = MYRP;
@@ -3431,12 +3476,36 @@
     return MYRP;
   }
   async function playMyRp(from) {
-    const d = await myRpLoad(); if (!d || !d.fr || !d.fr.length) { addToast('まだ自分のリプレイがありません（1 回遊ぶと見られます）', 'warn'); return; }
+    const d = await myRpLoad(); if (!d || !d.fr || !d.fr.length) { addToast('まだ自分のリプレイがありません（1 回遊ぶと見られます）', 'warn'); return false; }
     track('自分のリプレイを見た');
     rpBegin(d, { name: d.n || rankName(), score: d.s, uid: 'me', me: 'me', own: true });
     RP.from = from;
+    return true;
   }
-  // ---- ダイジェスト動画：見せ場（座れた・大きな善行・KO・ボス駅）は 1 倍、そのあいだは早送りで、だいたい 1 分にまとめる
+  // ---- 結果画面の「📣 シェアする」：文だけ／スコアカード／動画（おまかせ・自分で選ぶ）
+  function smShow(sub) { $('smTop').classList.toggle('hidden', !!sub); $('smVidBox').classList.toggle('hidden', !sub); }
+  $('bShare').addEventListener('click', () => {
+    track('シェアするを開いた');
+    $('smText').href = $('bShareX').href;
+    const canVid = !!vidType(), hasRp = !!MYRP && !$('bMyRp').classList.contains('hidden');
+    $('smVid').disabled = !canVid || !hasRp;
+    $('smVidNote').textContent = !canVid ? 'この端末・ブラウザでは動画にできません' : !hasRp ? 'この回は動画にできません' : '';
+    smShow(false); $('shareMenu').classList.remove('hidden');
+  });
+  $('smText').addEventListener('click', () => { $('bShareX').dispatchEvent(new Event('click')); track('シェア：文だけ'); $('shareMenu').classList.add('hidden'); });
+  $('smCard').addEventListener('click', () => { track('シェア：スコアカード'); $('shareMenu').classList.add('hidden'); $('bShareImg').click(); });
+  $('smVid').addEventListener('click', () => { track('シェア：動画'); smShow(true); });
+  $('smBack').addEventListener('click', () => smShow(false));
+  $('smClose').addEventListener('click', () => $('shareMenu').classList.add('hidden'));
+  $('smAuto').addEventListener('click', async () => {
+    $('shareMenu').classList.add('hidden');
+    if (await playMyRp('result')) vrStart();
+  });
+  $('smClip').addEventListener('click', async () => {
+    $('shareMenu').classList.add('hidden');
+    if (await playMyRp('result')) { $('rpClip').classList.add('pulse'); addToast('✂ 動画にしたい場面の始まりで「✂ 選ぶ」を押してね（もう一度押すと終わり・最大 1 分）', 'good'); }
+  });
+  // ---- ダイジェスト動画（おまかせ）：いちばん大きな出来事の前後 14 秒を切らずに流して、最後に点数のカード。✂ 選ぶ：自分で場面を選ぶ（最大 1 分）
   // 3D の画面にスコアや見せ場の文字を重ねて、MediaRecorder で録る（ボタンを押したときだけ。ふだんは重くならない）
   let VR = null;
   function vidType() {
@@ -3448,36 +3517,53 @@
     const webm = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(ok);
     return webm ? { type: webm, x: false } : null;
   }
-  const DG_PR = (e) => e.type === 'bossResult' ? 4 : e.type === 'ko' ? 3 : e.type === 'points' && e.amount >= 30 ? 3 : e.type === 'sit' ? 2 : e.type === 'points' && e.amount >= 15 ? 1 : 0;
-  function dgPlan(fr) {
-    const T0 = fr[0].t, T = fr[fr.length - 1].t - T0, hs = [];
-    for (const f of fr) for (const e of f.ev || []) { const pr = DG_PR(e); if (pr) hs.push({ t: f.t, pr }); }
-    hs.sort((a, b) => b.pr - a.pr || a.t - b.t);
-    const MAXH = 38, wins = []; // 1 分くらいにまとめる（見せ場は 38 秒まで・強いものから）
-    const total = () => wins.reduce((a, w) => a + w[1] - w[0], 0);
-    for (const h of hs) {
-      const w = [h.t - 2, h.t + 2.5];
-      if (wins.some((x) => w[0] < x[1] && w[1] > x[0])) { for (const x of wins) if (w[0] < x[1] && w[1] > x[0]) { x[0] = Math.min(x[0], w[0]); x[1] = Math.max(x[1], w[1]); } }
-      else wins.push(w);
-      if (total() > MAXH) { wins.pop(); break; }
-    }
-    wins.sort((a, b) => a[0] - b[0]);
-    const H = total(), base = Math.max(4, Math.min(60, (T - H) / Math.max(10, 52 - H)));
-    return { wins, base };
+  // 出来事を「大きな」「面白い」「かなしい」に分けて点をつける（いちばん点の高いものを 1 つずつ選ぶ）
+  const DG_SKIP = /徳が足りない|今日は「/;
+  function dgKind(e) {
+    if (e.type === 'bossResult') return e.ok ? ['big', 260] : ['sad', 200];
+    if (e.type === 'points') return /撃退|KO|成敗|ぶっ飛|除霊|見破|退治|天誅/.test(e.text || '') ? ['fun', 80 + e.amount] : ['big', e.amount];
+    if (e.type === 'rare') return ['fun', 300];
+    if (e.type === 'crit') return ['fun', 140];
+    if (e.type === 'counter') return ['fun', 110];
+    if (e.type === 'speakerHit' || e.type === 'bagThrow') return ['fun', 70];
+    if (e.type === 'sit') return ['big', 25];
+    if (e.type === 'suriSteal' || e.type === 'thiefSteal') return ['sad', 220];
+    if (e.type === 'mind' && e.amount <= -6) return ['sad', -e.amount * 8];
+    if (e.type === 'karma' && e.amount >= 10) return ['sad', e.amount * 5];
+    if (e.type === 'toast' && e.kind === 'bad' && !DG_SKIP.test(e.text || '')) return ['sad', 90];
+    return null;
   }
-  function dgSpeed(now) { const d = RP.dg; return d.wins.some((w) => now >= w[0] && now < w[1]) ? 1 : d.base; }
+  const DG_LABEL = { big: '😲 大きな出来事', fun: '🤣 面白い出来事', sad: '😢 かなしい出来事', end: '' };
+  // おまかせ：いちばん大きな出来事を 1 つ選んで、その 8 秒前から 6 秒後までを切らずに流す（大きな出来事がなければ面白い・かなしい出来事から）
+  function dgPlan(fr) {
+    const T0 = fr[0].t, Te = fr[fr.length - 1].t, best = {};
+    for (const f of fr) for (const e of f.ev || []) { const k = dgKind(e); if (k && (!best[k[0]] || k[1] > best[k[0]].sc)) best[k[0]] = { t: f.t, sc: k[1], kind: k[0] }; }
+    const p = best.big || best.fun || best.sad;
+    if (!p) return { wins: [[Math.max(T0, Te - 14), Te + 1, '🏁 さいご']] }; // 何もなかったときは最後の 14 秒
+    return { wins: [[Math.max(T0, p.t - 8), Math.min(Te + 1, p.t + 6), p.kind === 'big' ? '😲 いちばんの見せ場' : DG_LABEL[p.kind]]] };
+  }
+  // 見せ場の外にいたら、次の見せ場の 3 秒前まで飛ぶ（なければ最後へ）。飛んだぶんの出来事は出さない
+  function dgCut() {
+    const now = RP.t0 + RP.t, w = RP.dg.wins;
+    if (w.some((x) => now >= x[0] && now < x[1])) return false;
+    const nx = w.find((x) => x[0] > now);
+    RP.t = (nx ? nx[0] : RP.fr[RP.fr.length - 1].t) - RP.t0;
+    if (VR) VR.cutAt = performance.now();
+    return true;
+  }
   function vrPop(e) {
-    const t = e.type === 'sit' ? '🪑 座れた！' : e.type === 'points' && e.amount >= 10 ? '+' + e.amount + ' 徳　' + (e.text || '') : e.type === 'ko' ? '👊 KO！' : e.type === 'bossResult' ? (e.ok ? '🏆 ボス駅「' + e.name + '」クリア！' : '💀 ボス駅「' + e.name + '」失敗…') : '';
+    const t = e.type === 'toast' && e.kind !== 'info' && !DG_SKIP.test(e.text || '') ? e.text : e.type === 'mind' && e.amount <= -6 ? e.amount + ' 精神　' + (e.text || '') : e.type === 'sit' ? '🪑 座れた！' : e.type === 'points' && e.amount >= 10 ? '+' + e.amount + ' 徳　' + (e.text || '') : e.type === 'ko' ? '👊 KO！' : e.type === 'bossResult' ? (e.ok ? '🏆 ボス駅「' + e.name + '」クリア！' : '💀 ボス駅「' + e.name + '」失敗…') : '';
     if (t) VR.pops.push({ t, at: performance.now() });
   }
-  function vrStart() {
+  function vrStart(range) {
     const vt = vidType(); if (!vt || !RP.active || !RP.own) return;
-    track('ダイジェスト動画を作った');
-    // 最初から見せ場つきの早送りで流す
+    track(range ? '場面を選んで動画を作った' : 'ダイジェスト動画を作った');
+    RP.clipA = null; $('rpClip').textContent = '✂ 選ぶ';
+    // 最初から、見せ場だけをつないで流す
     const keep = { fr: RP.fr, looks: RP.looks }; clearWorld();
     G = SW.create({ seed: RP.data.seed, mode: RP.data.mode, mikiwame: !!RP.data.mk }); G.modeName = RP.data.mk ? 'mikiwame' : RP.data.mode;
-    RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null }, keep); RP.P.out = false; RP.P.result = null;
-    RP.dg = dgPlan(RP.fr);
+    RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null, speed: 1 }, keep); RP.P.out = false; RP.P.result = null; // 動画はいつも 1 倍（早送りなし）
+    RP.dg = range ? { wins: [[range[0], range[1], '']] } : dgPlan(RP.fr);
     $('rpEnd').classList.add('hidden');
     const src = renderer.domElement, k = 960 / Math.max(src.width, src.height);
     const out = document.createElement('canvas'); out.width = Math.round(src.width * k / 2) * 2; out.height = Math.round(src.height * k / 2) * 2;
@@ -3494,7 +3580,7 @@
     VR = { mr, out, c: out.getContext('2d'), chunks, vt, dest, keepS, t0: performance.now(), endAt: 0, pops: [] };
     mr.start(500);
     $('rpVid').textContent = '■ 録画をやめる'; document.body.classList.add('vrec');
-    addToast('🎬 ダイジェスト動画を作っています（見せ場は普通の速さ、ほかは早送り）', 'good');
+    addToast(range ? '🎬 選んだ場面を動画にしています' : '🎬 いちばん大きな出来事を動画にしています', 'good');
   }
   function vrFrame() {
     const v = VR, c = v.c, W = v.out.width, H = v.out.height, now = performance.now();
@@ -3508,13 +3594,18 @@
     c.textAlign = 'right'; c.fillStyle = '#fff';
     const st = g ? SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g))) : '';
     c.fillText((st ? '🚃 ' + st + '　' : '') + '🙏 ' + (g ? g.player.earned : 0), W - fs * 0.5, fs * 1.1);
-    // 早送りのしるし
-    if (RP.speed > 1.5 && !v.endAt) { c.textAlign = 'right'; c.font = 'bold ' + Math.round(fs * 0.8) + 'px ' + FONT; c.fillStyle = 'rgba(255,255,255,.85)'; c.fillText('▶▶ 早送り ×' + Math.round(RP.speed), W - fs * 0.5, fs * 3); }
+    // いまの場面の名前（大きな出来事・面白い出来事…）
+    const cw = RP.dg && RP.dg.wins.find((x) => { const tn = RP.t0 + RP.t; return tn >= x[0] && tn < x[1]; });
+    if (cw && cw[2] && !v.endAt) { const f3 = Math.round(fs * 0.85); c.font = 'bold ' + f3 + 'px ' + FONT; c.textAlign = 'left'; const tw = c.measureText(cw[2]).width; c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(fs * 0.4, fs * 2.6, tw + fs * 0.8, f3 * 1.6); c.fillStyle = '#fff'; c.fillText(cw[2], fs * 0.8, fs * 2.6 + f3 * 0.8); }
+    // カットのつなぎ目は一瞬だけ暗くする
+    if (v.cutAt && now - v.cutAt < 300) { c.fillStyle = 'rgba(0,0,0,' + (0.85 * (1 - (now - v.cutAt) / 300)).toFixed(3) + ')'; c.fillRect(0, 0, W, H); }
     // 見せ場の文字
-    v.pops = v.pops.filter((p) => now - p.at < 2200);
-    v.pops.slice(-3).forEach((p, i, a) => {
+    v.pops = v.endAt ? [] : v.pops.filter((p) => now - p.at < 2200); // 最後のカードでは見せ場の文字を消す
+    v.pops.slice(-2).forEach((p, i, a) => { // 一度に 2 行まで。長い文字は小さくして画面に収める
       const y = H * 0.38 + (i - a.length + 1) * fs * 1.5, al = Math.min(1, (2200 - (now - p.at)) / 400);
-      c.globalAlpha = al; c.textAlign = 'center'; c.font = 'bold ' + Math.round(fs * 1.15) + 'px ' + FONT;
+      let pf = Math.round(fs * 1.15); c.font = 'bold ' + pf + 'px ' + FONT;
+      const tw = c.measureText(p.t).width; if (tw > W * 0.92) { pf = Math.max(10, Math.floor(pf * W * 0.92 / tw)); }
+      c.globalAlpha = al; c.textAlign = 'center'; c.font = 'bold ' + pf + 'px ' + FONT;
       c.lineWidth = fs * 0.25; c.strokeStyle = 'rgba(0,0,0,.85)'; c.strokeText(p.t, W / 2, y); c.fillStyle = '#ffd447'; c.fillText(p.t, W / 2, y); c.globalAlpha = 1;
     });
     // 下：URL
@@ -3529,14 +3620,14 @@
     };
     const el = now - v.t0;
     if (el < 1600) card(Math.min(1, (1600 - el) / 400), 'スワリタイ！', (MODE_JA[RP.data.mk ? 'mikiwame' : RP.data.m || RP.data.mode] || '') + '　ダイジェスト', RP.name + '　' + RP.score + '点');
-    if (v.endAt) card(Math.min(1, (now - (v.endAt - 3200)) / 500), RP.score + '点', 'あなたは座れる？', 'ブラウザで無料　#スワリタイ');
+    if (v.endAt) card(Math.min(1, (now - (v.endAt - 3200)) / 500), RP.score + '点', RP.data.rt ? RP.data.rt : 'あなたは座れる？', RP.data.rt ? 'あなたは座れる？　#スワリタイ' : 'ブラウザで無料　#スワリタイ');
     if (!v.endAt && now - v.t0 > 72000) { v.endAt = now + 3200; RP.paused = true; } // 長くなりすぎたら最後のカードへ（1 分ちょっとまで）
     if (v.endAt && now >= v.endAt) vrStop(false);
   }
   function vrStop(cancel) {
     const v = VR; if (!v) return; VR = null;
     if (RP.dg) { RP.dg = null; RP.speed = 1; }
-    $('rpVid').textContent = '📹 動画にする'; document.body.classList.remove('vrec');
+    $('rpVid').textContent = '📹 おまかせ'; document.body.classList.remove('vrec');
     v.mr.onstop = () => {
       if (v.dest) try { AU.master.disconnect(v.dest); } catch (e) { }
       if (v.keepS) try { v.keepS.stop(); v.keepS.disconnect(); } catch (e) { }
@@ -3554,7 +3645,7 @@
     const file = new File([blob], name, { type: blob.type });
     const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
     const R = { sc: { total: RP.score } };
-    const text = 'スワリタイ！で ' + RP.score + '点のダイジェスト🚃\nあなたは座れる？\n\n▶ ブラウザですぐ遊べます（無料）\n' + SHARE_URL + '\n\n#スワリタイ #バカゲー';
+    const text = 'スワリタイ！で ' + RP.score + '点のダイジェスト🚃\nあなたは座れる？\n\n▶ ブラウザですぐ遊べます（無料）\n' + shareUrl() + '\n\n#スワリタイ #バカゲー';
     $('vidBox').innerHTML = `<div class="card"><h3>📹 ダイジェスト動画ができました</h3><video src="${vidUrl}" controls playsinline loop></video>
       <p class="small" style="margin:6px 0">${(blob.size / 1048576).toFixed(1)}MB${xOk ? '' : '・このブラウザでは WebM 形式なので、X に載せるときは Chrome / Edge / Safari がおすすめ'}</p>
       ${canShare ? '<button class="btn main" id="vidShare">📤 共有する（X など）</button>' : ''}
@@ -3568,6 +3659,22 @@
     $('vidClose').onclick = () => { $('vidBox').classList.add('hidden'); if (RP.active && RP.ended) { $('rpEnd').classList.remove('hidden'); $('rpEndT').innerHTML = nameHtml(RP.name) + ' のリプレイ　<b>' + RP.score + '</b>点'; } };
   }
   $('rpVid').addEventListener('click', () => { if (VR) { vrStop(true); addToast('録画をやめました', 'warn'); } else vrStart(); });
+  // 場面を自分で選ぶ：1 回目で始まり、2 回目で終わり（最大 1 分。1 分たったら自動で終わり）
+  const CLIP_MAX = 60;
+  function clipEnd() {
+    const a = RP.clipA, now = RP.t0 + RP.t, b = Math.min(now, a + CLIP_MAX);
+    if (b - a < 1) { addToast('もう少し長く選んでね（1 秒以上）', 'warn'); return; }
+    vrStart([a, b]);
+  }
+  $('rpClip').addEventListener('click', () => {
+    if (VR || !RP.active) return;
+    if (RP.clipA == null) {
+      RP.clipA = RP.t0 + RP.t; if (RP.ended) { addToast('「もう一度見る」で最初から流して選んでね', 'warn'); RP.clipA = null; return; }
+      if (RP.paused) { RP.paused = false; rpButtons(); }
+      $('rpClip').textContent = '✂ ここまで'; $('rpClip').classList.remove('pulse');
+      addToast('✂ ここから！ 終わりでもう一度押してね（最大 1 分）', 'good');
+    } else clipEnd();
+  });
   $('bMyRp').addEventListener('click', () => playMyRp('result'));
   $('bMyRp2').addEventListener('click', () => playMyRp('rank'));
   function rpButtons() {
@@ -3581,8 +3688,10 @@
   }
   function rpTick(dt) {
     const g = G, fr = RP.fr;
-    if (RP.dg) RP.speed = dgSpeed(RP.t0 + RP.t);
-    if (!RP.paused && !RP.ended && state === 'play') RP.t += dt * RP.speed;
+    if (RP.clipA != null && !VR && RP.t0 + RP.t - RP.clipA >= CLIP_MAX) clipEnd(); // 1 分たったら自動で終わり
+    if (RP.clipA != null && !VR) $('rpClip').textContent = '✂ ここまで ' + Math.floor(RP.t0 + RP.t - RP.clipA) + '秒';
+    const cut = RP.dg && !RP.ended ? dgCut() : false;
+    if (!RP.paused && !RP.ended && state === 'play' && !cut) RP.t += dt * RP.speed;
     const now = RP.t0 + RP.t;
     while (RP.i + 1 < fr.length && fr[RP.i + 1].t <= now) {
       RP.i++;
@@ -3591,8 +3700,8 @@
       b._tx = a[0] / 100; b._tz = a[1] / 100; b._tyaw = a[2] / 100; b._tpitch = a[3] / 100;
       applyPl(g, RP.P, a);
       g.aim = RP.P.aim; g.prompt = RP.P.prompt; RP.obs = a[27] || null;
-      if (RP.speed <= 2) for (const e of f.ev || []) g.events.push(e);
-      if (VR) for (const e of f.ev || []) vrPop(e);
+      if (RP.speed <= 2 && !cut) for (const e of f.ev || []) g.events.push(e);
+      if (VR && !cut) for (const e of f.ev || []) vrPop(e);
     }
     // なめらかに動かす：今のコマ（i）と次のコマ（i+1）のあいだを、時間でまっすぐつなぐ（0.2 秒ごとの記録でもカクカクしない）
     if (RP.nextI !== RP.i) { RP.nextI = RP.i; rpPrepNext(g); }
