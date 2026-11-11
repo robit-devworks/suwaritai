@@ -225,6 +225,8 @@ body.tpv #cross,body.tpv #target{display:none!important}
 #lobbyBan span{flex:1;line-height:1.35}#lobbyBan .av{width:16px;height:16px}
 #lobbyBan button{flex:none;border:0;border-radius:10px;padding:6px 10px;font-weight:800;font-size:13px;background:#7fd1ff;color:#0b2033}#lobbyBan #lbX{background:transparent;color:#bcd;padding:6px}
 #rNudge{margin:6px 0;padding:8px 10px;border:2px solid #ffd447;border-radius:14px;background:rgba(255,212,71,.08);text-align:center}#rNudge b{display:block;color:#ffd447;font-size:14px}#rNudge span,#rNudge small{display:block;font-size:12px;color:var(--sub)}#rNudge small{color:#9be39b}#rNudge div{display:flex;gap:6px;margin-top:6px}#rNudge .btn{flex:1;margin:0;padding:8px;font-size:13px}
+#title .btn .ic{display:block;font-style:normal;font-size:16px;line-height:1.1;margin:0 auto 1px}
+#title .row .btn{position:relative}#title .row .btn .newb{position:absolute;top:-6px;right:-2px;margin:0;font-size:8px;padding:2px 3px}
 .vtag{display:inline-block;font-size:9px;line-height:1;padding:2px 4px;margin-right:4px;border-radius:4px;background:#2f9e6b;color:#fff;vertical-align:1px}
 .rk .sc{font-weight:800;color:var(--toku)}
 .rk.me{background:rgba(255,212,71,.12);border-radius:8px}
@@ -574,9 +576,9 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn sub2 hidden" id="bResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
-    <div class="row" id="dailyRow"><button class="btn" id="bRk"><span class="newb">NEW</span>ランク線 <span class="pill" id="rkPill">レート戦</span></button><button class="btn" id="bMiki"><span class="newb">NEW</span>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily">今日のダイヤ <span class="pill" id="dailyBest">-</span></button></div>
-    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bOnline">オンライン</button><button class="btn sub2 hidden" id="bVideo">動画で見る</button></div>
-    <div class="row"><button class="btn sub2" id="bHow">遊び方</button><button class="btn sub2" id="bRank">ランキング</button><button class="btn sub2" id="bAch">実績</button><button class="btn sub2" id="bStat">Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
+    <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
+    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る</button></div>
+    <div class="row"><button class="btn sub2" id="bHow"><i class="ic">📖</i>遊び方</button><button class="btn sub2" id="bRank"><i class="ic">🏆</i>ランキング</button><button class="btn sub2" id="bAch"><i class="ic">🎖</i>実績</button><button class="btn sub2" id="bStat"><i class="ic">📊</i>Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
@@ -652,8 +654,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div class="card">
     <h2>ランキング</h2>
     <div class="tabs" id="rankTabs"><button data-rt="day" class="on">今日</button><button data-rt="week">今週</button><button data-rt="normal">歴代</button><button data-rt="daily">ダイヤ</button></div>
-    <div class="tabs" id="rankTabs2"><button data-rt="rk">🏅 ランク</button><button data-rt="mkweek">👀 見極め</button><button data-rt="coop2">🤝 共闘</button></div>
-    <div class="tabs hidden" id="rkTabs"><button data-kt="rk" class="on">ひとり（ランク線）</button><button data-kt="rkon">オンライン対戦</button></div>
+    <div class="tabs" id="rankTabs2"><button data-rt="rkon">🏅 対戦レート</button><button data-rt="mkweek">👀 見極め</button><button data-rt="coop2">🤝 共闘</button></div>
     <div class="tabs hidden" id="mkTabs"><button data-mt="week" class="on">今週</button><button data-mt="best">歴代</button></div>
     <div class="tabs hidden" id="coopTabs"><button data-ct="2" class="on">2人</button><button data-ct="3">3人</button><button data-ct="4">4人</button></div>
     <div id="rankNote" class="small"></div>
@@ -734,7 +735,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h2>🌐 オンライン対戦 <span class="pill">β・フレンド戦</span></h2>
     <p class="small">🎲 ランダムマッチ：待合室のだれかと対戦。🏅 レート戦：レートの近い人と対戦して、対戦レートが上下する。<br>合言葉の部屋（友だちと）は 2〜4 人。7 駅の短い路線。<br>⚔ 対戦：いちばん徳を積んだ人の勝ち。具合が悪そうなライバルはパンチでトドメ。<br>🤝 共闘：みんなのスコアの合計で勝負。倒れた仲間は徳で復活できる。人数ごとのランキングあり。</p>
     <div id="olMenu">
-      <div id="mmBox"><div class="row"><button class="btn main" id="mmAny">🎲 ランダムマッチ</button><button class="btn main" id="mmRate">🏅 レート戦</button></div><button class="btn sub2 hidden" id="mmCancel">さがすのをやめる</button><p class="small" id="mmNote" style="margin:4px 0 10px"></p></div>
+      <div id="mmBox"><div class="row"><button class="btn main" id="mmAny">🎲 ランダムマッチ</button><button class="btn main" id="mmRate">🏅 レート戦 <span class="pill">β</span></button></div><button class="btn sub2 hidden" id="mmCancel">さがすのをやめる</button><p class="small" id="mmNote" style="margin:4px 0 10px"></p></div>
       <p class="small" style="margin:0 0 4px;color:var(--sub)">👫 友だちと遊ぶ（合言葉の部屋）</p>
       <div class="namebox">乗客名 <b id="olNameShow"></b><input id="olName" type="hidden"></div>
       <button class="btn main" id="olCreate">🚪 部屋をつくる</button>
@@ -834,7 +835,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111053745"></script>
-<script src="game.js?v=20261111053745"></script>
+<script src="logic.js?v=20261111054841"></script>
+<script src="game.js?v=20261111054841"></script>
 </body>
 </html>

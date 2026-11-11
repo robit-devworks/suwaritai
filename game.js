@@ -1916,7 +1916,6 @@
     const dk = todayKey();
     const dr = SW.dailyRule(dk); // 今日の特別ルール
     showResume();
-    $('rkPill').textContent = profile.rk && profile.rk.s === rkSeason() ? 'レート ' + profile.rk.r : 'レート戦';
     // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
     const isNew = dk <= NEW_UNTIL;
     $('bDaily').querySelector('.newb') || (isNew && $('bDaily').insertAdjacentHTML('afterbegin', '<span class="newb">NEW</span>'));
@@ -1927,7 +1926,7 @@
   }
   function renderModes() {
     const n = (profile.unlock.endless ? 1 : 0) + (profile.unlock.hard ? 1 : 0) + (profile.unlock.jiji ? 1 : 0);
-    $('bModes').textContent = '路線・練習'; // NEW の印は中の練習乗車・ボス駅ラッシュに出す（ボタンがせまいので）
+    $('bModes').innerHTML = '<i class="ic">🚇</i>路線・練習'; // NEW の印は中の練習乗車・ボス駅ラッシュに出す（ボタンがせまいので）
     const list = [
       ['endless', '♾ 終点なしモード', '終点がない。どこまで立っていられるか。だんだん疲れやすくなる', '開放条件：一度、終点まで行く'],
       ['hard', '🔥 満員地獄モード', '超満員・席取りおばちゃん倍増・絡み屋多め', '開放条件：タイトル画面で伝説のコマンド（スマホはスワイプで）'],
@@ -2027,7 +2026,7 @@
     if (!$('mmNote')) return;
     const sec = MM.on ? Math.floor((Date.now() - MM.t0) / 1000) : 0;
     $('mmAny').classList.toggle('hidden', MM.on); $('mmRate').classList.toggle('hidden', MM.on); $('mmCancel').classList.toggle('hidden', !MM.on);
-    $('mmNote').innerHTML = (MM.on ? `🔎 ${MM.kind === 'rate' ? '🏅 レートの近い人' : '🎲 だれか'}をさがしています…（${sec} 秒）<br>` : '') + `待合室：<b>${MM.count}</b> 人　あなたの対戦レート ${rkBadge(mmRateNow())} ${mmRateNow()}`;
+    $('mmNote').innerHTML = (MM.on ? `🔎 ${MM.kind === 'rate' ? '🏅 レートの近い人（レート戦 β）' : '🎲 だれか'}をさがしています…（${sec} 秒）<br>` : '') + `待合室：<b>${MM.count}</b> 人　あなたの対戦レート ${rkBadge(mmRateNow())} ${mmRateNow()}`;
   }
   async function mmCreateRoom(N) {
     for (let k = 0; k < 8; k++) {
@@ -2407,7 +2406,7 @@
   $('bVideo').addEventListener('click', () => { backTo = 'title'; show('videos'); track('動画で見るを開いた'); });
   $('bDaily').addEventListener('click', () => startGame('daily'));
   $('bMiki').addEventListener('click', () => startGame('mikiwame'));
-  $('bRk').addEventListener('click', () => startRanked());
+  // ひとりのレート戦（ランク線）は 2026-11-11 にホームから外した（startRanked などのしくみは残してある）
   $('bModes').addEventListener('click', () => { backTo = 'title'; renderModes(); show('modes'); });
   $('bHow').addEventListener('click', () => { backTo = 'title'; show('howto'); track('遊び方を開いた'); });
   $('bHow2').addEventListener('click', () => { backTo = 'pause'; show('howto'); });
@@ -3065,9 +3064,8 @@
     rankTab = tab;
     $('mkTabs').classList.toggle('hidden', !/^mk/.test(tab));
     document.querySelectorAll('[data-mt]').forEach((x) => x.classList.toggle('on', 'mk' + x.dataset.mt === tab));
-    $('rkTabs').classList.toggle('hidden', tab !== 'rk' && tab !== 'rkon');
     document.querySelectorAll('[data-kt]').forEach((x) => x.classList.toggle('on', x.dataset.kt === tab));
-    if (tab === 'rk' || tab === 'rkon') { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'rk')); loadRanking(tab); return; }
+    if (tab === 'rk' || tab === 'rkon') { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'rkon')); loadRanking(tab); return; }
     if (/^mk/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'mkweek')); $('coopTabs').classList.add('hidden'); loadRanking(tab); return; }
     $('coopTabs').classList.toggle('hidden', !/^coop/.test(tab));
     document.querySelectorAll('[data-ct]').forEach((x) => x.classList.toggle('on', 'coop' + x.dataset.ct === tab));
@@ -3169,7 +3167,7 @@
       $('rMiniBox').classList.remove('hidden');
     } catch (e) { /* 出さない */ }
   }
-  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'ranked' ? 'rk' : lastResult && lastResult.mode === 'mikiwame' ? 'mkweek' : lastResult && lastResult.mode === 'daily' ? 'daily' : 'day'); track('結果からランキングを開いた'); });
+  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'ranked' ? 'rkon' : lastResult && lastResult.mode === 'mikiwame' ? 'mkweek' : lastResult && lastResult.mode === 'daily' ? 'daily' : 'day'); track('結果からランキングを開いた'); });
 
   // ================================================================ リプレイ（ランキング上位 10 位）
   // 遊んでいるあいだ 0.2 秒ごとに様子（オンライン対戦と同じ形）を記録しておき、上位 10 位に入ったら gzip して Firebase に送る
