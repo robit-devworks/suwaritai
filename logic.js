@@ -270,6 +270,7 @@
     if (opts.villains) g.villainKinds = opts.villains.slice();
     g.noBoss = !!opts.noBoss || !!opts.villains; // テストで悪者を決めているときはボス駅なし
     // ボス駅テスト：毎駅がボス駅（1 つをくり返す／全部を順番に）。ほかの悪者は出ない。倒れない
+    if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
     if (opts.bossTest) { g.bossTest = opts.bossTest; g.endless = true; g.villainKinds = []; g.noBoss = false; }
     planBoss(g);
     g.seenVillain = {};
@@ -581,7 +582,20 @@
     broken: { title: '心が折れた', text: 'もう無理…次の駅で降りた' },
     leave: { title: '途中で降りた', text: '' },
   };
+  // 練習乗車：体力・精神が 0 になったり連行されそうになっても、回復して続ける（何回「本番なら終わってた」かを数える）
+  const SAVE_MSG = { collapse: '膝が笑って倒れてた', ko: 'KO負けしてた', pko: 'KO負けしてた', broken: '心が折れてた', arrest: '駅員に連行されてた' };
+  function practiceSave(g, cause) {
+    const pl = g.player;
+    g.stats.saves = (g.stats.saves || 0) + 1;
+    if (cause === 'broken') pl.mind = 50;
+    else if (cause === 'arrest') pl.karma = 40;
+    else pl.stamina = 50;
+    pl.hitFlash = 0.6;
+    toast(g, '💥 本番なら「' + (SAVE_MSG[cause] || '終わってた') + '」！（' + g.stats.saves + '回目）…練習なので続行', 'bad');
+    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'shake', amount: 0.8 });
+  }
   function gameOver(g, cause, extra) {
+    if (g.practice && !g.multi && cause !== 'clear') { practiceSave(g, cause); return; }
     if (g.multi) {
       const P = g.players[g.pi]; if (!P || P.out) return;
       P.out = true; P.outT = g.t; P.outStation = g.station; g.outCount = (g.outCount || 0) + 1; P.outOrder = g.outCount;
