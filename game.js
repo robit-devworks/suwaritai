@@ -2710,12 +2710,12 @@
     setTimeout(() => addToast('🎟 シェアのお礼：名前ガチャが 1 回ふえた！（1 日 1 回）', 'good'), 600);
     track('シェアのお礼をもらった');
   }
-  // 結果画面の「自慢しよう」：見せ場があればそれを、なければ今週のお題を出す
+  // 結果画面の「自慢しよう」：見せ場があればそれを、なければ今回の結果（タイプと点数）を出す
   function showNudge(g, extra) {
     const R = lastResult; if (!R) return;
     const mt = extra || R.moment;
     const reward = profile.shareDay === todayKey() ? '' : '<small>シェアすると名前ガチャ +1（1 日 1 回）</small>';
-    $('rNudge').innerHTML = (mt ? `<b>📣 ${esc(mt)}${/[！!]$/.test(mt) ? '' : '！'}</b><span>みんなに自慢しよう</span>` : `<b>📝 今週のお題：${esc(weekTheme())}</b><span>#スワリタイ で投稿しよう</span>`) + reward
+    $('rNudge').innerHTML = (mt ? `<b>📣 ${esc(mt)}${/[！!]$/.test(mt) ? '' : '！'}</b><span>みんなに自慢しよう</span>` : `<b>📝 ${esc(nudgeLine(R))}</b><span>みんなは何点？ #スワリタイ でくらべよう</span>`) + reward
       + `<div><a class="btn main" id="nuX" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a>${SHOT.url ? '<button class="btn" id="nuShot">📸 見せ場の写真</button>' : ''}</div>`;
     if (extra) { R.moment = extra; setShareHref(); }
     $('nuX').href = $('bShareX').href;
@@ -2732,8 +2732,8 @@
     const a = document.createElement('a'); a.href = SHOT.url; a.download = file; document.body.appendChild(a); a.click(); a.remove();
   }
   // ---- シェア：今日のダイヤは Wordle のような絵文字の結果（1 駅 1 マス）。見せ場があれば先頭に
-  const WEEK_THEMES = ['ボス駅ラッシュで何駅まで行けた？', '今日のダイヤ、どの駅で倒れた？', '見極め線で何連続で読めた？', 'あなたの乗客タイプ診断は？', 'ランク線の段位は？', 'いちばん笑えた倒れかたは？'];
-  function weekTheme() { const d = new Date(weekKey() + 'T00:00:00'); return WEEK_THEMES[Math.floor(d.getTime() / (7 * 86400000)) % WEEK_THEMES.length]; }
+  // 見せ場がなかった回の一言：今回の結果（乗客タイプと点数）
+  function nudgeLine(R) { return (R.dg ? 'あなたは「' + R.dg.icon + R.dg.name + '」タイプ・' : '') + R.sc.total + '点でした'; }
   // X の文字数：ブルーバッジでない人は 280（日本語・絵文字は 1 文字 2、URL はどれも 23）。超えたら、大事でないところから順にけずる
   const X_MAX = 280;
   function xLen(t) {
@@ -2781,6 +2781,7 @@
     try { const p = navigator.clipboard && navigator.clipboard.writeText(shareText(lastResult)); if (p && p.catch) p.catch(() => { }); } catch (e) { }
   });
   document.querySelectorAll('.dg-link').forEach((a) => a.addEventListener('click', () => track('デストロイ碁へ（' + a.dataset.from + '）')));
+  document.querySelectorAll('.fb-x').forEach((a) => a.addEventListener('click', () => track('#スワリタイ でつぶやくを押した（' + (a.closest('.fbx').dataset.from || '') + '）')));
   document.querySelectorAll('.follow-yt').forEach((a) => a.addEventListener('click', () => track('作者の YouTube を押した（タイトル）')));
   document.querySelectorAll('.follow-x').forEach((a) => a.addEventListener('click', () => track('作者をフォローを押した（' + (a.id === 'bFollow' ? '結果' : a.closest('#title') ? 'タイトル' : a.closest('#mpres') ? 'オンライン結果' : '遊び方') + '）')));
   $('bShareImg').addEventListener('click', async () => {

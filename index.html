@@ -279,6 +279,7 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 .rpProgW{height:4px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:6px;overflow:hidden}
 #rpProg{display:block;height:100%;width:0;background:#ffd447}
 .rpMark{font-size:10px;color:var(--sub);text-align:right;margin-top:3px}
+.fbx{margin:6px 0;color:var(--sub);text-align:center}.fbx a{color:#7fd1ff;font-weight:700}
 #shareMenu{position:fixed;inset:0;z-index:58;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}#shareMenu.hidden{display:none}#shareMenu .card{max-width:380px;width:calc(100% - 28px)}#shareMenu .btn{display:block;margin:6px 0;width:100%;text-align:center}#shareMenu .btn:disabled{opacity:.45}
 #vidBox{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}#vidBox.hidden{display:none}#vidBox .card{max-width:420px;width:calc(100% - 28px);max-height:calc(100% - 24px);overflow:auto}#vidBox video{width:100%;max-height:50vh;border-radius:10px;background:#000}#vidBox .btn{display:block;margin:6px 0}
 body.vrec #rpPlay,body.vrec #rpSpeed,body.vrec #rpTpv{opacity:.4;pointer-events:none}
@@ -352,7 +353,7 @@ html.pland #title .nmlbl{display:none}
 #result .card{display:flex;flex-direction:column}
 #result .rL,#result .rR{display:contents}
 #rCause{order:1}#rText{order:2}#rScore{order:3}#rTitle{order:4}#rBrk{order:5}#rStats{order:6}#rAch{order:7}#rRank{order:8}#rNudge{order:8}
-#result .rR .row{order:9}#bToTitle{order:10}#rMiniBox{order:11}
+#result .rR .row{order:9}#result .fbx{order:9}#bMyRp{order:9}#bToTitle{order:10}#rMiniBox{order:11}
 .modeinfo{font-size:12px;color:var(--sub);margin:-4px 0 6px;text-align:center}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;background:var(--bg);font-size:16px;color:var(--sub);text-align:center;padding:20px}
 .newb{display:inline-block;font-size:9px;font-weight:900;line-height:1;color:#fff;background:#e0303a;border-radius:5px;padding:2px 4px;margin-right:5px;vertical-align:2px;letter-spacing:.5px}
@@ -634,6 +635,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="howto" class="screen hidden">
   <div class="card howto">
     <h2>遊び方</h2>
+    <p class="small fbx" data-from="遊び方">🐛 不具合・要望・よかったところは <a class="fb-x" href="https://twitter.com/intent/tweet?text=%23%E3%82%B9%E3%83%AF%E3%83%AA%E3%82%BF%E3%82%A4%20" target="_blank" rel="noopener">#スワリタイ でつぶやいてね</a>！ 作者が見て直します</p>
     <div class="row" id="howVideo" style="margin:0 0 4px"><a class="btn sub2 vid1" target="_blank" rel="noopener" style="text-decoration:none">🎬 どんなゲーム？（1 分）</a><a class="btn sub2 vid3" target="_blank" rel="noopener" style="text-decoration:none">📖 くわしい遊び方（3 分）</a></div>
     <button class="btn" id="bTut" style="margin:0 0 6px">🎓 チュートリアルをやる（1 分）</button>
     <p>ここは各駅停車「たちっぱ線」。<b>立っていると体力が減り</b>、0になると倒れて終わり。<br><b>🧠 精神</b>は、仮病にだまされる・目の前で席を取られる・逆ギレされる・うるさい人の近くにいる…などで減り、0になると心が折れて終わり（座る・善いことで回復）。<br>降りそうな人を見極めて<b>前に立ち、空いた瞬間に座れ！</b> 終点「やっと座れ橋」をめざそう。</p>
@@ -700,7 +702,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <ul>
       <li>結果は 1 駅 1 マスの絵文字でシェアできる（🟩 座れた・🟨 立ちっぱなし・🏆 ボス駅クリア・💀 失敗・🟥 倒れた）</li>
       <li>見せ場があると「自慢しよう」と出る。📸 見せ場の写真も保存できる</li>
-      <li>𝕏 でシェアすると、1 日 1 回、名前ガチャが 1 回ふえる。今週のお題もあるよ</li>
+      <li>𝕏 でシェアすると、1 日 1 回、名前ガチャが 1 回ふえる</li>
     </ul>
     <h3>操作</h3>
     <div class="keys">
@@ -802,6 +804,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn" id="bHow2">📖 遊び方</button>
     <button class="btn" id="bQuit">タイトルへ（途中でやめる）</button>
     <p class="small">PCは画面をクリックするとマウスで見回せます。全画面のままメニューを開くには <b>P</b> キー（Chrome・Edge は Esc でも OK。全画面をやめるときは Esc を長押し）。</p>
+    <p class="small fbx" data-from="一時停止">🐛 不具合・要望・よかったところは <a class="fb-x" href="https://twitter.com/intent/tweet?text=%23%E3%82%B9%E3%83%AF%E3%83%AA%E3%82%BF%E3%82%A4%20" target="_blank" rel="noopener">#スワリタイ でつぶやいてね</a>！ 作者が見て直します</p>
   </div>
 </div>
 
@@ -887,6 +890,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="brk" id="rBrk"></div>
     <div class="stats" id="rStats"></div>
     <div class="row"><button class="btn" id="bShare">📣 シェアする</button><a class="btn hidden" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn hidden" id="bShareImg">🖼 画像</button><a class="btn follow-x" id="bFollow" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="text-decoration:none">🔔 フォロー</a></div>
+    <p class="small fbx" data-from="結果">🐛 不具合・要望・よかったところは <a class="fb-x" href="https://twitter.com/intent/tweet?text=%23%E3%82%B9%E3%83%AF%E3%83%AA%E3%82%BF%E3%82%A4%20" target="_blank" rel="noopener">#スワリタイ でつぶやいてね</a>！ 作者が見て直します</p>
     <p class="other-game"><a class="dg-link" data-from="結果" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener">🎮 作者の別ゲーム：デストロイ碁（囲碁バトル）›</a></p>
     <button class="btn sub2 hidden" id="bMyRp">🎬 今の自分のリプレイを見る（動画にもできる）</button>
     <div class="row"><button class="btn main" id="bRetry">もう一回乗る</button></div>
@@ -912,7 +916,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261111111235"</script><script src="logic.js?v=20261111111235"></script>
-<script src="game.js?v=20261111111235"></script>
+<script>window.SW_VER="20261111111909"</script><script src="logic.js?v=20261111111909"></script>
+<script src="game.js?v=20261111111909"></script>
 </body>
 </html>
