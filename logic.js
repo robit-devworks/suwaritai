@@ -287,6 +287,7 @@
     g.noBoss = !!opts.noBoss || !!opts.villains; // テストで悪者を決めているときはボス駅なし
     // ボス駅テスト：毎駅がボス駅（1 つをくり返す／全部を順番に）。ほかの悪者は出ない。倒れない
     g.rules = (opts.rules || []).filter((k) => DAILY_RULES.some((r) => r.key === k)); // 今日のダイヤの特別ルール（DAILY_RULES）
+    if (opts.mikiwame) { g.mikiwame = true; g.villainKinds = []; g.noBoss = true; g.nextChikanCheck = 1e9; g.nextItemCheck = 1e9; g.mkFree = []; Object.assign(g.stats, { mkSits: 0, mkHits: 0, mkCombo: 0, mkBest: 0, mkGive: 0 }); } // 見極め線（MIKIWAME の項）
     if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
     if (opts.bossTest) { g.bossTest = opts.bossTest; g.endless = true; g.villainKinds = []; g.noBoss = false; }
     planBoss(g);
@@ -444,7 +445,7 @@
     if (p.role === 'hog') hogClaim(g, p);
   }
   function releaseSlot(g, p) { if (p.slot >= 0) { if (g.slots[p.slot].occ === p.id) g.slots[p.slot].occ = -1; p.slot = -1; } }
-  function freeSeat(g, seat, by) { seat.occ = -1; seat.res = -1; seat.gift = false; seat.freedAt = g.t; seat.freedBy = by != null ? by : -1; if (by !== -1 && by != null) emit(g, { type: 'seatFree', id: seat.id }); }
+  function freeSeat(g, seat, by) { seat.occ = -1; seat.res = -1; seat.gift = false; seat.freedAt = g.t; seat.freedBy = by != null ? by : -1; if (by !== -1 && by != null) emit(g, { type: 'seatFree', id: seat.id }); if (g.mikiwame && by != null && by >= 0) mkFreed(g, seat, by); }
 
   function populateStart(g) {
     const r = g.r;
@@ -747,6 +748,7 @@
     seat.occ = 0; seat.res = -1; pl.seat = seat.id; pl.x = seat.x; pl.z = seat.z * 0.92; pl.sitT = g.t;
     pl.yaw = seat.side > 0 ? 0 : Math.PI; pl.pitch = 0;
     g.stats.sits++;
+    if (g.mikiwame) mkSit(g, seat);
     if (g.t - seat.freedAt < 1.0 && seat.freedAt > 0) { g.stats.quickSits++; if (g.bal2) bonusPts(g, 15, '⚡ 秒速着席'); }
     if (seat.freedBy >= 0) { const q = person(g, seat.freedBy); if (q && q.oversleep) g.stats.oversleepSteal++; }
     emit(g, { type: 'sfx', name: 'sit' });
@@ -988,6 +990,7 @@
 
   function useSkill(g, idx) {
     const pl = g.player, sk = SKILLS[idx]; if (!sk || g.over) return false;
+    if (g.mikiwame) { toast(g, '見極め線ではスキルは使えない', 'info'); return false; }
     const cost = skillCost(g, idx);
     if (sk.key === 'brainwash' || sk.key === 'force') {
       if (pl.mode === sk.key) { pl.mode = null; return true; }
@@ -1365,6 +1368,7 @@
         emit(g, { type: 'arrive', station: g.station });
         emit(g, { type: 'sfx', name: 'brake' });
         withEach(g, () => bossJudge(g));
+        if (g.mikiwame) mkArrive(g);
         if (g.station >= lastStation(g)) {
           if (g.multi) { withEach(g, () => gameOver(g, 'clear')); g.over = true; g.result = { cause: 'end' }; return; }
           gameOver(g, 'clear'); return;
@@ -1392,6 +1396,7 @@
       }
       if (g.phaseT >= g.doorClose + 0.8) {
         g.phase = 'travel'; g.phaseT = 0; g.alighted = g.boarded = g.warned = g.annNext = false;
+        if (g.mikiwame) mkAnswer(g);
         g.lurchPlan = planLurches(g);
         g.nextDoorSide = g.r.chance(0.5) ? 1 : -1;
         // 置いて行かれた落とし物の持ち主
@@ -1415,6 +1420,55 @@
     return arr.sort((a, b) => a - b).map(t => ({ t, done: false, warned: false }));
   }
 
+  // ---------------------------------------------------------------- 見極め線（MIKIWAME）
+  // 悪者・落とし物・スキル・様子のカードなし。しぐさだけで降りる人を読む
+  // 読み的中：席が空く 1.5 秒以上前から、その席の前に立っていた。座れたら、次の駅で自動で席を譲って、また読む
+  function mkTrack(g) {
+    const pl = g.player; if (pl.seat >= 0 || g.over) { pl.mkWatch = null; return; }
+    let best = null, bd = 0.9;
+    for (const s of g.seats) { if (s.occ < 0) continue; const d = dist2(s.x, s.fz, pl.x, pl.z); if (d < bd) { bd = d; best = s; } }
+    if (!best) { pl.mkWatch = null; return; }
+    if (!pl.mkWatch || pl.mkWatch.seat !== best.id || pl.mkWatch.occ !== best.occ) pl.mkWatch = { seat: best.id, occ: best.occ, since: g.t };
+  }
+  // 席を立った人のしぐさを覚えておく（ドアが閉まったら答え合わせ）
+  function mkFreed(g, seat, by) {
+    const p = person(g, by); if (!p) return;
+    const w = g.player.mkWatch;
+    seat.mkRead = !!(w && w.seat === seat.id && w.occ === by && g.t - w.since >= 1.5);
+    const tells = [];
+    if (p.packing) tells.push('かばん');
+    const nl = (p.looks || []).filter((t) => g.t - t < 45).length; if (nl) tells.push('掲示板チラ見' + (nl > 1 ? '×' + nl : ''));
+    if ((p.watches || []).some((t) => g.t - t < 45)) tells.push('時計');
+    if (g.phase === 'travel') tells.push('早めに立つ');
+    if (p.oversleep || p.wakeT) tells.push('寝過ごしかけ');
+    g.mkFree.push({ tells, read: seat.mkRead });
+  }
+  function mkSit(g, seat) {
+    const s = g.stats; s.mkSits++;
+    g.player.mkSitSt = g.station;
+    deed(g, 20, '座れた');
+    if (seat.mkRead && g.t - seat.freedAt < 8) {
+      s.mkHits++; s.mkCombo++; s.mkBest = Math.max(s.mkBest, s.mkCombo);
+      deed(g, 30 * Math.min(5, s.mkCombo), '🎯 読み的中！' + (s.mkCombo > 1 ? '（' + s.mkCombo + '連続）' : ''));
+    } else { if (s.mkCombo > 1) toast(g, '読みのコンボがとぎれた…', 'info'); s.mkCombo = 0; }
+    seat.mkRead = false;
+  }
+  // 座れた次の駅で、自動で席を譲る（また読む）
+  function mkArrive(g) {
+    const pl = g.player;
+    if (pl.seat >= 0 && pl.mkSitSt != null && pl.mkSitSt < g.station) {
+      playerStand(g); g.stats.mkGive++;
+      deed(g, 10, '席を譲った');
+      toast(g, '🧓 席を譲って立った。また降りる人を読もう', 'info');
+    }
+  }
+  function mkAnswer(g) {
+    const f = g.mkFree; if (!f || !f.length) return;
+    const cnt = {};
+    for (const x of f) { if (!x.tells.length) cnt['合図なし'] = (cnt['合図なし'] || 0) + 1; for (const t of x.tells) { const k = t.replace(/×\d+$/, ''); cnt[k] = (cnt[k] || 0) + 1; } }
+    toast(g, '📝 答え合わせ：席を立ったのは ' + f.length + ' 人（' + Object.keys(cnt).map((k) => k + (cnt[k] > 1 ? '×' + cnt[k] : '')).join('・') + '）', 'info');
+    g.mkFree = [];
+  }
   function startAlight(g) {
     const ch = g.chikan;
     if (ch && (ch.stage === 'active' || ch.stage === 'reported') && ch.startStation < g.station) endChikan(g, ch.stage === 'reported' ? 'arrested' : 'escaped');
@@ -1456,7 +1510,7 @@
     g.boardQueue = [];
     for (; i < n; i++) g.boardQueue.push({ at: g.phaseT + i * 0.32, type: pickType(g, st) });
     const thiefAboard = g.people.some(p => p.role === 'thief' && p.state !== 'ko');
-    if (!g.endless && st >= 2 && st <= lastStation(g) - 3 && !thiefAboard && !g.jiji && (g.thiefCount || 0) < 2 && g.r.chance(g.hard ? 0.4 : 0.25) && g.boardQueue.length)
+    if (!g.endless && !g.mikiwame && st >= 2 && st <= lastStation(g) - 3 && !thiefAboard && !g.jiji && (g.thiefCount || 0) < 2 && g.r.chance(g.hard ? 0.4 : 0.25) && g.boardQueue.length)
       g.boardQueue.splice(g.r.int(0, g.boardQueue.length - 1), 0, { at: 0, type: 'thief' });
     if (g.endless && st >= 2 && !thiefAboard && g.r.chance(0.3) && g.boardQueue.length) g.boardQueue.splice(0, 0, { at: 0, type: 'thief' });
     if (!bossBoard(g, st)) planVillains(g, st);
@@ -2377,6 +2431,7 @@
 
   // ---------------------------------------------------------------- 出来事
   function updateEvents(g, dt) {
+    if (g.mikiwame) mkTrack(g);
     // 揺れ
     if (g.phase === 'travel' && g.lurchPlan) {
       for (const L of g.lurchPlan) {
@@ -2531,7 +2586,7 @@
 
   // 観察メモ（照準を合わせた人の様子）
   function observe(g, p) {
-    if (hasRule(g, 'mekiki')) return null; // 目利きの日：様子のカードは出さない
+    if (hasRule(g, 'mekiki') || g.mikiwame) return null; // 目利きの日・見極め線：様子のカードは出さない
     const out = [];
     const T = TYPES[p.type];
     if (p.possessed) out.push('👻 目がうつろ…何かに取りつかれている？');

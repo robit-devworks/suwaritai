@@ -253,7 +253,7 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 #spName{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 #spName i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
 #spBar button{font:inherit;font-size:13px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer;flex:0 0 auto}
-body.replay #skills,body.replay #touch,body.replay #prompt{display:none!important}
+body.nosk #skills,body.replay #skills,body.replay #touch,body.replay #prompt{display:none!important}
 #ruleTag{position:fixed;right:10px;top:calc(96px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#1a1300;background:rgba(255,212,71,.92);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none;font-weight:800}
 #rookieTag{position:fixed;right:10px;top:calc(96px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#fff;background:rgba(46,160,90,.85);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none}
 #carryCard{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top));z-index:6;max-width:calc(100% - 24px);background:rgba(12,14,20,.86);border:2px solid #ffd447;border-radius:14px;padding:8px 16px;text-align:center;color:#fff;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.4)}
@@ -555,7 +555,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
-    <div class="row" id="dailyRow"><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
+    <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span>👀 見極め線 <span class="pill">しぐさだけで読む</span></button><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
     <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo">🎬 動画で見る</button></div>
     <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button><button class="btn sub2" id="bStat">📊 Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
@@ -805,7 +805,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111021343"></script>
-<script src="game.js?v=20261111021343"></script>
+<script src="logic.js?v=20261111023701"></script>
+<script src="game.js?v=20261111023701"></script>
 </body>
 </html>

@@ -18,7 +18,7 @@
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
   const NEW_UNTIL = '2026-11-25'; // この日まで、新しく入ったもの（今日のルール・練習乗車）に「NEW」の印
-  const MODE_JA = { ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const MODE_JA = { mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -783,12 +783,30 @@
     const pl = g.player;
     const seated = st === 'seated';
     let anim = p.anim, idle = p.idle;
+    H.hold = null; H.bagUp = false; // 手に持つ物・膝のかばん（このあとのポーズで決める）
     if (seated) {
       tgt.pelvisY = 0.47; tgt.hipL = tgt.hipR = -1.42; tgt.kneeL = tgt.kneeR = 1.42; tgt.lean = -0.06;
       tgt.shLx = tgt.shRx = -0.45; tgt.elL = tgt.elR = -0.95;
+      // 降りる合図を見た目で：荷物をまとめる（かばんを膝に・持ち手をにぎる）・しまう・フェイント・浅く座り直す・そわそわ・ハッと起きる
+      const holdIdle = HOLD_KINDS[idle] && anim === 'none' && p.type !== 'drunk' ? idle : null;
+      if (p.packing && !H.prevPack && holdIdle && !p.feintNow) { H.stowT = 0.9; H.stowKind = holdIdle; } // スマホや本をしまう
+      H.prevPack = !!p.packing;
+      if (H.stowT > 0) H.stowT -= dt;
       if (p.sleep) { tgt.hp = 0.6; tgt.hr = (p.id % 2 ? 0.32 : -0.32) + Math.sin(now * 0.6 + p.id) * 0.04; tgt.lean = 0.12; }
-      else if (p.packing) { tgt.shLx = tgt.shRx = -0.8; tgt.elL = tgt.elR = -1.05; tgt.hp = 0.15; }
-      else if (anim === 'none' && idle !== 'none' && p.type !== 'drunk') applyIdle(tgt, idle);
+      else if (p.packing) {
+        H.bagUp = true;
+        tgt.shLx = tgt.shRx = 0; tgt.elL = tgt.elR = -1.85; tgt.shLz = 0.14; tgt.shRz = -0.14; tgt.lean = 0.1; tgt.hp = 0.05; // 両手でかばんの持ち手
+        if (p.feintNow) { tgt.shRx = -0.45; tgt.elR = -1.7; tgt.shRz = -0.15; tgt.hp = 0.42; H.hold = { kind: HOLD_KINDS[idle] ? idle : 'phone', hand: 'R' }; } // フェイント：かばんは膝に、でも目はスマホ
+        else if (H.stowT > 0) { tgt.shRx = 0.3; tgt.shRz = -0.4; tgt.elR = -0.45; H.hold = { kind: H.stowKind, hand: 'R', scale: Math.max(0.15, H.stowT / 0.9) }; } // しまう
+      }
+      else if (anim === 'none' && idle !== 'none' && p.type !== 'drunk') { applyIdle(tgt, idle); if (holdIdle) H.hold = { kind: idle, hand: idle === 'makeup' ? 'L' : 'B' }; }
+      // 浅く座り直す（降りる駅に着く直前）
+      const rem = p.dest - SW.nextStation(g);
+      if (!p.sleep && rem <= 0 && g.phase === 'travel' && SW.C.T_TRAVEL - g.phaseT < 4.5 && !p.feintNow) { tgt.lean = 0.3; tgt.kneeL = tgt.kneeR = 1.75; tgt.hp = Math.min(tgt.hp, 0); }
+      // そわそわ（何回も掲示板を見た人）
+      if (!p.sleep && p.looks && p.looks.filter((t) => g.t - t < 25).length >= 2) { tgt.kneeL += Math.max(0, Math.sin(now * 15 + p.id)) * 0.14; if (anim === 'none' && !p.feintNow) tgt.hy += Math.sin(now * 0.9 + p.id) * 0.35; }
+      // ハッと起きて、うしろの窓の外（駅名）を見る
+      if (!p.sleep && p.expr === 'sleepy' && p.exprT > 0) { tgt.hy = Math.sin(now * 1.4 + p.id) * 1.15; tgt.hp = -0.08; }
       if (p.role === 'hog' && p.hogKind !== 'bag') { tgt.splay = 0.5; tgt.lean = -0.22; tgt.shLz = 0.9; tgt.shLx = -0.2; tgt.elL = -0.3; }
       if (p.role === 'emperor') { tgt.splay = 0.35; tgt.lean = -0.18; tgt.shLz = 0.5; tgt.shRz = -0.5; }
     } else if (st === 'walk' || st === 'exit') {
@@ -820,8 +838,8 @@
       else if (p.role === 'chikan' && ch && ch.stage !== 'fight') { // 絡み屋：相手のほうを向いて、指をさしながら話しかける
         const v = g.people.find((q) => q.id === ch.victimId); if (v) faceRy = Math.atan2(v.x - p.x, v.z - p.z);
         tgt.lean = 0.12; tgt.shRx = -1.35; tgt.shRz = 0.1; tgt.elR = -0.25 + Math.sin(now * 5 + p.id) * 0.3; tgt.hp = -0.05; tgt.hr = Math.sin(now * 2 + p.id) * 0.15; }
-      else if (H.strap && anim === 'none' && idle !== 'map' && idle !== 'game') { tgt.shRx = -2.85; tgt.shRz = 0.12; tgt.elR = -0.25; if (idle === 'phone' || idle === 'book') { tgt.shLx = -0.45; tgt.elL = -1.65; tgt.hp = 0.4; } }
-      else if (anim === 'none') applyIdle(tgt, idle);
+      else if (H.strap && anim === 'none' && idle !== 'map' && idle !== 'game') { tgt.shRx = -2.85; tgt.shRz = 0.12; tgt.elR = -0.25; if (idle === 'phone' || idle === 'book') { tgt.shLx = -0.45; tgt.elL = -1.65; tgt.hp = 0.4; H.hold = { kind: idle, hand: 'L' }; } }
+      else if (anim === 'none') { applyIdle(tgt, idle); if (HOLD_KINDS[idle] && p.type !== 'drunk') H.hold = { kind: idle, hand: idle === 'makeup' ? 'L' : 'B' }; }
       if (p.priority && p.targetPlayer) { tgt.lean = 0.12; tgt.hp = 0.15; }
       if (anim === 'reach') { tgt.shRx = -0.75; tgt.shRz = 0.25; tgt.elR = -0.25; tgt.lean = 0.14; tgt.hp = 0.35; tgt.hy = 0.25; faceRy = p.ry; }
       if (p.role === 'thief' && p.pickT > 0) { tgt.lean = 0.55; tgt.hp = 0.5; tgt.shRx = tgt.shLx = -0.9; tgt.elR = tgt.elL = -0.3; tgt.hipL = tgt.hipR = -0.3; tgt.kneeL = tgt.kneeR = 0.5; }
@@ -861,14 +879,44 @@
     H.armR.sh.rotation.set(A.shRx, 0, A.shRz); H.armR.el.rotation.x = A.elR;
     H.legL.hp.rotation.set(A.hipL, 0, -A.splay, 'YXZ'); H.legL.kn.rotation.x = A.kneeL;
     H.legR.hp.rotation.set(A.hipR, 0, A.splay, 'YXZ'); H.legR.kn.rotation.x = A.kneeR;
+    placeHeld(H, seated);
     // 持ち物
     if (H.bag) {
-      if (seated) H.bag.position.set(0, 0.6, 0.22), H.bag.rotation.set(0, 0, 0);
+      if (seated) H.bag.position.set(0, H.bagUp ? 0.64 : 0.6, H.bagUp ? 0.26 : 0.22), H.bag.rotation.set(0, 0, 0);
       else H.bag.position.set(-h * 0.13, h * 0.47, 0.02), H.bag.rotation.set(0, Math.PI / 2, 0);
     }
     if (H.crutch) H.crutch.position.set(h * 0.17, 0.6, 0.12);
     if (H.suitcase) { if (seated) H.suitcase.position.set(0, 0.28, 0.75); else H.suitcase.position.set(h * 0.2, 0.28, 0.1); }
     if (H.costume) costumeAfter(H, p);
+  }
+  // 手に持つ物（スマホ・単語帳・ゲーム機・鏡）と、荷物をまとめるときの膝のかばん。必要になったときに作る
+  const HOLD_KINDS = { phone: 1, book: 1, game: 1, makeup: 1 };
+  const _hv1 = new T3.Vector3(), _hv2 = new T3.Vector3();
+  function heldMesh(H, kind) {
+    H.props = H.props || {};
+    if (H.props[kind]) return H.props[kind];
+    const g = new T3.Group(), dark = lam('#1d1f26');
+    if (kind === 'phone') { g.add(new T3.Mesh(box(0.075, 0.14, 0.012), dark)); const sc = new T3.Mesh(box(0.064, 0.122, 0.002), new T3.MeshBasicMaterial({ color: '#8fd3ff' })); sc.position.z = 0.007; g.add(sc); }
+    else if (kind === 'book') { const cols = ['#d6453d', '#2f6fb8', '#f2c230', '#3c9a5f']; g.add(new T3.Mesh(box(0.11, 0.16, 0.035), lam(cols[H.p.id % 4]))); const pg = new T3.Mesh(box(0.1, 0.15, 0.002), lam('#fafafa')); pg.position.z = 0.019; g.add(pg); }
+    else if (kind === 'game') { g.add(new T3.Mesh(box(0.19, 0.085, 0.022), lam('#3a3d48'))); const sc = new T3.Mesh(box(0.09, 0.06, 0.002), new T3.MeshBasicMaterial({ color: '#b9f5a8' })); sc.position.z = 0.012; g.add(sc); for (const [x, c] of [[-0.07, '#e04848'], [0.07, '#4878e0']]) { const b = new T3.Mesh(box(0.02, 0.02, 0.006), lam(c)); b.position.set(x, 0, 0.013); g.add(b); } }
+    else if (kind === 'makeup') { const m = new T3.Mesh(new T3.CylinderGeometry(0.05, 0.05, 0.012, 16), lam('#e8b7c8')); m.rotation.x = Math.PI / 2; g.add(m); const gl = new T3.Mesh(new T3.CircleGeometry(0.043, 16), new T3.MeshBasicMaterial({ color: '#dff1ff' })); gl.position.z = 0.007; g.add(gl); }
+    else if (kind === 'lapbag') { g.add(new T3.Mesh(box(0.3, 0.22, 0.09), lam(['#5b3a26', '#222', '#6b6f7a', '#7a2f3a'][H.p.id % 4]))); const hd = new T3.Mesh(new T3.TorusGeometry(0.06, 0.008, 4, 10, Math.PI), lam('#222')); hd.position.y = 0.11; g.add(hd); }
+    g.visible = false; H.root.add(g); H.props[kind] = g;
+    return g;
+  }
+  function placeHeld(H, seated) {
+    if (H.props) for (const k in H.props) H.props[k].visible = false;
+    if (H.bagUp && seated && !H.bag) { const b = heldMesh(H, 'lapbag'); b.visible = true; b.position.set(0, 0.64, 0.26); b.rotation.set(0, 0, 0); }
+    const hd = H.hold; if (!hd) return;
+    const m = heldMesh(H, hd.kind);
+    H.root.updateMatrixWorld(true);
+    if (hd.hand === 'B') { H.armL.hand.getWorldPosition(_hv1); H.armR.hand.getWorldPosition(_hv2); _hv1.add(_hv2).multiplyScalar(0.5); }
+    else (hd.hand === 'L' ? H.armL : H.armR).hand.getWorldPosition(_hv1);
+    H.root.worldToLocal(_hv1);
+    m.position.copy(_hv1); m.position.z += 0.02;
+    m.rotation.set(hd.kind === 'game' ? -1.0 : hd.kind === 'makeup' ? 0.2 : -0.75, hd.kind === 'makeup' ? Math.PI : 0, 0); // 鏡は自分の顔に向ける
+    m.scale.setScalar((hd.scale || 1) * (hd.kind === 'makeup' ? 1.4 : 1));
+    m.visible = true;
   }
   function applyIdle(t, idle) {
     if (idle === 'phone' || idle === 'book' || idle === 'game') { t.shLx = -0.45; t.elL = -1.7; t.shRx = -0.45; t.elR = -1.7; t.shLz = 0.15; t.shRz = -0.15; t.hp = idle === 'game' ? 0.55 : 0.42; }
@@ -1891,9 +1939,10 @@
     const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
     const bossTest = mode.startsWith('bosstest:') ? mode.slice(9) : null; // ボス駅テスト（ランキングには載らない）
     const practice = mode === 'practice'; // 練習乗車：たちっぱ線と同じ路線で、倒れない
+    const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = SW.create({ seed, mode: bossTest ? 'endless' : practice || ruleTest ? 'normal' : mode, bossTest, practice, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = SW.create({ seed, mode: bossTest ? 'endless' : practice || ruleTest || mikiwame ? 'normal' : mode, bossTest, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
     G.rookie = mode === 'normal' && !profile.plays && !profile.rookieDone;
@@ -1916,6 +1965,8 @@
     if (!G.rookie && !BAL2) recStart(mode); else REC = null;
     if (G.rookie) addToast('🔰 見習い乗車：はじめの 1 回は体力がへりにくい（ランキングには載りません）', 'good');
     if (rule) { addToast('📅 今日のルール「' + rule.icon + ' ' + rule.name + '」：' + rule.desc, 'warn'); track('今日のルール：' + rule.name + '：出発'); }
+    document.body.classList.toggle('nosk', mikiwame);
+    if (mikiwame) addToast('👀 見極め線：様子のカードはなし。しぐさだけで降りる人を読もう。座れたら次の駅で席を譲って、また読む', 'good');
     if (practice) addToast('🔰 練習乗車：体力や精神が 0 になっても倒れません（ランキングには載りません）', 'good');
     else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
@@ -2139,6 +2190,7 @@
   }
   $('bVideo').addEventListener('click', () => { backTo = 'title'; show('videos'); track('動画で見るを開いた'); });
   $('bDaily').addEventListener('click', () => startGame('daily'));
+  $('bMiki').addEventListener('click', () => startGame('mikiwame'));
   $('bModes').addEventListener('click', () => { backTo = 'title'; renderModes(); show('modes'); });
   $('bHow').addEventListener('click', () => { backTo = 'title'; show('howto'); track('遊び方を開いた'); });
   $('bHow2').addEventListener('click', () => { backTo = 'pause'; show('howto'); });
@@ -2216,7 +2268,7 @@
     if (document.pointerLockElement) document.exitPointerLock();
     $('touch').classList.add('hidden');
     const sc = SW.finalScore(g), r = g.result, s = g.stats;
-    const newAch = g.modeName === 'practice' ? [] : SW.checkAchievements(g, profile); // 練習では実績なし
+    const newAch = g.modeName === 'practice' || g.modeName === 'mikiwame' ? [] : SW.checkAchievements(g, profile); // 練習・見極め線では実績なし
     profile.plays = (profile.plays || 0) + 1;
     profile.chikanTotal = (profile.chikanTotal || 0) + s.chikanKO;
     for (const a of newAch) profile.ach[a] = Date.now();
@@ -2227,7 +2279,7 @@
       if (mode === 'daily') { const dk = todayKey(); if (!profile.daily || profile.daily.date !== dk || sc.total > profile.daily.score) profile.daily = { date: dk, score: sc.total, title: sc.title }; }
     } else if (mode !== 'practice') { if (sc.total > (profile.bests[mode] || 0)) { profile.bests[mode] = sc.total; newBest = true; } }
     let unlockMsg = '';
-    if (r.cause === 'clear' && mode !== 'practice' && !profile.unlock.endless) { profile.unlock.endless = true; unlockMsg = '♾ 終点なしモードが開放された！'; }
+    if (r.cause === 'clear' && mode !== 'practice' && mode !== 'mikiwame' && !profile.unlock.endless) { profile.unlock.endless = true; unlockMsg = '♾ 終点なしモードが開放された！'; }
     const xpGot = Math.round(SW.xpGain(g) * (mode === 'practice' ? 0.3 : 1)), lv0 = SW.levelOf(profile.xp || 0).lv;
     profile.xp = (profile.xp || 0) + xpGot;
     const lv1 = SW.levelOf(profile.xp).lv;
@@ -2243,7 +2295,7 @@
     const causeTxt = { clear: '🎉 終点到着！', collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', broken: '🧠 心が折れた…' }[r.cause];
     const stName = SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g)));
     $('rCause').textContent = causeTxt; $('rCause').className = 'res-cause ' + (r.cause === 'clear' ? 'good' : 'bad');
-    $('rText').innerHTML = `<b class="dg">${dg.icon} あなたは「${dg.name}」タイプ${dgNew ? ' <span class="pill">NEW</span>' : ''}</b><br><span style="color:var(--sub)" title="${dg.desc}">${dg.why}${g.endless ? '（' + s.stations + '駅）' : ''}</span>${g.practice ? `<br><b style="color:#ff8a5e">🔰 練習乗車：本番なら ${s.saves ? s.saves + ' 回終わってた' : '一度も倒れなかった！'}</b>` : ''}`;
+    $('rText').innerHTML = `<b class="dg">${dg.icon} あなたは「${dg.name}」タイプ${dgNew ? ' <span class="pill">NEW</span>' : ''}</b><br><span style="color:var(--sub)" title="${dg.desc}">${dg.why}${g.endless ? '（' + s.stations + '駅）' : ''}</span>${g.practice ? `<br><b style="color:#ff8a5e">🔰 練習乗車：本番なら ${s.saves ? s.saves + ' 回終わってた' : '一度も倒れなかった！'}</b>` : ''}${g.mikiwame ? `<br><b style="color:#7fd1ff">👀 見極め線：座れた ${s.mkSits} 回・🎯 読み的中 ${s.mkHits} 回（最大 ${s.mkBest} 連続）</b>` : ''}`;
     $('rScore').textContent = sc.total;
     $('rTitle').textContent = '称号「' + sc.title + '」' + (newBest ? ' 🆕自己ベスト！' : '');
     $('rBrk').innerHTML = `<span>集めた徳</span><span>${sc.earned}</span><span>駅ボーナス（${s.stations}駅）</span><span>+${sc.stationBonus}</span><span>完走ボーナス</span><span>+${sc.clearBonus}</span><span>カルマ</span><span>−${sc.karmaPen}</span>`;
@@ -2273,10 +2325,10 @@
   }
   function shareText(R) {
     const s = R.stats;
-    const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車' }[R.mode] || '') + '】';
+    const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
-    return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
+    return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n${R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
   }
   $('bShareX').addEventListener('click', () => {
     track('X でシェアを押した');
