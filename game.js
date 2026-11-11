@@ -17,7 +17,8 @@
   function track(name) {
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
-  const MODE_JA = { practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const NEW_UNTIL = '2026-11-25'; // この日まで、新しく入ったもの（今日のルール・練習乗車）に「NEW」の印
+  const MODE_JA = { ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -1432,7 +1433,7 @@
       const cost = SW.skillCost(g, i);
       const el = skBtns[i];
       const on = !!pl.buffs[s.key] || pl.mode === s.key;
-      const off = pl.toku < cost || (s.key === 'confess' && pl.confessCD > 0);
+      const off = pl.toku < cost || (s.key === 'confess' && pl.confessCD > 0) || (s.key === 'drink' && SW.hasRule(g, 'nodrink'));
       const key = cost + (on ? 'o' : '') + (off ? 'x' : '');
       if (el.dataset.k !== key) { el.dataset.k = key; el.classList.toggle('on', on); el.classList.toggle('off', off && !on); $('skc' + i).textContent = cost; }
       if (s.key === 'confess') $('skd' + i).style.height = (pl.confessCD / 30 * 100) + '%';
@@ -1848,14 +1849,18 @@
     G = null; clearWorld();
     show('title'); showInapp(true);
     const dk = todayKey();
-    $('dailyBest').textContent = profile.daily && profile.daily.date === dk ? '今日のベスト ' + profile.daily.score : '未挑戦';
+    const dr = SW.dailyRule(dk); // 今日の特別ルール
+    // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
+    const isNew = dk <= NEW_UNTIL;
+    $('bDaily').querySelector('.newb') || (isNew && $('bDaily').insertAdjacentHTML('afterbegin', '<span class="newb">NEW</span>'));
+    $('dailyBest').textContent = (dr ? dr.icon + dr.name + '・' : '') + (profile.daily && profile.daily.date === dk ? 'ベスト ' + profile.daily.score : '未挑戦');
     $('bestLine').textContent = profile.best ? `自己ベスト ${profile.best}点「${profile.bestTitle}」・乗車 ${profile.plays} 回` : '降りる人を見極めて、座って、徳を積め。';
     if (BAL2) $('bestLine').textContent = '🧪 新バランスのお試し版（落とし物が少なめ・座ると点）';
     renderModes();
   }
   function renderModes() {
     const n = (profile.unlock.endless ? 1 : 0) + (profile.unlock.hard ? 1 : 0) + (profile.unlock.jiji ? 1 : 0);
-    $('bModes').textContent = '🚇 ほかの路線・練習 ' + n + '/3';
+    $('bModes').innerHTML = (todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : '') + '🚇 路線・練習 ' + n + '/3';
     const list = [
       ['endless', '♾ 終点なしモード', '終点がない。どこまで立っていられるか。だんだん疲れやすくなる', '開放条件：一度、終点まで行く'],
       ['hard', '🔥 満員地獄モード', '超満員・席取りおばちゃん倍増・絡み屋多め', '開放条件：タイトル画面で伝説のコマンド（スマホはスワイプで）'],
@@ -1864,13 +1869,14 @@
     $('modeList').innerHTML = list.map(([k, name, desc, cond]) => profile.unlock[k]
       ? `<button class="btn" data-mode="${k}">${name}</button><p class="modeinfo">${desc}${profile.bests[k] ? '・ベスト ' + profile.bests[k] : ''}</p>`
       : `<button class="btn" disabled style="opacity:.45">🔒 ？？？</button><p class="modeinfo">${cond}</p>`).join('');
-    $('modeList').innerHTML = `<button class="btn sub2" data-mode="practice">🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
+    $('modeList').innerHTML = `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
     // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
     if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
       const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
       $('modeList').innerHTML += '<h3 style="margin:12px 0 4px">🧪 ボス駅テスト（毎駅がボス駅・倒れない・ランキングなし）</h3><div class="btest">'
         + '<button class="btn sub2" data-mode="bosstest:all">全部を順番に</button>'
-        + Object.keys(B).sort((a, b) => (B[a].tier || 9) - (B[b].tier || 9)).map((k) => `<button class="btn sub2" data-mode="bosstest:${k}">${tierJ[B[k].tier]}：${B[k].name}</button>`).join('') + '</div>';
+        + Object.keys(B).sort((a, b) => (B[a].tier || 9) - (B[b].tier || 9)).map((k) => `<button class="btn sub2" data-mode="bosstest:${k}">${tierJ[B[k].tier]}：${B[k].name}</button>`).join('') + '</div>'
+        + '<h3 style="margin:12px 0 4px">📅 今日のルールのお試し（ランキングなし）</h3><div class="btest">' + SW.DAILY_RULES.map((r) => `<button class="btn sub2" data-mode="ruletest:${r.key}">${r.icon} ${r.name}</button>`).join('') + '</div>';
     }
     $('modeList').querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
   }
@@ -1885,11 +1891,15 @@
     const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
     const bossTest = mode.startsWith('bosstest:') ? mode.slice(9) : null; // ボス駅テスト（ランキングには載らない）
     const practice = mode === 'practice'; // 練習乗車：たちっぱ線と同じ路線で、倒れない
-    G = SW.create({ seed, mode: bossTest ? 'endless' : practice ? 'normal' : mode, bossTest, practice, bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
-    G.modeName = bossTest ? 'bosstest' : mode;
+    const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
+    const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
+    G = SW.create({ seed, mode: bossTest ? 'endless' : practice || ruleTest ? 'normal' : mode, bossTest, practice, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
     G.rookie = mode === 'normal' && !profile.plays && !profile.rookieDone;
     $('rookieTag').classList.toggle('hidden', !G.rookie); document.body.classList.toggle('rookie', !!G.rookie);
+    document.body.classList.toggle('rookie', !!G.rookie || !!rule); // 右上の札の分、落とし物の小さいカードを下げる
+    G.rule = rule; $('ruleTag').textContent = rule ? rule.icon + ' ' + rule.name : ''; $('ruleTag').classList.toggle('hidden', !rule);
     inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null); showInapp(false);
     $('hud').classList.remove('hidden');
@@ -1905,6 +1915,7 @@
     if (isTouch && isPortrait()) setTimeout(() => { if (state === 'play' && isPortrait()) addToast('📱 スマホを横にすると遊びやすいよ', 'warn'); }, 4000);
     if (!G.rookie && !BAL2) recStart(mode); else REC = null;
     if (G.rookie) addToast('🔰 見習い乗車：はじめの 1 回は体力がへりにくい（ランキングには載りません）', 'good');
+    if (rule) { addToast('📅 今日のルール「' + rule.icon + ' ' + rule.name + '」：' + rule.desc, 'warn'); track('今日のルール：' + rule.name + '：出発'); }
     if (practice) addToast('🔰 練習乗車：体力や精神が 0 になっても倒れません（ランキングには載りません）', 'good');
     else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
@@ -2244,7 +2255,8 @@
     $('rLv').classList.toggle('up', lv1 > lv0); $('rLv').title = xpMsg;
     updateLvBadge();
     $('rRank').textContent = ''; $('rMiniBox').classList.add('hidden'); $('rMini').innerHTML = '';
-    lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text, dg, rookie: !!g.rookie };
+    lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text, dg, rookie: !!g.rookie, rule: g.rule || null };
+    if (g.rule) { $('rText').innerHTML += `<br><b style="color:#ffd447">📅 今日のルール：${g.rule.icon} ${esc(g.rule.name)}</b>`; track('今日のルール：' + g.rule.name + '：' + ({ clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', broken: '心が折れた' }[r.cause] || r.cause)); }
     {
       const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', broken: '心が折れた' }[r.cause] || r.cause;
       const band = sc.total >= 2000 ? '2000〜' : sc.total >= 1000 ? '1000〜1999' : sc.total >= 500 ? '500〜999' : sc.total >= 200 ? '200〜499' : '0〜199';
@@ -2261,7 +2273,7 @@
   }
   function shareText(R) {
     const s = R.stats;
-    const modeTxt = R.mode === 'daily' ? '【今日のダイヤ】' : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車' }[R.mode] || '') + '】';
+    const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
     return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;

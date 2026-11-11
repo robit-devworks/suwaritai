@@ -105,6 +105,22 @@
     { key: 'scroll', name: '謎の巻物', pts: 66, w: 0.4 },
   ];
 
+  // 今日のダイヤの特別ルール（毎日 1 つ。全員同じ）。ためしたいルールはここに足す（効き目は hasRule で見る）
+  const DAILY_RULES = [
+    { key: 'mekiki', icon: '🙈', name: '目利きの日', desc: '乗客をねらっても様子のカードが出ない。見た目と動きだけで見極めろ' },
+    { key: 'nodrink', icon: '🚫', name: '回復禁止の日', desc: 'エナドリが売り切れ。体力は座って回復するしかない' },
+    { key: 'yure', icon: '🌀', name: '大揺れの日', desc: '揺れがいつもの 2 倍。踏ん張りが大事' },
+    { key: 'items', icon: '👜', name: '落とし物ラッシュ', desc: '落とし物がいつもの 3 倍。持ち主を探しまくれ' },
+    { key: 'half', icon: '💰', name: 'スキル半額の日', desc: 'スキルの値段が半分。使い放題！' },
+  ];
+  const hasRule = (g, k) => !!(g.rules && g.rules.includes(k));
+  // 日付（YYYY-MM-DD）から今日のルールを決める（日ごとに順番に回る。となりの日は同じにならない）
+  function dailyRule(dayKey) {
+    if (String(dayKey) < '2026-11-12') return null; // 始めた日（11/11）のダイヤは、途中でルールが変わらないようにそのまま
+    const [y, m, d] = String(dayKey).split('-').map(Number);
+    const n = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+    return DAILY_RULES[((n % DAILY_RULES.length) + DAILY_RULES.length) % DAILY_RULES.length];
+  }
   const SKILLS = [
     { key: 'glasses', name: '見極めメガネ', icon: '👓', cost: 25, dur: 30, desc: '乗客があと何駅で降りるか見える（30秒）' },
     { key: 'drink', name: 'エナドリ', icon: '🥤', cost: 20, desc: '体力+35。飲むたびに値上がり' },
@@ -270,6 +286,7 @@
     if (opts.villains) g.villainKinds = opts.villains.slice();
     g.noBoss = !!opts.noBoss || !!opts.villains; // テストで悪者を決めているときはボス駅なし
     // ボス駅テスト：毎駅がボス駅（1 つをくり返す／全部を順番に）。ほかの悪者は出ない。倒れない
+    g.rules = (opts.rules || []).filter((k) => DAILY_RULES.some((r) => r.key === k)); // 今日のダイヤの特別ルール（DAILY_RULES）
     if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
     if (opts.bossTest) { g.bossTest = opts.bossTest; g.endless = true; g.villainKinds = []; g.noBoss = false; }
     planBoss(g);
@@ -980,6 +997,7 @@
       toast(g, sk.key === 'brainwash' ? '洗脳ビーム準備：座っている人を狙ってアクション' : '強制どかし準備：目の前の座っている人を狙ってアクション', 'info');
       return true;
     }
+    if (sk.key === 'drink' && hasRule(g, 'nodrink')) { toast(g, '今日は「回復禁止の日」：エナドリは売り切れ…', 'bad'); return false; }
     if (pl.toku < cost) { toast(g, '徳が足りない（' + cost + '必要）', 'bad'); return false; }
     if (sk.key === 'confess') {
       if (pl.confessCD > 0) { toast(g, 'まだ懺悔できない（' + Math.ceil(pl.confessCD) + '秒）', 'bad'); return false; }
@@ -999,8 +1017,8 @@
   }
   function skillCost(g, idx) {
     const sk = SKILLS[idx];
-    if (sk.key === 'drink') return sk.cost + g.player.drinkCount * 10;
-    return sk.cost;
+    const c = sk.key === 'drink' ? sk.cost + g.player.drinkCount * 10 : sk.cost;
+    return hasRule(g, 'half') ? Math.ceil(c / 2) : c; // スキル半額の日
   }
 
   function doPunch(g) {
@@ -1391,7 +1409,7 @@
   }
   function planLurches(g) {
     if (g.tutorial) return [];
-    const n = (g.hard ? 2 : 1) + (g.r.chance(0.45) ? 1 : 0);
+    const n = ((g.hard ? 2 : 1) + (g.r.chance(0.45) ? 1 : 0)) * (hasRule(g, 'yure') ? 2 : 1); // 大揺れの日は 2 倍
     const arr = [];
     for (let i = 0; i < n; i++) arr.push(g.r.range(4, C.T_TRAVEL - 4));
     return arr.sort((a, b) => a - b).map(t => ({ t, done: false, warned: false }));
@@ -2403,7 +2421,8 @@
     if (g.nextItemCheck <= 0) {
       // 新バランス（お試し）：落とし物は 1 駅に 1 個くらい・同時に 1 個まで
       g.nextItemCheck = g.bal2 ? g.r.range(30, 45) : g.r.range(20, 36); // 落とし物は前の半分くらい（拾ってばかりにならないように）
-      if (g.items.length < (g.bal2 ? 1 : 2) && g.r.chance(g.bal2 ? 0.85 : 0.6)) dropItem(g);
+      if (hasRule(g, 'items')) g.nextItemCheck /= 3; // 落とし物ラッシュ
+      if (g.items.length < (g.bal2 ? 1 : hasRule(g, 'items') ? 4 : 2) && g.r.chance(g.bal2 ? 0.85 : 0.6)) dropItem(g);
     }
     for (const it of g.items) {
       const o = person(g, it.owner);
@@ -2512,6 +2531,7 @@
 
   // 観察メモ（照準を合わせた人の様子）
   function observe(g, p) {
+    if (hasRule(g, 'mekiki')) return null; // 目利きの日：様子のカードは出さない
     const out = [];
     const T = TYPES[p.type];
     if (p.possessed) out.push('👻 目がうつろ…何かに取りつかれている？');
@@ -2571,6 +2591,7 @@
   return {
     PTYPES, diagnose, villainKO, BOSS,
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
+    DAILY_RULES, dailyRule, hasRule,
     create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
     _internal: { bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };

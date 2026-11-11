@@ -254,6 +254,7 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 #spName i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
 #spBar button{font:inherit;font-size:13px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer;flex:0 0 auto}
 body.replay #skills,body.replay #touch,body.replay #prompt{display:none!important}
+#ruleTag{position:fixed;right:10px;top:calc(96px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#1a1300;background:rgba(255,212,71,.92);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none;font-weight:800}
 #rookieTag{position:fixed;right:10px;top:calc(96px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#fff;background:rgba(46,160,90,.85);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none}
 #carryCard{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top));z-index:6;max-width:calc(100% - 24px);background:rgba(12,14,20,.86);border:2px solid #ffd447;border-radius:14px;padding:8px 16px;text-align:center;color:#fff;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.4)}
 #carryCard b{display:block;font-size:18px}
@@ -317,6 +318,7 @@ html.pland #title .nmlbl{display:none}
 #result .rR .row{order:9}#bToTitle{order:10}#rMiniBox{order:11}
 .modeinfo{font-size:12px;color:var(--sub);margin:-4px 0 6px;text-align:center}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;background:var(--bg);font-size:16px;color:var(--sub);text-align:center;padding:20px}
+.newb{display:inline-block;font-size:9px;font-weight:900;line-height:1;color:#fff;background:#e0303a;border-radius:5px;padding:2px 4px;margin-right:5px;vertical-align:2px;letter-spacing:.5px}
 .pill{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px;color:var(--sub)}
 @media (max-height:700px){ html:not(.pland) .logo h1{font-size:44px} html:not(.pland) .btn{padding:9px;margin:6px 0} html:not(.pland) .btn.main{font-size:17px} }
 @media (max-height:700px) and (orientation: portrait){ html:not(.pland) #result .btn{margin:3px 0;padding:8px} html:not(.pland) #result .stats{margin-top:5px} html:not(.pland) .res-text{margin:2px 0 4px} html:not(.pland) #result .newach{margin-top:4px} html:not(.pland) #result .score{font-size:36px;line-height:1.05} html:not(.pland) #result .btn{padding:7px} }
@@ -510,6 +512,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="hud" class="hidden">
   <div id="carryCard" class="hidden"></div>
   <div id="rookieTag" class="hidden" title="ランキングには載りません">🔰 見習い乗車</div>
+  <div id="ruleTag" class="hidden" title="今日のダイヤの特別ルール"></div>
   <div id="topL">
     <div id="station"><div id="stName">—</div><div id="stSub"></div><div id="stProg"><i></i></div></div>
     <div class="bar" id="stamBar"><b>体力</b><div class="t"><i id="stamF"></i></div><span class="v" id="stamV">100</span></div>
@@ -802,7 +805,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111020036"></script>
-<script src="game.js?v=20261111020036"></script>
+<script src="logic.js?v=20261111021343"></script>
+<script src="game.js?v=20261111021343"></script>
 </body>
 </html>
