@@ -218,6 +218,8 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 body.tpv #cross,body.tpv #target{display:none!important}
 #olModeRow .on{background:var(--toku);color:#1a1300;border-color:var(--toku)}
 #downTag{position:fixed;left:50%;top:38%;transform:translateX(-50%);z-index:30;background:rgba(160,20,30,.88);color:#fff;font-weight:800;border-radius:14px;padding:10px 16px;text-align:center;pointer-events:none;white-space:nowrap}
+.rkOpp{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:center;font-size:12px;margin-top:4px;color:var(--sub)}.rkOpp .me{color:#ffd447;font-weight:800}
+.rkb{font-weight:800;white-space:nowrap}
 .vtag{display:inline-block;font-size:9px;line-height:1;padding:2px 4px;margin-right:4px;border-radius:4px;background:#2f9e6b;color:#fff;vertical-align:1px}
 .rk .sc{font-weight:800;color:var(--toku)}
 .rk.me{background:rgba(255,212,71,.12);border-radius:8px}
@@ -414,7 +416,7 @@ html.pland #title .nmlbl{display:none}
   #title #bLand, #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
   #title #dailyRow .btn, #title #modesRow .btn{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,2.1vw,16px);padding:7px 4px}
   #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #title #dailyRow .pill{font-size:10px;padding:0 5px}
+  #title #dailyRow .pill{font-size:10px;padding:0 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
   body.touch #bLand.landed{display:none}
   #online .card>p.small:first-of-type{display:none}
   #online h2{margin-bottom:4px;font-size:17px}
@@ -488,7 +490,7 @@ html.pland #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;paddin
 html.pland #title #bLand, html.pland #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
 html.pland #title #dailyRow .btn, html.pland #title #modesRow .btn{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,calc(var(--ph) * 2.1 / 100),16px);padding:7px 4px}
 html.pland #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-html.pland #title #dailyRow .pill{font-size:10px;padding:0 5px}
+html.pland #title #dailyRow .pill{font-size:10px;padding:0 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
 html.pland body.touch #bLand.landed{display:none}
 html.pland #online .card>p.small:first-of-type{display:none}
 html.pland #online h2{margin-bottom:4px;font-size:17px}
@@ -516,7 +518,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="fx"><div id="hitFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
 
 <div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spTpv">🎥 3人称</button><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
-<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpTpv">🎥 3人称</button><button id="rpLike">🤍 いいね</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
+<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpLike">🤍 いいね</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
 <div id="rpEnd" class="hidden"><div class="card"><h3 id="rpEndT"></h3><button class="btn main" id="rpLike2">🤍 いいね</button><button class="btn sub2" id="rpAgain">もう一度見る</button><button class="btn sub2" id="rpBack">ランキングにもどる</button></div></div>
 <div id="hud" class="hidden">
   <div id="carryCard" class="hidden"></div>
@@ -564,14 +566,14 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
-    <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span>👀 見極め線 <span class="pill">しぐさだけで読む</span></button><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
+    <div class="row" id="dailyRow"><button class="btn" id="bRk"><span class="newb">NEW</span>🏅 ランク線 <span class="pill" id="rkPill">レート戦</span></button><button class="btn" id="bMiki"><span class="newb">NEW</span>👀 見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
     <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo">🎬 動画で見る</button></div>
     <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button><button class="btn sub2" id="bStat">📊 Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
     <button class="btn sub2 hidden" id="bPort">📱 縦画面にもどす</button>
-    <p class="small" style="margin:2px 0 0"><a href="https://robit-devworks.github.io/suwaritai/pondashi/" style="color:var(--sub);white-space:nowrap">🧪 ポン出し版はこちら</a>　<a class="dg-link" data-from="タイトル" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">🎮 作者の別ゲーム：デストロイ碁</a>　<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">𝕏 作者 @ROBITdesuyo をフォロー</a></p>
+    <p class="small" style="margin:2px 0 0"><a href="https://robit-devworks.github.io/suwaritai/pondashi/" style="color:var(--sub);white-space:nowrap">🧪 ポン出し版はこちら</a>　<a class="dg-link" data-from="タイトル" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">🎮 作者の別ゲーム：デストロイ碁</a>　<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">𝕏 作者をフォロー</a>　<a class="follow-yt" href="https://www.youtube.com/@futarigurashi_games?sub_confirmation=1" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">▶ 作者の YouTube を登録</a></p>
   </div>
 </div>
 
@@ -642,7 +644,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div class="card">
     <h2>ランキング</h2>
     <div class="tabs" id="rankTabs"><button data-rt="day" class="on">今日</button><button data-rt="week">今週</button><button data-rt="normal">歴代</button><button data-rt="daily">ダイヤ</button></div>
-    <div class="tabs" id="rankTabs2"><button data-rt="mkweek">👀 見極め線</button><button data-rt="coop2">🤝 共闘</button></div>
+    <div class="tabs" id="rankTabs2"><button data-rt="rk">🏅 ランク</button><button data-rt="mkweek">👀 見極め</button><button data-rt="coop2">🤝 共闘</button></div>
     <div class="tabs hidden" id="mkTabs"><button data-mt="week" class="on">今週</button><button data-mt="best">歴代</button></div>
     <div class="tabs hidden" id="coopTabs"><button data-ct="2" class="on">2人</button><button data-ct="3">3人</button><button data-ct="4">4人</button></div>
     <div id="rankNote" class="small"></div>
@@ -819,7 +821,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111041116"></script>
-<script src="game.js?v=20261111041116"></script>
+<script src="logic.js?v=20261111042639"></script>
+<script src="game.js?v=20261111042639"></script>
 </body>
 </html>

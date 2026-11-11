@@ -18,7 +18,7 @@
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
   const NEW_UNTIL = '2026-11-25'; // この日まで、新しく入ったもの（今日のルール・練習乗車）に「NEW」の印
-  const MODE_JA = { mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const MODE_JA = { ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -29,6 +29,12 @@
   // 今週（月曜はじまり）の月曜の日付
   function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  // ランク線（一人用のレート）の段位など。ほかの場所（タイトルなど）から先に使うので、ここに置く
+  const rkSeason = () => todayKey().slice(0, 7);
+  function rkSeed(week, i) { let h = 2166136261; for (const c of 'rk' + week + ':' + i) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+  const RK_TIERS = [[2100, '🌌', '伝説の乗客', '#c58bff'], [1900, '👑', '座席王', '#ffd447'], [1750, '🎯', '座席ハンター', '#ff8a5e'], [1600, '👀', '見極め上手', '#7fd1ff'], [1400, '🚃', '通勤者', '#9be39b'], [0, '🪑', '見習い乗客', '#c9c9c9']]; // はじめは 1500＝通勤者
+  const rkTier = (r) => RK_TIERS.find((t) => r >= t[0]);
+  const rkBadge = (r) => { const t = rkTier(r); return `<span class="rkb" style="color:${t[3]}">${t[1]} ${t[2]}</span>`; };
   function dailySeed() { const k = todayKey(); let h = 2166136261; for (const c of k) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
   // ================================================================ レンダラー
@@ -1908,10 +1914,11 @@
     show('title'); showInapp(true);
     const dk = todayKey();
     const dr = SW.dailyRule(dk); // 今日の特別ルール
+    $('rkPill').textContent = profile.rk && profile.rk.s === rkSeason() ? rkTier(profile.rk.r)[1] + ' ' + profile.rk.r : 'レート戦';
     // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
     const isNew = dk <= NEW_UNTIL;
     $('bDaily').querySelector('.newb') || (isNew && $('bDaily').insertAdjacentHTML('afterbegin', '<span class="newb">NEW</span>'));
-    $('dailyBest').textContent = (dr ? dr.icon + dr.name + '・' : '') + (profile.daily && profile.daily.date === dk ? 'ベスト ' + profile.daily.score : '未挑戦');
+    $('dailyBest').textContent = dr ? dr.icon + dr.name : (profile.daily && profile.daily.date === dk ? 'ベスト ' + profile.daily.score : '未挑戦'); // ボタンが 3 つ並ぶので短く
     $('bestLine').textContent = profile.best ? `自己ベスト ${profile.best}点「${profile.bestTitle}」・乗車 ${profile.plays} 回` : '降りる人を見極めて、座って、徳を積め。';
     if (BAL2) $('bestLine').textContent = '🧪 新バランスのお試し版（落とし物が少なめ・座ると点）';
     renderModes();
@@ -1943,17 +1950,20 @@
     for (const [, m] of itemMeshes) scene.remove(m); itemMeshes.clear();
   }
   function startGame(mode) {
-    track((profile.plays ? '出発した：' : '初めて出発した：') + (MODE_JA[mode] || mode));
+    track((profile.plays ? '出発した：' : '初めて出発した：') + (MODE_JA[mode.split(':')[0]] || mode));
     initAudio();
     clearWorld();
-    const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
+    const rkTrain = mode.startsWith('ranked:') ? +mode.slice(7) : -1; // ランク線：今週の電車（rkSeed）
+    if (rkTrain >= 0) mode = 'ranked';
+    const seed = mode === 'daily' ? dailySeed() : rkTrain >= 0 ? rkSeed(weekKey(), rkTrain) : (Math.random() * 1e9) | 0;
     const bossTest = mode.startsWith('bosstest:') ? mode.slice(9) : null; // ボス駅テスト（ランキングには載らない）
     const practice = mode === 'practice'; // 練習乗車：たちっぱ線と同じ路線で、倒れない
     const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = SW.create({ seed, mode: bossTest ? 'endless' : practice || ruleTest || mikiwame ? 'normal' : mode, bossTest, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'mikiwame' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = SW.create({ seed, mode: bossTest ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
+    G.rkTrain = rkTrain; G.rkWeek = weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
     G.rookie = mode === 'normal' && !profile.plays && !profile.rookieDone;
     $('rookieTag').classList.toggle('hidden', !G.rookie); document.body.classList.toggle('rookie', !!G.rookie);
@@ -1977,6 +1987,7 @@
     if (rule) { addToast('📅 今日のルール「' + rule.icon + ' ' + rule.name + '」：' + rule.desc, 'warn'); track('今日のルール：' + rule.name + '：出発'); }
     document.body.classList.toggle('nosk', mikiwame);
     if (mikiwame) addToast('👀 見極め線：様子のカードはなし。しぐさだけで降りる人を読もう。座れたら次の駅で席を譲って、また読む', 'good');
+    if (rkTrain >= 0) addToast('🏅 ランク線：今週の電車 No.' + (rkTrain + 1) + '。同じ電車を走った、レートの近い人と点数で勝負', 'good');
     if (practice) addToast('🔰 練習乗車：体力や精神が 0 になっても倒れません（ランキングには載りません）', 'good');
     else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
@@ -2201,6 +2212,7 @@
   $('bVideo').addEventListener('click', () => { backTo = 'title'; show('videos'); track('動画で見るを開いた'); });
   $('bDaily').addEventListener('click', () => startGame('daily'));
   $('bMiki').addEventListener('click', () => startGame('mikiwame'));
+  $('bRk').addEventListener('click', () => startRanked());
   $('bModes').addEventListener('click', () => { backTo = 'title'; renderModes(); show('modes'); });
   $('bHow').addEventListener('click', () => { backTo = 'title'; show('howto'); track('遊び方を開いた'); });
   $('bHow2').addEventListener('click', () => { backTo = 'pause'; show('howto'); });
@@ -2252,7 +2264,7 @@
   $('pauseBtn').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
   $('bResume').addEventListener('click', () => { state = 'play'; show(null); if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } } });
   $('bQuit').addEventListener('click', () => { if (MP.active || MP.code) mpLeave(false); else titleScreen(); });
-  $('bRetry').addEventListener('click', () => startGame(G && G.modeName && G.modeName !== 'practice' ? G.modeName : 'normal')); // 練習のあとは本番へ
+  $('bRetry').addEventListener('click', () => { if (G && G.modeName === 'ranked') { startRanked(); return; } startGame(G && G.modeName && G.modeName !== 'practice' ? G.modeName : 'normal'); }); // 練習のあとは本番へ・ランク線は別の電車へ
   $('bToTitle').addEventListener('click', () => titleScreen());
 
   function renderAch() {
@@ -2317,7 +2329,7 @@
     $('rLv').classList.toggle('up', lv1 > lv0); $('rLv').title = xpMsg;
     updateLvBadge();
     $('rRank').textContent = ''; $('rMiniBox').classList.add('hidden'); $('rMini').innerHTML = '';
-    lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text, dg, rookie: !!g.rookie, rule: g.rule || null };
+    lastResult = { sc, cause: r.cause, causeTxt, stats: s, mode, stName, endless: g.endless, koText: r.text, dg, rookie: !!g.rookie, rule: g.rule || null, rkTrain: g.rkTrain, rkWeek: g.rkWeek };
     if (g.rule) { $('rText').innerHTML += `<br><b style="color:#ffd447">📅 今日のルール：${g.rule.icon} ${esc(g.rule.name)}</b>`; track('今日のルール：' + g.rule.name + '：' + ({ clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', broken: '心が折れた' }[r.cause] || r.cause)); }
     {
       const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', broken: '心が折れた' }[r.cause] || r.cause;
@@ -2335,7 +2347,7 @@
   }
   function shareText(R) {
     const s = R.stats;
-    const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線' }[R.mode] || '') + '】';
+    const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
     return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n${R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
@@ -2346,6 +2358,7 @@
     try { const p = navigator.clipboard && navigator.clipboard.writeText(shareText(lastResult)); if (p && p.catch) p.catch(() => { }); } catch (e) { }
   });
   document.querySelectorAll('.dg-link').forEach((a) => a.addEventListener('click', () => track('デストロイ碁へ（' + a.dataset.from + '）')));
+  document.querySelectorAll('.follow-yt').forEach((a) => a.addEventListener('click', () => track('作者の YouTube を押した（タイトル）')));
   document.querySelectorAll('.follow-x').forEach((a) => a.addEventListener('click', () => track('作者をフォローを押した（' + (a.id === 'bFollow' ? '結果' : a.closest('#title') ? 'タイトル' : a.closest('#mpres') ? 'オンライン結果' : '遊び方') + '）')));
   $('bShareImg').addEventListener('click', async () => {
     track('結果の画像を作った');
@@ -2484,7 +2497,8 @@
   function submitScore(R) {
     if (BAL2) { $('rRank').textContent = '🧪 新バランスのお試し版なので、ランキングには載りません'; return; }
     if (R.rookie) { $('rRank').textContent = '🔰 見習い乗車なので、ランキングには載りません。次から本番！'; return; }
-    if (R.mode === 'mikiwame') { if (!DB && fbAllowed) submitMk(R); return; } // 見極め線は自分のランキング（今週・歴代）
+    if (R.mode === 'mikiwame') { if (!DB && fbAllowed) submitMk(R); return; }
+    if (R.mode === 'ranked') { const rec = REC && REC.done ? REC : null; REC = null; if (!DB && fbAllowed) submitRanked(R, rec); return; } // 見極め線は自分のランキング（今週・歴代）
     if (R.mode !== 'normal' && R.mode !== 'daily') return;
     if (!DB && !fbAllowed) return;
     if (DB && !myId) return;
@@ -2555,6 +2569,92 @@
     const week = await put('suwaritai/week/' + weekKey() + '/' + F.uid);
     const daily = R.mode === 'daily' ? await put('suwaritai/daily/' + dk + '/' + F.uid) : null;
     return { best, day, week, daily };
+  }
+  // ================================================================ ランク線（一人用のレート）
+  // 今週の電車を RK_TRAINS 本用意する（週と番号で決まる＝みんな同じ電車）。遊び終わったら、同じ電車を走ったレートの近い人と点数で比べて、イロレートを上げ下げする
+  // Firebase：suwaritai/rk/r/{シーズン}/{uid}＝レート、rk/s/{週}/{番号}/{uid}＝点数、rk/c/{週}/{番号}＝人数、rk/rp/{週}/{番号}/{uid}＝リプレイ
+  const RK_TRAINS = 30, RK_START = 1500;
+  // どの電車にするか：まだ走っていない電車で、ほかの人が 3〜300 人走っているものを優先（比べる相手がいるように）
+  async function startRanked() {
+    if (!fbAllowed || DB) { addToast('ランク線は遊ぶサイトのオンラインで遊べます', 'warn'); return; }
+    const wk = weekKey();
+    profile.rkPlayed = profile.rkPlayed && profile.rkPlayed.w === wk ? profile.rkPlayed : { w: wk, l: [] };
+    let counts = {};
+    try { const F = await firebaseReady(); if (F) counts = (await withTimeout(F.db.ref('suwaritai/rk/c/' + wk).get(), 8000)).val() || {}; } catch (e) { counts = {}; }
+    const free = [...Array(RK_TRAINS).keys()].filter((i) => !profile.rkPlayed.l.includes(i));
+    if (!free.length) { addToast('今週の電車は全部走りました！ 来週の月曜に新しい電車が来ます', 'warn'); return; }
+    const good = free.filter((i) => (counts[i] || 0) >= 3 && (counts[i] || 0) <= 300);
+    const pool = good.length ? good : free;
+    const i = pool[Math.floor(Math.random() * pool.length)];
+    profile.rkPlayed.l.push(i); saveProfile(); // 同じ電車で何回もやり直せないように、始めた時点で走ったことにする
+    startGame('ranked:' + i);
+  }
+  async function submitRanked(R, rec) {
+    $('rRank').textContent = 'レートを計算中…';
+    try {
+      const F = await firebaseReady(); if (!F) { $('rRank').textContent = ''; return; }
+      const wk = R.rkWeek, i = R.rkTrain, season = rkSeason(), name = rankName(), score = R.sc.total;
+      const myRef = F.db.ref('suwaritai/rk/r/' + season + '/' + F.uid);
+      const me = (await withTimeout(myRef.get(), 10000)).val();
+      const R0 = me ? me.r : RK_START, games = me ? me.g : 0;
+      const sPath = 'suwaritai/rk/s/' + wk + '/' + i;
+      const all = (await withTimeout(F.db.ref(sPath).orderByChild('r').startAt(R0 - 400).endAt(R0 + 400).get(), 10000)).val() || {};
+      const opps = Object.entries(all).filter(([u]) => u !== F.uid).map(([u, v]) => ({ uid: u, s: v.s, r: v.r, n: v.n }))
+        .sort((a, b) => Math.abs(a.r - R0) - Math.abs(b.r - R0)).slice(0, 10);
+      // 人が足りないときは CPU で補う（いつも自分＋3 人以上で比べる）。CPU は同じ電車を実際に走らせた点数をもとに、弱・普通・強の 3 段
+      if (opps.length < 3) {
+        await new Promise((r) => setTimeout(r, 30));
+        const base = rkCpuScore(rkSeed(wk, i));
+        const cpus = [['CPU（弱）', 0.75, 1300], ['CPU（普通）', 1, 1500], ['CPU（強）', 1.3, 1700]].sort((a, b) => Math.abs(a[2] - R0) - Math.abs(b[2] - R0));
+        for (const [n, k, r] of cpus.slice(0, 3 - opps.length)) opps.push({ uid: 'cpu', s: Math.round(base * k), r, n, cpu: true });
+      }
+      let delta = 0, held = false;
+      if (opps.length) {
+        const K = games < 10 ? 40 : 24;
+        let sum = 0; for (const o of opps) { const E = 1 / (1 + Math.pow(10, (o.r - R0) / 400)); sum += (score > o.s ? 1 : score === o.s ? 0.5 : 0) - E; }
+        delta = Math.round(K * sum / opps.length * Math.min(1, opps.length / 3));
+        const hum = opps.filter((o) => !o.cpu);
+        if (score > Math.max(...opps.map((o) => o.s)) * 1.6 + 400 && (hum.length >= 3 || score > 6000)) { held = true; delta = 0; } // ありえないほど高い点は保留
+      }
+      delta = Math.max(-60, Math.min(60, delta));
+      const R1 = Math.max(0, R0 + delta);
+      await withTimeout(F.db.ref(sPath + '/' + F.uid).set({ s: score, r: R0, n: name, t: F.TS }), 10000).catch(() => { });
+      await withTimeout(myRef.set({ r: me ? R1 : Math.max(1440, Math.min(1560, R1)), n: name, g: games + 1, t: F.TS }), 10000);
+      F.db.ref('suwaritai/rk/c/' + wk + '/' + i).transaction((v) => (v || 0) + 1).catch(() => { });
+      profile.rk = { r: R1, s: season }; saveProfile();
+      const place = opps.filter((o) => o.s > score).length + 1;
+      const t0 = rkTier(R0), t1 = rkTier(R1);
+      let txt = `🏅 レート ${R0} → <b>${R1}</b>（${delta >= 0 ? '+' : ''}${delta}）　${rkBadge(R1)}`;
+      const nCpu = opps.filter((o) => o.cpu).length;
+      txt += `<br>同じ電車の ${opps.length + 1} 人中 ${place} 位` + (nCpu ? `（うち CPU ${nCpu}）` : '');
+      if (held) txt += '<br>⚠ 点数が高すぎるので、レートは保留にしました';
+      if (t1[0] > t0[0]) { txt += `<br>🎉 段位が上がった！ ${t1[1]} ${t1[2]}`; sfx('clear'); }
+      if (state === 'result') { $('rRank').innerHTML = txt; }
+      // リプレイを載せる（同じ電車の人がいつでも見られるように）
+      if (rec && rec.done) { try { const d = await gz(JSON.stringify({ v: 1, seed: rec.seed, mode: 'normal', fr: rec.fr })); if (d.length < 900000) await withTimeout(F.db.ref('suwaritai/rk/rp/' + wk + '/' + i + '/' + F.uid).set({ n: name, s: score, d, t: F.TS }), 20000); } catch (e) { } }
+      // 同じ電車のリプレイを、ボタンで切りかえて見られるように
+      const list = [{ uid: F.uid, n: name, s: score }].concat(opps.filter((o) => !o.cpu).map((o) => ({ uid: o.uid, n: o.n, s: o.s }))).sort((a, b) => b.s - a.s);
+      if (state === 'result') $('rRank').insertAdjacentHTML('beforeend', '<div class="rkOpp">' + [{ n: name, s: score, me: 1 }].concat(opps).sort((a, b) => b.s - a.s).map((o, k) => `<span class="${o.me ? 'me' : ''}">${k + 1}. ${o.cpu ? '🤖 ' + o.n : esc(dispName(o.n))} ${o.s}</span>`).join('') + '</div>');
+      RK_LIST = { wk, i, list };
+      if (state === 'result') $('rRank').insertAdjacentHTML('beforeend', `<br><button class="btn sub2" id="rkWatch" style="margin-top:6px">▶ 同じ電車のリプレイを見る（${list.length} 人）</button>`);
+      const wb = $('rkWatch'); if (wb) wb.addEventListener('click', () => playReplayList(RK_LIST, 0));
+      track('ランク線：結果（' + t1[2] + '）');
+    } catch (e) { if (state === 'result') $('rRank').textContent = 'レートを記録できませんでした'; }
+  }
+  let RK_LIST = null;
+  // CPU の点数：同じ電車（シード）を CPU に走らせる（毎回同じ結果になる）
+  const rkCpuCache = {};
+  function rkCpuScore(seed) {
+    if (rkCpuCache[seed] != null) return rkCpuCache[seed];
+    const g = SW.create({ seed, mode: 'normal', players: [{ name: 'CPU', cpu: true }] });
+    for (let n = 0; !g.over && n < 15 * 60 * 15; n++) { SW.updateMulti(g, 1 / 15, [null]); for (const P of g.players) P.events.length = 0; }
+    return (rkCpuCache[seed] = Math.max(100, SW.finalScoreOf(g, 0).total));
+  }
+  function playReplayList(L, k) {
+    if (!L || !L.list.length) return;
+    k = ((k % L.list.length) + L.list.length) % L.list.length;
+    const x = L.list[k];
+    playReplay('rk', x.uid, { path: 'suwaritai/rk/rp/' + L.wk + '/' + L.i + '/' + x.uid, list: L, k });
   }
   // 見極め線のランキング：suwaritai/mk/best・suwaritai/mk/week/{週}。人数が少ないうちは点数の分布は使わず、上の人を数える
   async function submitMk(R) {
@@ -2699,6 +2799,7 @@
     rankTab = tab;
     $('mkTabs').classList.toggle('hidden', !/^mk/.test(tab));
     document.querySelectorAll('[data-mt]').forEach((x) => x.classList.toggle('on', 'mk' + x.dataset.mt === tab));
+    if (tab === 'rk') { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'rk')); loadRanking(tab); return; }
     if (/^mk/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'mkweek')); $('coopTabs').classList.add('hidden'); loadRanking(tab); return; }
     $('coopTabs').classList.toggle('hidden', !/^coop/.test(tab));
     document.querySelectorAll('[data-ct]').forEach((x) => x.classList.toggle('on', 'coop' + x.dataset.ct === tab));
@@ -2732,6 +2833,21 @@
   // 共闘ランキング（人数ごと）
   document.querySelectorAll('[data-mt]').forEach((b) => b.addEventListener('click', () => setRankTab('mk' + b.dataset.mt)));
   document.querySelectorAll('[data-ct]').forEach((b) => b.addEventListener('click', () => setRankTab('coop' + b.dataset.ct)));
+  // ランク線のレートのランキング（今のシーズン）
+  async function loadRk(listEl) {
+    try {
+      if (DB) { $('rankNote').textContent = 'ランク線は遊ぶサイトで'; listEl.innerHTML = '<p class="small">Claude 版ではランク線は遊べません</p>'; return; }
+      const F = await firebaseReady(); if (!F) throw new Error('none');
+      const season = rkSeason();
+      const snap = await withTimeout(F.db.ref('suwaritai/rk/r/' + season).orderByChild('r').limitToLast(TOP_N).get(), 10000);
+      if (rankTab !== 'rk') return;
+      const arr = []; snap.forEach((c) => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), r: v.r || 0, g: v.g || 0 }); });
+      arr.sort((a, b) => b.r - a.r);
+      $('rankNote').textContent = '🏅 ランク線のレート（' + season.replace('-', '年') + '月のシーズン）・' + arr.length + '人';
+      let prev = null, rank = 0;
+      listEl.innerHTML = arr.length ? arr.map((x, i) => { if (x.r !== prev) { rank = i + 1; prev = x.r; } const me = x.id === F.uid; return `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name)}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${rkBadge(x.r)}・${x.g} 回</div></span><span class="sc">${x.r}</span></div>`; }).join('') : '<p class="small">まだだれもいません。ランク線で一番乗りしよう！</p>';
+    } catch (e) { $('rankNote').textContent = 'ランク線のランキングを読めませんでした'; }
+  }
   async function loadCoop(tab, listEl) {
     const n = tab.slice(4);
     try {
@@ -2757,6 +2873,7 @@
     if (!DB && !fbAllowed) { $('rankNote').textContent = 'この端末の記録'; local(); return; }
     $('rankNote').textContent = '読み込み中…'; listEl.innerHTML = '';
     if (/^coop/.test(tab)) { loadCoop(tab, listEl); return; }
+    if (tab === 'rk') { loadRk(listEl); return; }
     try {
       const b = await fetchBoard(tab);
       if (!b) throw new Error('none');
@@ -2782,7 +2899,7 @@
       $('rMiniBox').classList.remove('hidden');
     } catch (e) { /* 出さない */ }
   }
-  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'daily' ? 'daily' : 'day'); track('結果からランキングを開いた'); });
+  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'ranked' ? 'rk' : lastResult && lastResult.mode === 'mikiwame' ? 'mkweek' : lastResult && lastResult.mode === 'daily' ? 'daily' : 'day'); track('結果からランキングを開いた'); });
 
   // ================================================================ リプレイ（ランキング上位 10 位）
   // 遊んでいるあいだ 0.2 秒ごとに様子（オンライン対戦と同じ形）を記録しておき、上位 10 位に入ったら gzip して Firebase に送る
@@ -2793,8 +2910,8 @@
   const RP = { active: false };
   function recStart(mode) {
     REC = null;
-    if ((mode !== 'normal' && mode !== 'daily') || !fbAllowed || typeof CompressionStream === 'undefined') return;
-    REC = { T: { k: 0, sentMax: G.nextId - 1, newIds: [] }, fr: [], acc: 1, ev: [], seed: G.seed, mode, done: false };
+    if ((mode !== 'normal' && mode !== 'daily' && mode !== 'ranked') || !fbAllowed || typeof CompressionStream === 'undefined') return;
+    REC = { T: { k: 0, sentMax: G.nextId - 1, newIds: [] }, fr: [], acc: 1, ev: [], seed: G.seed, mode: mode === 'ranked' ? 'normal' : mode, done: false, ranked: mode === 'ranked' };
   }
   function recTick(g, dt) {
     if (!REC || REC.done) return;
@@ -2851,15 +2968,20 @@
     return out;
   }
   const rpStats = (rp, id) => rp ? `<span class="rpst">👁 ${rp.v[id] || 0}　❤️ ${rp.l[id] || 0}</span>` : '';
-  async function playReplay(kind, uid) {
+  async function playReplay(kind, uid, opt) {
+    opt = opt || {};
     const F = await firebaseReady().catch(() => null); if (!F) return;
     $('rankNote').textContent = 'リプレイを読み込み中…';
     let data = null, meta = null;
     try {
-      meta = (await withTimeout(F.db.ref('suwaritai/rp/' + kind + '/' + uid).get(), 20000)).val();
+      meta = (await withTimeout(F.db.ref(opt.path || ('suwaritai/rp/' + kind + '/' + uid)).get(), 20000)).val();
       if (meta && meta.d) data = JSON.parse(await gunz(meta.d));
     } catch (e) { data = null; }
-    if (!data || !data.fr || !data.fr.length) { $('rankNote').textContent = 'リプレイを読めませんでした'; return; }
+    if (!data || !data.fr || !data.fr.length) {
+      $('rankNote').textContent = 'リプレイを読めませんでした';
+      if (opt.list) addToast('この人のリプレイはまだありません（ほかの人を見てね）', 'warn');
+      return;
+    }
     // 見られた数（自分のは数えない）
     if (uid !== F.uid) F.db.ref('suwaritai/rpv/' + uid).transaction((v) => (v || 0) + 1).catch(() => { });
     track('リプレイを見た');
@@ -2868,13 +2990,15 @@
     G.modeName = data.mode;
     const looks = {};
     for (const f of data.fr) if (f.nw) Object.assign(looks, f.nw);
-    Object.assign(RP, { active: true, nextI: -2, np: null, fr: data.fr, i: -1, t: 0, t0: data.fr[0].t, speed: 1, paused: false, ended: false, looks, uid, kind, name: dispName(meta.n, uid), score: meta.s, obs: null, liked: false, me: F.uid, P: { pl: G.player, out: false, ghost: false, prompt: null, aim: -1, result: null, tricks: 0 } });
+    Object.assign(RP, { active: true, nextI: -2, np: null, fr: data.fr, i: -1, t: 0, t0: data.fr[0].t, speed: 1, paused: false, ended: false, looks, uid, kind, name: dispName(meta.n, uid), score: meta.s, obs: null, liked: false, me: F.uid, P: { pl: G.player, out: false, ghost: false, prompt: null, aim: -1, result: null, tricks: 0 }, list: opt.list || null, k: opt.k || 0 });
+    $('rpPrevP').classList.toggle('hidden', !RP.list || RP.list.list.length < 2); $('rpNextP').classList.toggle('hidden', !RP.list || RP.list.list.length < 2);
+    if (RP.list) $('rpName').dataset.k = (RP.k + 1) + '/' + RP.list.list.length;
     G.player.yaw = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null);
     $('hud').classList.remove('hidden'); $('touch').classList.add('hidden');
     hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.wallet = hud.mind = -1;
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
-    $('rpName').innerHTML = nameHtml(RP.name) + ` <b>${RP.score}</b>点`;
+    $('rpName').innerHTML = (RP.list ? `<small>${RP.k + 1}/${RP.list.list.length}</small> ` : '') + nameHtml(RP.name) + ` <b>${RP.score}</b>点`;
     $('rpBar').classList.remove('hidden'); $('rpEnd').classList.add('hidden'); document.body.classList.add('replay');
     rpButtons();
     // いいね済みか
@@ -2956,6 +3080,9 @@
     if (toRank) { backTo = 'title'; show('rank'); setRankTab(rankTab); }
   }
   $('rpPlay').addEventListener('click', () => { RP.paused = !RP.paused; rpButtons(); });
+  // 同じ電車のリプレイ（ランク線）：見る人を切りかえる
+  $('rpPrevP').addEventListener('click', () => { if (RP.list) playReplayList(RP.list, RP.k - 1); });
+  $('rpNextP').addEventListener('click', () => { if (RP.list) playReplayList(RP.list, RP.k + 1); });
   for (const id of ['rpTpv', 'spTpv']) $(id).addEventListener('click', () => setTpv(!TPV));
   for (const id of ['rpTpv', 'spTpv']) $(id).textContent = profile.tpv ? '👁 1人称' : '🎥 3人称'; // TPV はこのあとで宣言するので profile を見る
   $('rpSpeed').addEventListener('click', () => { RP.speed = RP.speed >= 4 ? 1 : RP.speed * 2; rpButtons(); });
