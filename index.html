@@ -80,7 +80,7 @@ body.inapp .logo{margin-bottom:6px}
 #inapp button{flex:none;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:800}
 #inapp #inappClose{padding:5px 9px}
 #dailyRow .btn,#modesRow .btn{flex:1}
-#modesRow .btn{white-space:nowrap;padding-left:4px;padding-right:4px}#modesRow .newb{margin-right:3px}
+#modesRow .btn{white-space:nowrap;padding-left:4px;padding-right:4px;overflow:hidden;text-overflow:ellipsis}#title .row .btn{min-width:0}#modesRow .newb{margin-right:3px}
 .olcodein{flex:1;min-width:0;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:18px;text-align:center;letter-spacing:.2em;user-select:text;-webkit-user-select:text}
 .olcode{text-align:center;font-size:15px;margin:4px 0 8px}
 .olcode b{font-size:30px;letter-spacing:.15em;color:var(--toku)}
@@ -574,9 +574,9 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn sub2 hidden" id="bResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
-    <div class="row" id="dailyRow"><button class="btn" id="bRk"><span class="newb">NEW</span>🏅 ランク線 <span class="pill" id="rkPill">レート戦</span></button><button class="btn" id="bMiki"><span class="newb">NEW</span>👀 見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button></div>
-    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bOnline">🌐 オンライン</button><button class="btn sub2 hidden" id="bVideo">🎬 動画で見る</button></div>
-    <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button><button class="btn sub2" id="bStat">📊 Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
+    <div class="row" id="dailyRow"><button class="btn" id="bRk"><span class="newb">NEW</span>ランク線 <span class="pill" id="rkPill">レート戦</span></button><button class="btn" id="bMiki"><span class="newb">NEW</span>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily">今日のダイヤ <span class="pill" id="dailyBest">-</span></button></div>
+    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bOnline">オンライン</button><button class="btn sub2 hidden" id="bVideo">動画で見る</button></div>
+    <div class="row"><button class="btn sub2" id="bHow">遊び方</button><button class="btn sub2" id="bRank">ランキング</button><button class="btn sub2" id="bAch">実績</button><button class="btn sub2" id="bStat">Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
@@ -834,7 +834,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111052340"></script>
-<script src="game.js?v=20261111052340"></script>
+<script src="logic.js?v=20261111053745"></script>
+<script src="game.js?v=20261111053745"></script>
 </body>
 </html>

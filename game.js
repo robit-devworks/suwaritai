@@ -1916,18 +1916,18 @@
     const dk = todayKey();
     const dr = SW.dailyRule(dk); // 今日の特別ルール
     showResume();
-    $('rkPill').textContent = profile.rk && profile.rk.s === rkSeason() ? rkTier(profile.rk.r)[1] + ' ' + profile.rk.r : 'レート戦';
+    $('rkPill').textContent = profile.rk && profile.rk.s === rkSeason() ? 'レート ' + profile.rk.r : 'レート戦';
     // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
     const isNew = dk <= NEW_UNTIL;
     $('bDaily').querySelector('.newb') || (isNew && $('bDaily').insertAdjacentHTML('afterbegin', '<span class="newb">NEW</span>'));
-    $('dailyBest').textContent = dr ? dr.icon + dr.name : (profile.daily && profile.daily.date === dk ? 'ベスト ' + profile.daily.score : '未挑戦'); // ボタンが 3 つ並ぶので短く
+    $('dailyBest').textContent = dr ? dr.name : (profile.daily && profile.daily.date === dk ? 'ベスト ' + profile.daily.score : '未挑戦'); // ボタンが 3 つ並ぶので短く
     $('bestLine').textContent = profile.best ? `自己ベスト ${profile.best}点「${profile.bestTitle}」・乗車 ${profile.plays} 回` : '降りる人を見極めて、座って、徳を積め。';
     if (BAL2) $('bestLine').textContent = '🧪 新バランスのお試し版（落とし物が少なめ・座ると点）';
     renderModes();
   }
   function renderModes() {
     const n = (profile.unlock.endless ? 1 : 0) + (profile.unlock.hard ? 1 : 0) + (profile.unlock.jiji ? 1 : 0);
-    $('bModes').innerHTML = (todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : '') + '路線・練習';
+    $('bModes').textContent = '路線・練習'; // NEW の印は中の練習乗車・ボス駅ラッシュに出す（ボタンがせまいので）
     const list = [
       ['endless', '♾ 終点なしモード', '終点がない。どこまで立っていられるか。だんだん疲れやすくなる', '開放条件：一度、終点まで行く'],
       ['hard', '🔥 満員地獄モード', '超満員・席取りおばちゃん倍増・絡み屋多め', '開放条件：タイトル画面で伝説のコマンド（スマホはスワイプで）'],
