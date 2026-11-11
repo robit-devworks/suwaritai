@@ -1916,6 +1916,7 @@
     const dk = todayKey();
     const dr = SW.dailyRule(dk); // 今日の特別ルール
     showResume();
+    verCheck();
     // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
     const isNew = dk <= NEW_UNTIL;
     $('bDaily').querySelector('.newb') || (isNew && $('bDaily').insertAdjacentHTML('afterbegin', '<span class="newb">NEW</span>'));
@@ -2186,6 +2187,23 @@
     if (state === 'play') sfx('chime');
   }
   function lobbyHide() { LOBBY.shown = null; $('lobbyBan').classList.add('hidden'); }
+  // ================================================================ 新しい版のお知らせ
+  // 公開するとき version.json に版の番号を書く（package.sh）。タイトル・結果のときに見に行って、ちがっていたら「更新する」を出す
+  let verCheckT = 0;
+  function verCheck() {
+    if (!window.SW_VER || Date.now() - verCheckT < 60000) return;
+    verCheckT = Date.now();
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
+      if (!j || !j.v || j.v === window.SW_VER || $('updBan')) return;
+      const el = document.createElement('div'); el.id = 'updBan';
+      el.innerHTML = '<span>🆕 新しい版が出ています</span><button id="updGo">更新する</button><button id="updX">✕</button>';
+      document.body.appendChild(el);
+      $('updX').onclick = () => el.remove();
+      $('updGo').onclick = () => { track('新しい版に更新した'); const u = new URL(location.href); u.searchParams.set('u', j.v); location.replace(u.toString()); };
+      track('新しい版のお知らせを出した');
+    }).catch(() => { });
+  }
+  setInterval(() => { if (state === 'title' || state === 'result') verCheck(); }, 60000);
   // ================================================================ 全画面（デストロイ碁と同じ仕組み）
   const fsTarget = document.documentElement;
   const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
