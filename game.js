@@ -2506,6 +2506,32 @@
   // 表に出す形 [{id, name, score, title}]
   // 表に出す形 { list:[{id, name, score, title}]（上位）, me:自分の id, mine:{rank, score, name, title} | null, total }
   const TOP_N = 100;
+  // ---- 自分の点数のまわり（100 位より下のとき）：自分のすぐ上と下を NEAR_N 人ずつ読む（全員分は読まない）
+  const NEAR_N = 5;
+  // 並べた人に順位をつける：自分の順位 myRank をもとに、上下の人は 1 つずつずらす（同じ点数は同じ順位）
+  function withRanks(list, myId, myRank) {
+    const m = list.findIndex((x) => x.id === myId); if (m < 0) return null;
+    let prev = null, prevRank = 0;
+    return list.map((x, i) => {
+      const r = typeof myRank === 'number' ? (x.score === list[m].score ? myRank : myRank + (i - m)) : x.id === myId ? myRank : null;
+      const rank = x.score === prev ? prevRank : r; prev = x.score; prevRank = rank;
+      return Object.assign({}, x, { rank });
+    });
+  }
+  async function fetchNear(F, path, mine) {
+    const ref = () => F.db.ref(path); // 問い合わせごとに作る
+    const [up, down] = await Promise.all([
+      withTimeout(ref().orderByChild('s').startAt(mine.score).limitToFirst(NEAR_N + 1).get(), 8000),
+      withTimeout(ref().orderByChild('s').endAt(mine.score).limitToLast(NEAR_N + 1).get(), 8000),
+    ]);
+    const seen = new Set(), arr = [];
+    for (const snap of [up, down]) snap.forEach((c) => { if (seen.has(c.key)) return; seen.add(c.key); const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti, v: v.v || 1 }); });
+    if (!seen.has(mine.id)) arr.push(mine);
+    // 点数の高い順。同じ点数なら自分をいちばん上に（自分の順位＝同じ点数の人の順位）
+    arr.sort((a, b) => b.score - a.score || (a.id === mine.id ? -1 : b.id === mine.id ? 1 : 0));
+    const m = arr.findIndex((x) => x.id === mine.id);
+    return withRanks(arr.slice(Math.max(0, m - NEAR_N), m + NEAR_N + 1), mine.id, mine.rank);
+  }
   async function fetchBoard(tab) {
     const dk = todayKey();
     if (DB) {
@@ -2517,7 +2543,8 @@
         : all.filter(x => x.best > 0).map(x => ({ id: x.id, name: x.name, score: x.best, title: x.title }))).sort((a, b) => b.score - a.score);
       arr.forEach((x) => { x.name = dispName(x.name, x.id); });
       const i = arr.findIndex(x => x.id === myId);
-      return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length };
+      const near = i >= TOP_N ? withRanks(arr.slice(Math.max(0, i - NEAR_N), i + NEAR_N + 1), myId, i + 1) : null;
+      return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length, near };
     }
     const F = await firebaseReady(); if (!F) return null;
     const path = tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
@@ -2525,20 +2552,21 @@
     const arr = [];
     snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti, v: v.v || 1 }); });
     arr.sort((a, b) => b.score - a.score);
-    let mine = null, total = arr.length;
+    let mine = null, total = arr.length, near = null;
     const own = (await withTimeout(F.db.ref(path + '/' + F.uid).get(), 10000)).val();
     if (own) {
       const inTop = arr.findIndex((x) => x.id === F.uid);
       let rank = null;
       if (inTop < 0) { const rt = await rankOf(F, path, own.s); rank = rt.rank || '100+'; if (rt.total) total = rt.total; }
       mine = { id: F.uid, rank, score: own.s, name: dispName(own.n, F.uid), title: own.ti, v: own.v || 1 };
+      if (inTop < 0) { try { near = await fetchNear(F, path, mine); } catch (e) { near = null; } }
     }
     if (arr.length >= TOP_N && total === arr.length) {
       // 全員の人数は、点数の分布から数える（全員分は読まない）
       try { const h = (await withTimeout(F.db.ref(histPath(path)).get(), 8000)).val() || {}; let t = 0; for (const k in h) t += +h[k] || 0; total = t >= arr.length ? t : null; } catch (e) { total = null; }
     }
     const rp = await fetchRpInfo(F, tab).catch(() => null);
-    return { list: arr, me: F.uid, mine, total, rp };
+    return { list: arr, me: F.uid, mine, total, rp, near };
   }
   document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
   function setRankTab(tab) {
@@ -2556,7 +2584,17 @@
       const rp = b.rp && rank <= RP_TOP && b.rp.has[x.id] === x.score ? b.rp : null;
       html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}${rpStats(rp, x.id)}</div></span><span class="sc">${x.score}</span>${rp ? `<button class="rpb" data-rp="${esc(x.id)}" data-kind="${rp.kind}" title="リプレイを見る">▶</button>` : ''}</div>`;
     });
-    if (b.mine && !meShown) html += `<div class="rk" style="justify-content:center;color:var(--sub)">⋮</div><div class="rk me"><span class="n">${b.mine.rank}</span><span class="nm">${nameHtml(b.mine.name || '名無しの乗客')} <span class="pill">あなた</span><div class="ttl">${verTag(b.mine)}${esc(b.mine.title)}</div></span><span class="sc">${b.mine.score}</span></div>`;
+    if (b.mine && !meShown) {
+      // 100 位より下：自分の点数のまわり（上と下の数人）を出す。結果画面の小さい表では上下 1 人ずつ
+      const near = b.near && b.near.length ? b.near : [b.mine];
+      const m = near.findIndex((x) => x.id === b.me), k = limit <= 5 ? 1 : NEAR_N;
+      html += `<div class="rk" style="justify-content:center;color:var(--sub)">⋮ あなたのまわり ⋮</div>`;
+      const inList = new Set(b.list.slice(0, limit).map((x) => x.id));
+      near.slice(Math.max(0, m - k), m + k + 1).filter((x) => !inList.has(x.id)).forEach((x) => {
+        const me = x.id === b.me;
+        html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${x.rank == null ? '-' : x.rank}</span><span class="nm">${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
+      });
+    }
     return html;
   }
   async function loadRanking(tab) {
@@ -2576,6 +2614,13 @@
       const wk = weekKey().slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/');
       $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
       listEl.innerHTML = b.list.length ? rankRows(b, TOP_N) : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
+      // 自分が下のほうにいるときは「あなたの順位へ」ボタン（押すと自分の行まで動く）
+      const meRow = listEl.querySelector('.rk.me');
+      if (meRow && b.mine && (typeof b.mine.rank !== 'number' || b.mine.rank > 8)) {
+        const jb = document.createElement('button'); jb.className = 'btn sub2 jumpMe'; jb.textContent = '⬇ あなたの順位へ（' + b.mine.rank + (typeof b.mine.rank === 'number' ? '位' : '') + '）';
+        jb.addEventListener('click', () => { meRow.scrollIntoView({ block: 'center', behavior: 'smooth' }); track('ランキングで自分の順位へ'); });
+        listEl.prepend(jb);
+      }
     } catch (e) { $('rankNote').textContent = 'オンラインのランキングを読めませんでした。この端末の記録：'; local(); }
   }
   // 結果画面の小さい順位表（上位 5 人と自分）
