@@ -2911,7 +2911,7 @@
   }
   $('rpPlay').addEventListener('click', () => { RP.paused = !RP.paused; rpButtons(); });
   for (const id of ['rpTpv', 'spTpv']) $(id).addEventListener('click', () => setTpv(!TPV));
-  for (const id of ['rpTpv', 'spTpv']) $(id).textContent = TPV ? '👁 1人称' : '🎥 3人称';
+  for (const id of ['rpTpv', 'spTpv']) $(id).textContent = profile.tpv ? '👁 1人称' : '🎥 3人称'; // TPV はこのあとで宣言するので profile を見る
   $('rpSpeed').addEventListener('click', () => { RP.speed = RP.speed >= 4 ? 1 : RP.speed * 2; rpButtons(); });
   $('rpClose').addEventListener('click', () => rpStop(true));
   $('rpBack').addEventListener('click', () => rpStop(true));
