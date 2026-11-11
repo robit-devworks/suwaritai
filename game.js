@@ -1273,8 +1273,8 @@
   });
   window.addEventListener('mousemove', e => {
     if (state !== 'play') return;
-    if (locked) { inp.yaw -= e.movementX * 0.0024; inp.pitch -= e.movementY * 0.0024; }
-    else if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy); inp.yaw -= dx * 0.005; inp.pitch -= dy * 0.005; }
+    if (locked) { inp.yaw -= e.movementX * 0.0024 * sens(); inp.pitch -= e.movementY * 0.0024 * sens(); }
+    else if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy); inp.yaw -= dx * 0.005 * sens(); inp.pitch -= dy * 0.005 * sens(); }
     inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch));
   });
   window.addEventListener('mouseup', e => {
@@ -1284,7 +1284,61 @@
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   // タッチ
   const joyEl = $('joy'), joyBase = $('joyBase'), joyKnob = $('joyKnob');
-  let joyId = null, joyO = null, lookId = null, lookP = null;
+  let joyId = null, joyO = null, lookId = null, lookP = null, lookMv = 0, lookT0 = 0;
+  // ---- 片手モード（スマホ縦・設定の「✋ 操作」）：スティック 1 本で「見る」と「歩く」
+  // 内側（半分まで）：その場で見回す（左右で向き・上下で見上げる／見下ろす）。外側：ラジコンのように前後に歩きながら左右に曲がる
+  const OH = { yr: 0, pr: 0 };
+  // 視点の感度（一時停止の画面で 0.5〜3 倍。指でなぞる・マウス・片手スティックぜんぶに効く）
+  const sens = () => profile.sens || 1;
+  const ohOn = () => isTouch && !!profile.hand && !pland && isPortrait();
+  function ohStick(x, y) {
+    const r = Math.hypot(x, y), IN = 0.5, dz = 0.12;
+    if (r < IN) {
+      inp.joyX = inp.joyY = 0;
+      const k = (v) => Math.abs(v) < dz ? 0 : (v - Math.sign(v) * dz) / (IN - dz);
+      OH.yr = -k(x) * 2.6; OH.pr = -k(y) * 1.3;
+    } else {
+      const f = Math.min(1, 0.45 + (r - IN) / (1 - IN) * 0.55) / r;
+      inp.joyY = y * f; inp.joyX = x * f * 0.3; // 横は少しだけ（曲がるのは向きで）
+      OH.yr = -x * 2.0; OH.pr = 0;
+    }
+    if (OH.yr || OH.pr) FACE = null;
+  }
+  function ohTick(dt) {
+    if (!OH.yr && !OH.pr) return;
+    inp.yaw += OH.yr * dt * sens(); inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch + OH.pr * dt));
+  }
+  // ---- タップした人・空いた席のほうを向く（片手でも両手でも。指で画面を軽くたたく）
+  let FACE = null;
+  const _fv = new T3.Vector3();
+  function tapFace(q) {
+    const g = G; if (!g || g.over || !canvas.clientWidth) return;
+    const W = pland ? window.innerHeight : window.innerWidth, Hh = pland ? window.innerWidth : window.innerHeight;
+    camera.updateMatrixWorld();
+    let best = null, bd = 70 * 70;
+    const cand = (x, y, z, kind) => {
+      _fv.set(x, y, z).project(camera); if (_fv.z > 1 || _fv.z < -1) return;
+      const sx = (_fv.x + 1) / 2 * W, sy = (1 - _fv.y) / 2 * Hh, d = (sx - q.x) ** 2 + (sy - q.y) ** 2;
+      const w = kind === 'seat' ? d * 1.6 : d; // 人を少し優先
+      if (w < bd) { bd = w; best = { x, y, z }; }
+    };
+    for (const p of g.people) { if (p.state === 'gone' || p.state === 'exit') continue; const sit = p.seat >= 0; cand(p.x, sit ? 1.0 : 1.35, p.z, 'p'); if (!sit) cand(p.x, 0.9, p.z, 'p'); else cand(p.x, 0.6, p.z, 'p'); }
+    for (const st of g.seats) if (st.occ < 0) cand(st.x, 0.45, st.z, 'seat');
+    if (!best) return;
+    const c = camera.position, dx = best.x - c.x, dz = best.z - c.z, h = Math.hypot(dx, dz);
+    if (h < 0.15) return;
+    const ty = Math.atan2(-dx, -dz), tpch = Math.max(-1.2, Math.min(1.2, Math.atan2(best.y - c.y, h)));
+    let d = ty - inp.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
+    FACE = { y0: inp.yaw, y1: inp.yaw + d, p0: inp.pitch, p1: tpch, t: 0 };
+    track('タップで向いた');
+  }
+  function faceTick(dt) {
+    if (!FACE) return;
+    FACE.t = Math.min(1, FACE.t + dt / 0.22);
+    const e = 1 - (1 - FACE.t) ** 3;
+    inp.yaw = FACE.y0 + (FACE.y1 - FACE.y0) * e; inp.pitch = FACE.p0 + (FACE.p1 - FACE.p0) * e;
+    if (FACE.t >= 1) FACE = null;
+  }
   joyEl.addEventListener('touchstart', e => {
     initAudio();
     const t = e.changedTouches[0], q = tp(t); joyId = t.identifier; joyO = q;
@@ -1297,18 +1351,20 @@
       if (t.identifier === joyId) {
         const q = tp(t); let dx = q.x - joyO.x, dy = q.y - joyO.y; const l = Math.hypot(dx, dy), m = 48;
         if (l > m) { dx *= m / l; dy *= m / l; }
-        inp.joyX = dx / m; inp.joyY = dy / m; joyKnob.style.transform = `translate(${dx}px,${dy}px)`;
+        joyKnob.style.transform = `translate(${dx}px,${dy}px)`;
+        if (ohOn()) ohStick(dx / m, dy / m); else { inp.joyX = dx / m; inp.joyY = dy / m; }
       } else if (t.identifier === lookId) {
         const q = tp(t), dx = q.x - lookP.x, dy = q.y - lookP.y; lookP = q;
-        inp.yaw -= dx * 0.0062; inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch - dy * 0.0062));
+        lookMv += Math.abs(dx) + Math.abs(dy); if (lookMv > 10) FACE = null;
+        inp.yaw -= dx * 0.0062 * sens(); inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch - dy * 0.0062 * sens()));
       }
     }
     if (state === 'play') e.preventDefault();
   }, { passive: false });
   const endTouch = e => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) { joyId = null; inp.joyX = inp.joyY = 0; joyBase.style.display = 'none'; $('joyHint').style.display = ''; }
-      if (t.identifier === lookId) lookId = null;
+      if (t.identifier === joyId) { joyId = null; inp.joyX = inp.joyY = 0; OH.yr = OH.pr = 0; joyBase.style.display = 'none'; $('joyHint').style.display = ''; }
+      if (t.identifier === lookId) { lookId = null; if (lookMv < 10 && performance.now() - lookT0 < 350 && state === 'play') tapFace(tp(t)); }
     }
   };
   window.addEventListener('touchend', endTouch); window.addEventListener('touchcancel', endTouch);
@@ -1316,7 +1372,7 @@
     initAudio();
     if (state !== 'play') return;
     const t = e.changedTouches[0];
-    if (lookId == null) { lookId = t.identifier; lookP = tp(t); }
+    if (lookId == null) { lookId = t.identifier; lookP = tp(t); lookMv = 0; lookT0 = performance.now(); }
     e.preventDefault();
   }, { passive: false });
   function holdBtn(el, down, up) {
@@ -2132,11 +2188,11 @@
     const m = v.meta, mode = m.modeName === 'ranked' ? 'ranked:' + m.rkTrain : m.modeName === 'ruletest' && m.rule ? 'ruletest:' + m.rule : m.modeName;
     startGame(mode, v);
   }
-  $('bResume').addEventListener('click', () => resumeSolo());
+  $('bSaveResume').addEventListener('click', () => resumeSolo());
   function showResume() {
     const v = loadSave();
-    $('bResume').classList.toggle('hidden', !v); $('bLand').classList.toggle('hidden', !!v || !isTouch || !isPortrait());
-    if (v) $('bResume').textContent = '▶ 続きから（' + v.desc + '）';
+    $('bSaveResume').classList.toggle('hidden', !v); $('bLand').classList.toggle('hidden', !!v || !isTouch || !isPortrait());
+    if (v) $('bSaveResume').textContent = '▶ 続きから（' + v.desc + '）';
   }
   // 募集中の部屋：ホストは 20 秒ごとに suwaritai/lobby/{合言葉} を書く。ひとりの人は 45 秒ごとに読む
   const LOBBY = { pubT: 0, pub: null, pollT: 5, shown: null, dismissed: {} };
@@ -2492,6 +2548,25 @@
   $('bRank').addEventListener('click', () => { backTo = 'title'; show('rank'); setRankTab(rankTab); track('ランキングを開いた'); });
   $('pauseBtn').addEventListener('click', () => pause());
   $('pauseBtn').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
+  // 操作の切りかえ（スマホ縦）：両手 → 片手（右手）→ 片手（左手）
+  const HAND_TXT = { '': '✋ 操作：両手', R: '✋ 操作：片手（右手）', L: '✋ 操作：片手（左手）' };
+  function applyHand() {
+    const h = isTouch ? profile.hand || '' : '';
+    document.body.classList.toggle('oneh', !!h); document.body.classList.toggle('ohL', h === 'L');
+    $('bHand').textContent = HAND_TXT[h]; $('bHand').classList.toggle('hidden', !isTouch);
+    $('handNote').classList.toggle('hidden', !h);
+    $('joyHint').innerHTML = h ? '少し倒す<br>＝見回す<br>大きく倒す<br>＝歩く' : '移動';
+    if (!h) { OH.yr = OH.pr = 0; }
+  }
+  $('bHand').addEventListener('click', () => {
+    profile.hand = { '': 'R', R: 'L', L: '' }[profile.hand || '']; saveProfile(); applyHand();
+    track('操作を切りかえた：' + HAND_TXT[profile.hand || ''].replace('✋ 操作：', ''));
+  });
+  applyHand();
+  function showSens() { const v = profile.sens || 1; $('sensR').value = v; $('sensV').textContent = v.toFixed(1) + '倍'; }
+  $('sensR').addEventListener('input', () => { profile.sens = Math.round(+$('sensR').value * 10) / 10; showSens(); });
+  $('sensR').addEventListener('change', () => { saveProfile(); track('感度を変えた：' + (profile.sens || 1).toFixed(1)); });
+  showSens();
   $('bResume').addEventListener('click', () => { state = 'play'; show(null); if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } } });
   $('bQuit').addEventListener('click', () => { if (MP.active || MP.code) mpLeave(false); else titleScreen(); });
   $('bRetry').addEventListener('click', () => { if (G && G.modeName === 'ranked') { startRanked(); return; } startGame(G && G.modeName && G.modeName !== 'practice' ? G.modeName : 'normal'); }); // 練習のあとは本番へ・ランク線は別の電車へ
@@ -2797,7 +2872,7 @@
   function submitScore(R) {
     if (BAL2) { $('rRank').textContent = '🧪 新バランスのお試し版なので、ランキングには載りません'; return; }
     if (R.rookie) { $('rRank').textContent = '🔰 見習い乗車なので、ランキングには載りません。次から本番！'; return; }
-    if (R.mode === 'mikiwame') { if (!DB && fbAllowed) submitMk(R); return; }
+    if (R.mode === 'mikiwame') { const rec = REC && REC.done ? REC : null; REC = null; if (!DB && fbAllowed) submitMk(R, rec); return; }
     if (R.mode === 'ranked') { const rec = REC && REC.done ? REC : null; REC = null; if (!DB && fbAllowed) submitRanked(R, rec); return; } // 見極め線は自分のランキング（今週・歴代）
     if (R.mode !== 'normal' && R.mode !== 'daily') return;
     if (!DB && !fbAllowed) return;
@@ -2958,12 +3033,12 @@
     playReplay('rk', x.uid, { path: 'suwaritai/rk/rp/' + L.wk + '/' + L.i + '/' + x.uid, list: L, k });
   }
   // 見極め線のランキング：suwaritai/mk/best・suwaritai/mk/week/{週}。人数が少ないうちは点数の分布は使わず、上の人を数える
-  async function submitMk(R) {
+  async function submitMk(R, rec) {
     $('rRank').textContent = 'ランキングに記録中…';
     try {
       const F = await firebaseReady(); if (!F) { $('rRank').textContent = ''; return; }
-      const name = rankName(), out = [];
-      for (const [lab, path] of [['今週', 'suwaritai/mk/week/' + weekKey()], ['歴代', 'suwaritai/mk/best']]) {
+      const name = rankName(), out = [], rpKinds = [];
+      for (const [lab, path, kind, key] of [['今週', 'suwaritai/mk/week/' + weekKey(), 'mkweek', weekKey()], ['歴代', 'suwaritai/mk/best', 'mkbest', 'all']]) {
         const ref = F.db.ref(path + '/' + F.uid);
         const old = (await withTimeout(ref.get(), 10000)).val();
         const better = !old || R.sc.total > old.s;
@@ -2971,8 +3046,10 @@
         const myS = better ? R.sc.total : old.s;
         const above = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(myS + 0.5).limitToFirst(TOP_N).get(), 10000)).numChildren();
         out.push(lab + ' ' + (above < TOP_N ? (above + 1) + '位' : '100位より下') + (better && old ? '（更新！）' : ''));
+        if (better && above < RP_TOP) rpKinds.push([kind, key]); // 記録を更新して上位 10 位に入ったら、リプレイを載せる
       }
       if (state === 'result') $('rRank').textContent = '🏆 見極め線 ' + out.join('・');
+      if (rpKinds.length) rpPut(R, rec, rpKinds);
     } catch (e) { if (state === 'result') $('rRank').textContent = 'ランキングに記録できませんでした'; }
   }
   async function submitClaude(R) {
@@ -3209,13 +3286,13 @@
   // 遊んでいるあいだ 0.2 秒ごとに様子（オンライン対戦と同じ形）を記録しておき、上位 10 位に入ったら gzip して Firebase に送る
   // suwaritai/rp/{種類}/{uid}：中身　rpi/{種類}/{uid}：目次（点数・日付）　rpv/{uid}：見られた数　rpl/{uid}/{見た人}：いいね
   const RP_TOP = 10, RP_MAXF = 6000; // 6000 コマ＝20 分まで
-  const RP_KIND = { day: 'day', week: 'week', normal: 'best', daily: 'daily' };
+  const RP_KIND = { day: 'day', week: 'week', normal: 'best', daily: 'daily', mkweek: 'mkweek', mkbest: 'mkbest' };
   let REC = null;
   const RP = { active: false };
   function recStart(mode) {
     REC = null;
-    if ((mode !== 'normal' && mode !== 'daily' && mode !== 'ranked') || !fbAllowed || typeof CompressionStream === 'undefined') return;
-    REC = { T: { k: 0, sentMax: G.nextId - 1, newIds: [] }, fr: [], acc: 1, ev: [], seed: G.seed, mode: mode === 'ranked' ? 'normal' : mode, done: false, ranked: mode === 'ranked' };
+    if ((mode !== 'normal' && mode !== 'daily' && mode !== 'ranked' && mode !== 'mikiwame') || !fbAllowed || typeof CompressionStream === 'undefined') return;
+    REC = { T: { k: 0, sentMax: G.nextId - 1, newIds: [] }, fr: [], acc: 1, ev: [], seed: G.seed, mode: mode === 'ranked' || mode === 'mikiwame' ? 'normal' : mode, mk: mode === 'mikiwame', done: false, ranked: mode === 'ranked' };
   }
   function recTick(g, dt) {
     if (!REC || REC.done) return;
@@ -3247,12 +3324,17 @@
     const kinds = [['best', res.best, 'all'], ['day', res.day, todayKey()], ['week', res.week, weekKey()], ['daily', res.daily, todayKey()]]
       .filter(([, r]) => r && r.mine && r.rank != null && r.rank <= RP_TOP);
     if (!kinds.length) return;
+    return rpPut(R, rec, kinds.map(([kind, , k]) => [kind, k]));
+  }
+  // リプレイを載せる（kinds は [種類, いつの分] の並び）
+  async function rpPut(R, rec, kinds) {
+    if (!rec || !rec.done) return;
     try {
       const F = await firebaseReady(); if (!F) return;
-      const d = await gz(JSON.stringify({ v: 1, seed: rec.seed, mode: rec.mode, fr: rec.fr }));
+      const d = await gz(JSON.stringify(Object.assign({ v: 1, seed: rec.seed, mode: rec.mode, fr: rec.fr }, rec.mk ? { mk: 1 } : {})));
       if (d.length > 900000) return;
       const name = rankName();
-      for (const [kind, , k] of kinds) {
+      for (const [kind, k] of kinds) {
         await withTimeout(F.db.ref('suwaritai/rp/' + kind + '/' + F.uid).set({ n: name, s: R.sc.total, k, d, t: F.TS }), 20000);
         await withTimeout(F.db.ref('suwaritai/rpi/' + kind + '/' + F.uid).set({ n: name, s: R.sc.total, k, t: F.TS }), 10000);
       }
@@ -3263,7 +3345,7 @@
   // ランキングの表に出す：リプレイがある行（目次と点数・日付が合う）と、見られた数・いいね
   async function fetchRpInfo(F, tab) {
     const kind = RP_KIND[tab]; if (!kind) return null;
-    const key = kind === 'best' ? 'all' : kind === 'week' ? weekKey() : todayKey();
+    const key = kind === 'best' || kind === 'mkbest' ? 'all' : kind === 'week' || kind === 'mkweek' ? weekKey() : todayKey();
     const [idx, views, likes] = await Promise.all(['suwaritai/rpi/' + kind, 'suwaritai/rpv', 'suwaritai/rpl'].map((p) => withTimeout(F.db.ref(p).get(), 10000).then((s) => s.val() || {}).catch(() => ({}))));
     const out = { kind, has: {}, v: {}, l: {} };
     for (const uid in idx) if (idx[uid] && idx[uid].k === key) out.has[uid] = idx[uid].s;
@@ -3290,8 +3372,8 @@
     if (uid !== F.uid) F.db.ref('suwaritai/rpv/' + uid).transaction((v) => (v || 0) + 1).catch(() => { });
     track('リプレイを見た');
     initAudio(); clearWorld();
-    G = SW.create({ seed: data.seed, mode: data.mode });
-    G.modeName = data.mode;
+    G = SW.create({ seed: data.seed, mode: data.mode, mikiwame: !!data.mk });
+    G.modeName = data.mk ? 'mikiwame' : data.mode;
     const looks = {};
     for (const f of data.fr) if (f.nw) Object.assign(looks, f.nw);
     Object.assign(RP, { active: true, nextI: -2, np: null, fr: data.fr, i: -1, t: 0, t0: data.fr[0].t, speed: 1, paused: false, ended: false, looks, uid, kind, name: dispName(meta.n, uid), score: meta.s, obs: null, liked: false, me: F.uid, P: { pl: G.player, out: false, ghost: false, prompt: null, aim: -1, result: null, tricks: 0 }, list: opt.list || null, k: opt.k || 0 });
@@ -3999,6 +4081,7 @@
       updateCamera(G, dt, t);
       updateAudio(G, dt);
     } else if (MP.active && G && (state === 'play' || state === 'pause')) {
+      ohTick(dt); faceTick(dt);
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
@@ -4014,6 +4097,7 @@
         updateAudio(G, dt);
       }
     } else if (state === 'play' && G) {
+      ohTick(dt); faceTick(dt);
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
@@ -4062,5 +4146,5 @@
   }
   if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(boot); else boot();
   // テスト用
-  window.__SW = { avatarUrl, makeName, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
+  window.__SW = { avatarUrl, makeName, camera, tapFace, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
 })();

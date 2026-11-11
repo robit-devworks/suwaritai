@@ -171,6 +171,21 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 #bPunch{right:100px;bottom:4px;width:70px;height:70px}
 #bGuard{right:14px;bottom:100px;width:70px;height:70px}
 #bSleep{right:100px;bottom:84px;width:60px;height:60px;font-size:10px}
+.sensrow{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;font-weight:700}.sensrow input{flex:1;min-width:0;accent-color:var(--toku)}.sensrow b{min-width:44px;text-align:right}
+/* 片手モード（縦画面）：ボタンは手の側のふちに縦に並べ、その横（下の 3 割）がスティック。左手は左右を入れかえる */
+@media (orientation: portrait){
+html:not(.pland) body.oneh #joy{left:0;right:auto;width:calc(100% - 96px);height:32%}
+html:not(.pland) body.oneh.ohL #joy{left:auto;right:0}
+html:not(.pland) body.oneh #joyHint{left:auto;right:16px;bottom:max(30px,env(safe-area-inset-bottom));width:110px;height:110px;text-align:center;line-height:1.3}
+html:not(.pland) body.oneh.ohL #joyHint{right:auto;left:16px}
+html:not(.pland) body.oneh #tbtns{width:88px;height:300px;right:max(6px,env(safe-area-inset-right))}
+html:not(.pland) body.oneh.ohL #tbtns{right:auto;left:max(6px,env(safe-area-inset-left))}
+html:not(.pland) body.oneh #bAct{right:2px;bottom:0;width:84px;height:84px}
+html:not(.pland) body.oneh #bPunch{right:12px;bottom:96px;width:64px;height:64px}
+html:not(.pland) body.oneh #bGuard{right:12px;bottom:170px;width:64px;height:64px}
+html:not(.pland) body.oneh #bSleep{right:16px;bottom:244px;width:56px;height:56px}
+html:not(.pland) body.oneh.touch #prompt{bottom:calc(32% + 10px)}
+}
 body.touch #skills{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 134px);left:50%}
 body.touch .sk{width:42px;height:46px;font-size:18px}
 body.touch .sk kbd{display:none}
@@ -353,7 +368,7 @@ html.pland #title .nmlbl{display:none}
   html:not(.pland) #title .logo{order:2;margin:clamp(6px,4vh,40px) 0 auto}
   html:not(.pland) #title .logo h1{font-size:clamp(44px,15vw,66px)}
   html:not(.pland) #title #bLand{order:3}
-  html:not(.pland) #title #bResume{order:3}
+  html:not(.pland) #title #bSaveResume{order:3}
   html:not(.pland) #title #bStart{order:4;font-size:clamp(17px,5vw,20px);padding:14px}
   html:not(.pland) #title #dailyRow{order:5}
   html:not(.pland) #title #modesRow{order:6}
@@ -574,7 +589,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <!-- X などのアプリの中で開いたときの案内 -->
     <div id="inapp" class="hidden"><span id="inappText"></span><button id="inappClose" aria-label="閉じる">✕</button></div>
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
-    <button class="btn sub2 hidden" id="bResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
+    <button class="btn sub2 hidden" id="bSaveResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
@@ -678,6 +693,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <kbd>1〜7</kbd><span>スキル</span>
       <kbd>Esc</kbd><span>一時停止</span>
     </div>
+    <p class="small">📱 スマホは、人や空いた席を<b>軽くタップ</b>するとそっちを向きます。一時停止（Ⅱ）で<b>視点の感度</b>と<b>✋ 片手モード</b>（右手・左手）を選べます。片手モードはスティックを少し倒すと見回す、大きく倒すと歩きます。</p>
     <p class="small">スコア ＝ 集めた徳 ＋ 駅ごとのボーナス ＋ 完走ボーナス − カルマ</p>
     <p class="small">作者：ROBIT（<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">𝕏 @ROBITdesuyo</a>）　アップデート情報も X で<br>作者のほかのゲーム：<a class="dg-link" data-from="遊び方" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--accent)">🎮 デストロイ碁（石を壊す囲碁バトル）</a></p>
     <p class="small">ランキングには「乗客名」とスコアだけを記録します（ログインは不要。端末ごとに自動で番号がつきます）。遊ばれた回数を GoatCounter で数えています（Cookie なし・個人は分かりません）。</p>
@@ -758,6 +774,9 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn main" id="bResume">つづける</button>
     <button class="btn fs-btn" id="bFs2">⛶ 全画面</button>
     <button class="btn hidden" id="bPort2">📱 縦画面にもどす</button>
+    <label class="sensrow">👀 視点の感度 <input type="range" id="sensR" min="0.5" max="3" step="0.1" value="1"> <b id="sensV">1.0倍</b></label>
+    <button class="btn hidden" id="bHand">✋ 操作：両手</button>
+    <p class="small hidden" id="handNote" style="margin:-4px 0 8px;color:var(--sub)">片手モード（縦画面）：スティックを少し倒すと見回す、大きく倒すと歩く。人や空いた席を軽くタップすると、そっちを向く。</p>
     <button class="btn" id="bHow2">📖 遊び方</button>
     <button class="btn" id="bQuit">タイトルへ（途中でやめる）</button>
     <p class="small">PCは画面をクリックするとマウスで見回せます。</p>
@@ -870,7 +889,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261111061033"</script><script src="logic.js?v=20261111061033"></script>
-<script src="game.js?v=20261111061033"></script>
+<script>window.SW_VER="20261111065343"</script><script src="logic.js?v=20261111065343"></script>
+<script src="game.js?v=20261111065343"></script>
 </body>
 </html>
