@@ -3049,12 +3049,12 @@
     playReplay('rk', x.uid, { path: 'suwaritai/rk/rp/' + L.wk + '/' + L.i + '/' + x.uid, list: L, k });
   }
   // 見極め線のランキング：suwaritai/mk/best・suwaritai/mk/week/{週}。人数が少ないうちは点数の分布は使わず、上の人を数える
-  // 見極め線の殿堂入り（suwaritai/mk/hof/{週}）：ランキングを作り直したとき、その週の 1 位をお礼として残す
+  // 見極め線の殿堂入り（suwaritai/mk/hof/{週}）：ランキングを作り直したとき、その週の 1 位をお礼として残す。出すのはその週だけ（次の週からはまっさら）
   let mkHofCache = null;
   async function mkHof() {
     try {
       if (mkHofCache == null) { const F = await firebaseReady(); if (!F) return ''; mkHofCache = (await withTimeout(F.db.ref('suwaritai/mk/hof').get(), 8000)).val() || {}; }
-      return Object.entries(mkHofCache).sort((a, b) => b[0] < a[0] ? -1 : 1).map(([wk, h]) => `<div class="rk hof"><span class="n">🏛</span><span class="nm">${nameHtml(dispName(h.n, h.uid))}<div class="ttl">殿堂入り（${esc(wk.slice(5).replace('-', '/'))} の週）・${esc(h.why || '')}</div></span><span class="sc">${h.s}</span></div>`).join('');
+      return Object.entries(mkHofCache).filter(([wk]) => wk === weekKey()).map(([wk, h]) => `<div class="rk hof"><span class="n">🏛</span><span class="nm">${nameHtml(dispName(h.n, h.uid))}<div class="ttl">殿堂入り（${esc(wk.slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/'))} の週）<br>${esc(h.why || '')}</div></span><span class="sc">${h.s}</span></div>`).join('');
     } catch (e) { return ''; }
   }
   async function submitMk(R, rec) {
