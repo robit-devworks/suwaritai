@@ -2734,17 +2734,45 @@
   // ---- シェア：今日のダイヤは Wordle のような絵文字の結果（1 駅 1 マス）。見せ場があれば先頭に
   const WEEK_THEMES = ['ボス駅ラッシュで何駅まで行けた？', '今日のダイヤ、どの駅で倒れた？', '見極め線で何連続で読めた？', 'あなたの乗客タイプ診断は？', 'ランク線の段位は？', 'いちばん笑えた倒れかたは？'];
   function weekTheme() { const d = new Date(weekKey() + 'T00:00:00'); return WEEK_THEMES[Math.floor(d.getTime() / (7 * 86400000)) % WEEK_THEMES.length]; }
+  // X の文字数：ブルーバッジでない人は 280（日本語・絵文字は 1 文字 2、URL はどれも 23）。超えたら、大事でないところから順にけずる
+  const X_MAX = 280;
+  function xLen(t) {
+    let n = 0;
+    t = t.replace(/https?:\/\/\S+/g, () => { n += 23; return ''; });
+    for (const ch of t) { const c = ch.codePointAt(0); if (c === 0xFE0F || c === 0x200D || (c >= 0x1F3FB && c <= 0x1F3FF)) continue; n += (c <= 0x10FF || (c >= 0x2000 && c <= 0x200D) || (c >= 0x2010 && c <= 0x201F) || (c >= 0x2032 && c <= 0x2037)) ? 1 : 2; }
+    return n;
+  }
+  // parts：[文, けずる順番（大きいほど先にけずる・0 はけずらない）]。けずっても入らなければ、最後に見せ場の文を短くする
+  function xFit(parts) {
+    const make = () => parts.filter((p) => p[0]).map((p) => p[0]).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    let t = make();
+    const order = parts.map((p, i) => [p[1], i]).filter((x) => x[0] > 0).sort((a, b) => b[0] - a[0]);
+    for (const [, i] of order) { if (xLen(t) <= X_MAX) break; parts[i][0] = ''; t = make(); }
+    return t;
+  }
   function shareText(R) {
-    const s = R.stats, grid = (s.stLog || []).join('');
+    const s = R.stats, gl = s.stLog || [], grid = gl.length > 20 ? '…' + gl.slice(-20).join('') : gl.join(''); // 長い路線は最後の 20 駅だけ
+    const mom = R.moment ? (xLen(R.moment) > 60 ? [...R.moment].slice(0, 28).join('') + '…' : R.moment) : '';
     if (R.mode === 'daily') { // 今日のダイヤ：ネタバレなしで、くらべたくなる形
       const top = R.rk && R.rk.rank && R.rk.total ? Math.max(1, Math.ceil(R.rk.rank / R.rk.total * 100)) : 0;
       const pct = top && top <= 50 ? '（上位' + top + '%）' : R.rk && R.rk.rank && R.rk.rank <= 100 ? '（' + R.rk.rank + '位）' : '';
-      return `${R.moment ? R.moment + '\n\n' : ''}スワリタイ！ 今日のダイヤ ${todayKey().slice(5).replace('-', '/').replace(/^0/, '')}\n${R.rule ? R.rule.icon + R.rule.name + '\n' : ''}${grid}\n${R.sc.total}点${pct}\n\nあなたは何点？\n${shareUrl()}\n\n#スワリタイ`;
+      return xFit([[mom ? mom + '\n' : '', 4], ['スワリタイ！ 今日のダイヤ ' + todayKey().slice(5).replace('-', '/').replace(/^0/, ''), 0], [R.rule ? R.rule.icon + R.rule.name : '', 3], [grid, 2], [R.sc.total + '点' + pct + '\n', 0], ['あなたは何点？', 1], [shareUrl() + '\n', 0], ['#スワリタイ', 0]]);
     }
-    const modeTxt = R.mode === 'daily' ? (R.rule ? '【今日のダイヤ：' + R.rule.icon + R.rule.name + '】' : '【今日のダイヤ】') : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線', bossrush: 'ボス駅ラッシュ' }[R.mode] || '') + '】';
+    const modeTxt = R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線', bossrush: 'ボス駅ラッシュ' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
-    const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
-    return `${R.moment ? R.moment + '\n\n' : ''}${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n${grid ? grid + '\n' : ''}${R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`}\n\n▶ ブラウザですぐ遊べます（無料）\n${shareUrl()}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
+    const stats = R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`;
+    return xFit([
+      [mom ? mom + '\n' : '', 3],
+      [R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！` : '', 5],
+      [R.dg ? `（${R.dg.desc}）` : '', 8],
+      [(R.dg ? '\n' : '') + `${modeTxt}スワリタイ！で ${R.sc.total}点・${how}`, 0],
+      [grid, 4],
+      [stats + '\n', 6],
+      ['\n▶ ブラウザですぐ遊べます（無料）', 2],
+      [shareUrl() + '\n', 0],
+      ['#スワリタイ', 0],
+      [' #乗客タイプ診断 #バカゲー', 7],
+    ]).replace('\n#スワリタイ\n #乗客', '\n#スワリタイ #乗客');
   }
   $('bShareX').addEventListener('click', () => {
     track('X でシェアを押した');
