@@ -2194,7 +2194,9 @@
     if (!window.SW_VER || Date.now() - verCheckT < 60000) return;
     verCheckT = Date.now();
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => {
-      if (!j || !j.v || j.v === window.SW_VER || $('updBan')) return;
+      if (!j || !j.v || j.v === window.SW_VER) return;
+      newVer = j.v;
+      if ($('updBan')) return;
       const el = document.createElement('div'); el.id = 'updBan';
       el.innerHTML = '<span>🆕 新しい版が出ています</span><button id="updGo">更新する</button><button id="updX">✕</button>';
       document.body.appendChild(el);
@@ -2204,6 +2206,22 @@
     }).catch(() => { });
   }
   setInterval(() => { if (state === 'title' || state === 'result') verCheck(); }, 60000);
+  // タイトル画面で 30 秒さわっていなければ、新しい版に自動で読み直す（遊んでいる最中・ほかの画面では読み直さない）
+  // 同じ版への自動の読み直しは 1 回だけ（キャッシュで古いまま返ってきても、くり返さないように）
+  let newVer = null, lastAct = Date.now();
+  for (const ev of ['pointerdown', 'keydown', 'touchstart', 'wheel']) addEventListener(ev, () => { lastAct = Date.now(); }, { passive: true, capture: true });
+  function verReload(v) {
+    try { if (sessionStorage.getItem('suwaritai.autoUpd') === v) return; sessionStorage.setItem('suwaritai.autoUpd', v); } catch (e) { return; }
+    track('新しい版に自動で更新した');
+    const u = new URL(location.href); u.searchParams.set('u', v); location.replace(u.toString());
+  }
+  setInterval(() => {
+    if (!newVer || state !== 'title' || $('title').classList.contains('hidden')) return;
+    if (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    if (Date.now() - lastAct > 30000) verReload(newVer);
+  }, 5000);
+  // しばらく裏にあって戻ってきたときは、すぐに見に行く
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && (state === 'title' || state === 'result')) { verCheckT = 0; verCheck(); } });
   // ================================================================ 全画面（デストロイ碁と同じ仕組み）
   const fsTarget = document.documentElement;
   const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
