@@ -1952,7 +1952,7 @@
     const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = SW.create({ seed, mode: bossTest ? 'endless' : practice || ruleTest || mikiwame ? 'normal' : mode, bossTest, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = SW.create({ seed, mode: bossTest ? 'endless' : practice || ruleTest || mikiwame ? 'normal' : mode, bossTest, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'mikiwame' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
     G.rookie = mode === 'normal' && !profile.plays && !profile.rookieDone;
@@ -2484,6 +2484,7 @@
   function submitScore(R) {
     if (BAL2) { $('rRank').textContent = '🧪 新バランスのお試し版なので、ランキングには載りません'; return; }
     if (R.rookie) { $('rRank').textContent = '🔰 見習い乗車なので、ランキングには載りません。次から本番！'; return; }
+    if (R.mode === 'mikiwame') { if (!DB && fbAllowed) submitMk(R); return; } // 見極め線は自分のランキング（今週・歴代）
     if (R.mode !== 'normal' && R.mode !== 'daily') return;
     if (!DB && !fbAllowed) return;
     if (DB && !myId) return;
@@ -2512,6 +2513,7 @@
   async function histAdd(F, hp, b, d) { try { await withTimeout(F.db.ref(hp + '/' + b).transaction((v) => Math.max(0, (v || 0) + d)), 8000); } catch (e) { } }
   async function rankOf(F, parent, myS) {
     try {
+      if (/\/mk\//.test(parent)) throw new Error('mk'); // 見極め線は点数の分布がないので、上の人を数える
       const hist = (await withTimeout(F.db.ref(histPath(parent)).get(), 8000)).val() || {};
       const myB = Math.floor(Math.max(0, myS) / HIST_W);
       let above = 0, total = 0;
@@ -2553,6 +2555,24 @@
     const week = await put('suwaritai/week/' + weekKey() + '/' + F.uid);
     const daily = R.mode === 'daily' ? await put('suwaritai/daily/' + dk + '/' + F.uid) : null;
     return { best, day, week, daily };
+  }
+  // 見極め線のランキング：suwaritai/mk/best・suwaritai/mk/week/{週}。人数が少ないうちは点数の分布は使わず、上の人を数える
+  async function submitMk(R) {
+    $('rRank').textContent = 'ランキングに記録中…';
+    try {
+      const F = await firebaseReady(); if (!F) { $('rRank').textContent = ''; return; }
+      const name = rankName(), out = [];
+      for (const [lab, path] of [['今週', 'suwaritai/mk/week/' + weekKey()], ['歴代', 'suwaritai/mk/best']]) {
+        const ref = F.db.ref(path + '/' + F.uid);
+        const old = (await withTimeout(ref.get(), 10000)).val();
+        const better = !old || R.sc.total > old.s;
+        if (better || old.n !== name) await fbSet(ref, Object.assign({ n: name, s: better ? R.sc.total : old.s, ti: better ? R.sc.title : old.ti, t: F.TS }, better ? { v: SCORE_VER } : old.v ? { v: old.v } : {}));
+        const myS = better ? R.sc.total : old.s;
+        const above = (await withTimeout(F.db.ref(path).orderByChild('s').startAt(myS + 0.5).limitToFirst(TOP_N).get(), 10000)).numChildren();
+        out.push(lab + ' ' + (above < TOP_N ? (above + 1) + '位' : '100位より下') + (better && old ? '（更新！）' : ''));
+      }
+      if (state === 'result') $('rRank').textContent = '🏆 見極め線 ' + out.join('・');
+    } catch (e) { if (state === 'result') $('rRank').textContent = 'ランキングに記録できませんでした'; }
   }
   async function submitClaude(R) {
     const ref = DB.doc('scores/' + myId);
@@ -2638,6 +2658,7 @@
   async function fetchBoard(tab) {
     const dk = todayKey();
     if (DB) {
+      if (/^mk/.test(tab)) return { list: [], me: myId, mine: null, total: 0 }; // Claude 版では見極め線のランキングは記録しない
       const all = await fetchClaude();
       const wk = weekKey();
       const arr = (tab === 'daily' ? all.filter(x => x.dailyDate === dk && x.dailyScore > 0).map(x => ({ id: x.id, name: x.name, score: x.dailyScore, title: x.dailyTitle }))
@@ -2650,7 +2671,7 @@
       return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length, near };
     }
     const F = await firebaseReady(); if (!F) return null;
-    const path = tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
+    const path = tab === 'mkweek' ? 'suwaritai/mk/week/' + weekKey() : tab === 'mkbest' ? 'suwaritai/mk/best' : tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
     const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(TOP_N).get(), 10000);
     const arr = [];
     snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti, v: v.v || 1 }); });
@@ -2659,12 +2680,12 @@
     const own = (await withTimeout(F.db.ref(path + '/' + F.uid).get(), 10000)).val();
     if (own) {
       const inTop = arr.findIndex((x) => x.id === F.uid);
-      let rank = null;
+      let rank = inTop >= 0 ? inTop + 1 : null; // 上位にいるときも順位を入れる（「あなたの順位へ」に出す）
       if (inTop < 0) { const rt = await rankOf(F, path, own.s); rank = rt.rank || '100+'; if (rt.total) total = rt.total; }
       mine = { id: F.uid, rank, score: own.s, name: dispName(own.n, F.uid), title: own.ti, v: own.v || 1 };
       if (inTop < 0) { try { near = await fetchNear(F, path, mine); } catch (e) { near = null; } }
     }
-    if (arr.length >= TOP_N && total === arr.length) {
+    if (arr.length >= TOP_N && total === arr.length && !/^mk/.test(tab)) {
       // 全員の人数は、点数の分布から数える（全員分は読まない）
       try { const h = (await withTimeout(F.db.ref(histPath(path)).get(), 8000)).val() || {}; let t = 0; for (const k in h) t += +h[k] || 0; total = t >= arr.length ? t : null; } catch (e) { total = null; }
     }
@@ -2676,6 +2697,9 @@
   document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
   function setRankTab(tab) {
     rankTab = tab;
+    $('mkTabs').classList.toggle('hidden', !/^mk/.test(tab));
+    document.querySelectorAll('[data-mt]').forEach((x) => x.classList.toggle('on', 'mk' + x.dataset.mt === tab));
+    if (/^mk/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'mkweek')); $('coopTabs').classList.add('hidden'); loadRanking(tab); return; }
     $('coopTabs').classList.toggle('hidden', !/^coop/.test(tab));
     document.querySelectorAll('[data-ct]').forEach((x) => x.classList.toggle('on', 'coop' + x.dataset.ct === tab));
     if (/^coop/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'coop2')); loadRanking(tab); return; }
@@ -2706,6 +2730,7 @@
     return html;
   }
   // 共闘ランキング（人数ごと）
+  document.querySelectorAll('[data-mt]').forEach((b) => b.addEventListener('click', () => setRankTab('mk' + b.dataset.mt)));
   document.querySelectorAll('[data-ct]').forEach((b) => b.addEventListener('click', () => setRankTab('coop' + b.dataset.ct)));
   async function loadCoop(tab, listEl) {
     const n = tab.slice(4);
@@ -2737,7 +2762,7 @@
       if (!b) throw new Error('none');
       if (rankTab !== tab) return;
       const wk = weekKey().slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/');
-      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
+      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット', mkweek: '👀 見極め線・今週（' + wk + '〜）', mkbest: '👀 見極め線・歴代' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
       listEl.innerHTML = b.list.length ? rankRows(b, TOP_N) : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
       // 自分が下のほうにいるときは「あなたの順位へ」ボタン（押すと自分の行まで動く）
       const meRow = listEl.querySelector('.rk.me');
