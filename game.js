@@ -1291,30 +1291,9 @@
   // タッチ
   const joyEl = $('joy'), joyBase = $('joyBase'), joyKnob = $('joyKnob');
   let joyId = null, joyO = null, lookId = null, lookP = null, lookMv = 0, lookT0 = 0;
-  // ---- 片手モード（スマホ縦・設定の「✋ 操作」）：スティック 1 本で「見る」と「歩く」
-  // 内側（半分まで）：その場で見回す（左右で向き・上下で見上げる／見下ろす）。外側：ラジコンのように前後に歩きながら左右に曲がる
-  const OH = { yr: 0, pr: 0 };
-  // 視点の感度（一時停止の画面で 0.5〜3 倍。指でなぞる・マウス・片手スティックぜんぶに効く）
+  // 視点の感度（一時停止の画面で 0.5〜3 倍。指でなぞる・マウスに効く）
   const sens = () => profile.sens || 1;
-  const ohOn = () => isTouch && !!profile.hand && !pland && isPortrait();
-  function ohStick(x, y) {
-    const r = Math.hypot(x, y), IN = 0.5, dz = 0.12;
-    if (r < IN) {
-      inp.joyX = inp.joyY = 0;
-      const k = (v) => Math.abs(v) < dz ? 0 : (v - Math.sign(v) * dz) / (IN - dz);
-      OH.yr = -k(x) * 2.6; OH.pr = -k(y) * 1.3;
-    } else {
-      const f = Math.min(1, 0.45 + (r - IN) / (1 - IN) * 0.55) / r;
-      inp.joyY = y * f; inp.joyX = x * f * 0.3; // 横は少しだけ（曲がるのは向きで）
-      OH.yr = -x * 2.0; OH.pr = 0;
-    }
-    if (OH.yr || OH.pr) FACE = null;
-  }
-  function ohTick(dt) {
-    if (!OH.yr && !OH.pr) return;
-    inp.yaw += OH.yr * dt * sens(); inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch + OH.pr * dt));
-  }
-  // ---- タップした人・空いた席のほうを向く（片手でも両手でも。指で画面を軽くたたく）
+  // ---- タップした人・空いた席のほうを向く（指で画面を軽くたたく）
   let FACE = null;
   const _fv = new T3.Vector3();
   function tapFace(q) {
@@ -1358,7 +1337,7 @@
         const q = tp(t); let dx = q.x - joyO.x, dy = q.y - joyO.y; const l = Math.hypot(dx, dy), m = 48;
         if (l > m) { dx *= m / l; dy *= m / l; }
         joyKnob.style.transform = `translate(${dx}px,${dy}px)`;
-        if (ohOn()) ohStick(dx / m, dy / m); else { inp.joyX = dx / m; inp.joyY = dy / m; }
+        inp.joyX = dx / m; inp.joyY = dy / m;
       } else if (t.identifier === lookId) {
         const q = tp(t), dx = q.x - lookP.x, dy = q.y - lookP.y; lookP = q;
         lookMv += Math.abs(dx) + Math.abs(dy); if (lookMv > 10) FACE = null;
@@ -1369,7 +1348,7 @@
   }, { passive: false });
   const endTouch = e => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) { joyId = null; inp.joyX = inp.joyY = 0; OH.yr = OH.pr = 0; joyBase.style.display = 'none'; $('joyHint').style.display = ''; }
+      if (t.identifier === joyId) { joyId = null; inp.joyX = inp.joyY = 0; joyBase.style.display = 'none'; $('joyHint').style.display = ''; }
       if (t.identifier === lookId) { lookId = null; if (lookMv < 10 && performance.now() - lookT0 < 350 && state === 'play') tapFace(tp(t)); }
     }
   };
@@ -2566,21 +2545,8 @@
   $('bRank').addEventListener('click', () => { backTo = 'title'; show('rank'); setRankTab(rankTab); track('ランキングを開いた'); });
   $('pauseBtn').addEventListener('click', () => pause());
   $('pauseBtn').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
-  // 操作の切りかえ（スマホ縦）：両手 → 片手（右手）→ 片手（左手）
-  const HAND_TXT = { '': '✋ 操作：両手', R: '✋ 操作：片手（右手）', L: '✋ 操作：片手（左手）' };
-  function applyHand() {
-    const h = isTouch ? profile.hand || '' : '';
-    document.body.classList.toggle('oneh', !!h); document.body.classList.toggle('ohL', h === 'L');
-    $('bHand').textContent = HAND_TXT[h]; $('bHand').classList.toggle('hidden', !isTouch);
-    $('handNote').classList.toggle('hidden', !h);
-    $('joyHint').innerHTML = h ? '少し倒す<br>＝見回す<br>大きく倒す<br>＝歩く' : '移動';
-    if (!h) { OH.yr = OH.pr = 0; }
-  }
-  $('bHand').addEventListener('click', () => {
-    profile.hand = { '': 'R', R: 'L', L: '' }[profile.hand || '']; saveProfile(); applyHand();
-    track('操作を切りかえた：' + HAND_TXT[profile.hand || ''].replace('✋ 操作：', ''));
-  });
-  applyHand();
+  // 片手モードは 2026-11-11 にやめた（本人：微妙）。前に選んでいた人の設定も消す
+  if (profile.hand) { delete profile.hand; saveProfile(); }
   function showSens() { const v = profile.sens || 1; $('sensR').value = v; $('sensV').textContent = v.toFixed(1) + '倍'; }
   $('sensR').addEventListener('input', () => { profile.sens = Math.round(+$('sensR').value * 10) / 10; showSens(); });
   $('sensR').addEventListener('change', () => { saveProfile(); track('感度を変えた：' + (profile.sens || 1).toFixed(1)); });
@@ -4404,7 +4370,7 @@
       updateCamera(G, dt, t);
       updateAudio(G, dt);
     } else if (MP.active && G && (state === 'play' || state === 'pause')) {
-      ohTick(dt); faceTick(dt);
+      faceTick(dt);
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
@@ -4420,7 +4386,7 @@
         updateAudio(G, dt);
       }
     } else if (state === 'play' && G) {
-      ohTick(dt); faceTick(dt);
+      faceTick(dt);
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
