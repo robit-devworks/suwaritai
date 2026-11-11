@@ -222,7 +222,19 @@
     f.int = (lo, hi) => Math.floor(lo + f() * (hi - lo + 1));
     f.pick = arr => arr[Math.floor(f() * arr.length)];
     f.chance = p => f() < p;
+    f.state = () => a; f.setState = (v) => { a = v >>> 0; }; // 途中保存（saveGame）のため
     return f;
+  }
+  // 一人プレイの途中保存：ゲームの状態を JSON にする（乱数の状態もいっしょに）。オンライン（複数人）はできない
+  function saveGame(g) {
+    if (g.multi) return null;
+    return JSON.stringify(Object.assign({}, g, { r: { rng: g.r.state() }, vr: { rng: g.vr.state() }, events: [] }));
+  }
+  function loadGame(str) {
+    const g = JSON.parse(str);
+    const mk = (o) => { const f = rng(0); f.setState(o && o.rng || 1); return f; };
+    g.r = mk(g.r); g.vr = mk(g.vr); g.events = [];
+    return g;
   }
   function weighted(r, obj) {
     let tot = 0; for (const k in obj) tot += obj[k];
@@ -2706,7 +2718,7 @@
   return {
     PTYPES, diagnose, villainKO, BOSS,
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
-    DAILY_RULES, dailyRule, hasRule,
+    DAILY_RULES, dailyRule, hasRule, saveGame, loadGame,
     teamScore, reviveCost,
     create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
     _internal: { bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },

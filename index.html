@@ -80,6 +80,7 @@ body.inapp .logo{margin-bottom:6px}
 #inapp button{flex:none;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:800}
 #inapp #inappClose{padding:5px 9px}
 #dailyRow .btn,#modesRow .btn{flex:1}
+#modesRow .btn{white-space:nowrap;padding-left:4px;padding-right:4px}#modesRow .newb{margin-right:3px}
 .olcodein{flex:1;min-width:0;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:18px;text-align:center;letter-spacing:.2em;user-select:text;-webkit-user-select:text}
 .olcode{text-align:center;font-size:15px;margin:4px 0 8px}
 .olcode b{font-size:30px;letter-spacing:.15em;color:var(--toku)}
@@ -220,6 +221,9 @@ body.tpv #cross,body.tpv #target{display:none!important}
 #downTag{position:fixed;left:50%;top:38%;transform:translateX(-50%);z-index:30;background:rgba(160,20,30,.88);color:#fff;font-weight:800;border-radius:14px;padding:10px 16px;text-align:center;pointer-events:none;white-space:nowrap}
 .rkOpp{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:center;font-size:12px;margin-top:4px;color:var(--sub)}.rkOpp .me{color:#ffd447;font-weight:800}
 .rkb{font-weight:800;white-space:nowrap}
+#lobbyBan{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 64px);transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:6px;width:min(420px,calc(100% - 20px));background:rgba(20,40,70,.95);border:2px solid #7fd1ff;border-radius:14px;padding:8px 10px;color:#fff;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+#lobbyBan span{flex:1;line-height:1.35}#lobbyBan .av{width:16px;height:16px}
+#lobbyBan button{flex:none;border:0;border-radius:10px;padding:6px 10px;font-weight:800;font-size:13px;background:#7fd1ff;color:#0b2033}#lobbyBan #lbX{background:transparent;color:#bcd;padding:6px}
 .vtag{display:inline-block;font-size:9px;line-height:1;padding:2px 4px;margin-right:4px;border-radius:4px;background:#2f9e6b;color:#fff;vertical-align:1px}
 .rk .sc{font-weight:800;color:var(--toku)}
 .rk.me{background:rgba(255,212,71,.12);border-radius:8px}
@@ -345,6 +349,7 @@ html.pland #title .nmlbl{display:none}
   html:not(.pland) #title .logo{order:2;margin:clamp(6px,4vh,40px) 0 auto}
   html:not(.pland) #title .logo h1{font-size:clamp(44px,15vw,66px)}
   html:not(.pland) #title #bLand{order:3}
+  html:not(.pland) #title #bResume{order:3}
   html:not(.pland) #title #bStart{order:4;font-size:clamp(17px,5vw,20px);padding:14px}
   html:not(.pland) #title #dailyRow{order:5}
   html:not(.pland) #title #modesRow{order:6}
@@ -520,6 +525,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spTpv">🎥 3人称</button><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
 <div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpLike">🤍 いいね</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
 <div id="rpEnd" class="hidden"><div class="card"><h3 id="rpEndT"></h3><button class="btn main" id="rpLike2">🤍 いいね</button><button class="btn sub2" id="rpAgain">もう一度見る</button><button class="btn sub2" id="rpBack">ランキングにもどる</button></div></div>
+<div id="lobbyBan" class="hidden"></div>
 <div id="hud" class="hidden">
   <div id="carryCard" class="hidden"></div>
   <div id="rookieTag" class="hidden" title="ランキングには載りません">🔰 見習い乗車</div>
@@ -564,10 +570,11 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <!-- X などのアプリの中で開いたときの案内 -->
     <div id="inapp" class="hidden"><span id="inappText"></span><button id="inappClose" aria-label="閉じる">✕</button></div>
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
+    <button class="btn sub2 hidden" id="bResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
-    <div class="row" id="dailyRow"><button class="btn" id="bRk"><span class="newb">NEW</span>🏅 ランク線 <span class="pill" id="rkPill">レート戦</span></button><button class="btn" id="bMiki"><span class="newb">NEW</span>👀 見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline">🌐 オンライン <span class="pill">β</span></button></div>
-    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo">🎬 動画で見る</button></div>
+    <div class="row" id="dailyRow"><button class="btn" id="bRk"><span class="newb">NEW</span>🏅 ランク線 <span class="pill" id="rkPill">レート戦</span></button><button class="btn" id="bMiki"><span class="newb">NEW</span>👀 見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily">📅 今日のダイヤ <span class="pill" id="dailyBest">-</span></button></div>
+    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bOnline">🌐 オンライン</button><button class="btn sub2 hidden" id="bVideo">🎬 動画で見る</button></div>
     <div class="row"><button class="btn sub2" id="bHow">📖 遊び方</button><button class="btn sub2" id="bRank">🏆 ランキング</button><button class="btn sub2" id="bAch">🎖 実績</button><button class="btn sub2" id="bStat">📊 Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
@@ -736,6 +743,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <div class="row" id="olModeRow"><button class="btn sub2" data-olmode="vs">⚔ 対戦</button><button class="btn sub2" data-olmode="coop">🤝 共闘</button></div>
       <p class="small" id="olModeNote" style="margin:0 0 4px;color:var(--sub)"></p>
       <label class="small olcpu"><input type="checkbox" id="olCpu" checked> 空いた席は CPU で埋める</label>
+      <label class="small olcpu" id="olPubL"><input type="checkbox" id="olPub" checked> 🌐 だれでも入れる（ひとりで遊んでいる人に知らせる）</label>
       <button class="btn main" id="olStart">🚃 スタート</button>
       <p class="small" id="olWait"></p>
     </div>
@@ -821,7 +829,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111042924"></script>
-<script src="game.js?v=20261111042924"></script>
+<script src="logic.js?v=20261111044730"></script>
+<script src="game.js?v=20261111044730"></script>
 </body>
 </html>

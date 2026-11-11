@@ -1915,6 +1915,7 @@
     show('title'); showInapp(true);
     const dk = todayKey();
     const dr = SW.dailyRule(dk); // 今日の特別ルール
+    showResume();
     $('rkPill').textContent = profile.rk && profile.rk.s === rkSeason() ? rkTier(profile.rk.r)[1] + ' ' + profile.rk.r : 'レート戦';
     // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
     const isNew = dk <= NEW_UNTIL;
@@ -1926,7 +1927,7 @@
   }
   function renderModes() {
     const n = (profile.unlock.endless ? 1 : 0) + (profile.unlock.hard ? 1 : 0) + (profile.unlock.jiji ? 1 : 0);
-    $('bModes').innerHTML = (todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : '') + '🚇 路線・練習 ' + n + '/3';
+    $('bModes').innerHTML = (todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : '') + '路線・練習';
     const list = [
       ['endless', '♾ 終点なしモード', '終点がない。どこまで立っていられるか。だんだん疲れやすくなる', '開放条件：一度、終点まで行く'],
       ['hard', '🔥 満員地獄モード', '超満員・席取りおばちゃん倍増・絡み屋多め', '開放条件：タイトル画面で伝説のコマンド（スマホはスワイプで）'],
@@ -1950,8 +1951,11 @@
     for (const [, H] of humans) disposeHuman(H); humans.clear();
     for (const [, m] of itemMeshes) scene.remove(m); itemMeshes.clear();
   }
-  function startGame(mode) {
-    track((profile.plays ? '出発した：' : '初めて出発した：') + (MODE_JA[mode.split(':')[0]] || mode));
+  function startGame(mode, resume) {
+    // 一人プレイの途中保存（オンラインに飛んだとき）があれば、新しく始める前に確かめる
+    if (!resume && loadSave() && !confirm('保存してある続き（' + loadSave().desc + '）は消えます。新しく始めますか？')) return;
+    if (!resume) clearSave();
+    track(resume ? '続きから再開：' + (MODE_JA[mode.split(':')[0]] || mode) : (profile.plays ? '出発した：' : '初めて出発した：') + (MODE_JA[mode.split(':')[0]] || mode));
     initAudio();
     clearWorld();
     const rkTrain = mode.startsWith('ranked:') ? +mode.slice(7) : -1; // ランク線：今週の電車（rkSeed）
@@ -1963,11 +1967,11 @@
     const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
-    G.rkTrain = rkTrain; G.rkWeek = weekKey();
+    G.rkTrain = rkTrain; G.rkWeek = resume ? resume.meta.rkWeek : weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
-    G.rookie = mode === 'normal' && !profile.plays && !profile.rookieDone;
+    G.rookie = resume ? !!resume.meta.rookie : mode === 'normal' && !profile.plays && !profile.rookieDone;
     $('rookieTag').classList.toggle('hidden', !G.rookie); document.body.classList.toggle('rookie', !!G.rookie);
     document.body.classList.toggle('rookie', !!G.rookie || !!rule); // 右上の札の分、落とし物の小さいカードを下げる
     G.rule = rule; $('ruleTag').textContent = rule ? rule.icon + ' ' + rule.name : ''; $('ruleTag').classList.toggle('hidden', !rule);
@@ -1984,7 +1988,9 @@
       if (!noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
     }
     if (isTouch && isPortrait()) setTimeout(() => { if (state === 'play' && isPortrait()) addToast('📱 スマホを横にすると遊びやすいよ', 'warn'); }, 4000);
-    if (!G.rookie && !BAL2) recStart(mode); else REC = null;
+    if (!G.rookie && !BAL2 && !resume) recStart(mode); else REC = null; // 続きからのときはリプレイなし
+    document.body.classList.toggle('nosk', mikiwame);
+    if (resume) { addToast('▶ 続きから再開：' + resume.desc, 'good'); showAnn(G.ann); return; }
     if (G.rookie) addToast('🔰 見習い乗車：はじめの 1 回は体力がへりにくい（ランキングには載りません）', 'good');
     if (rule) { addToast('📅 今日のルール「' + rule.icon + ' ' + rule.name + '」：' + rule.desc, 'warn'); track('今日のルール：' + rule.name + '：出発'); }
     document.body.classList.toggle('nosk', mikiwame);
@@ -1995,6 +2001,74 @@
     else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
   }
+  // ================================================================ 一人プレイの途中保存と、募集中のオンライン部屋のお知らせ
+  // 一人で遊んでいるときに「だれでも入れる」部屋が募集中なら、上にお知らせを出す。参加すると、今の一人プレイは保存して、あとで「▶ 続きから」で再開できる
+  const SAVE_KEY = 'suwaritai.save';
+  function loadSave() { try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return v && Date.now() - v.at < 86400000 ? v : null; } catch (e) { return null; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
+  function saveSolo() {
+    const g = G; if (!g || g.multi || g.over || RP.active) return false;
+    const d = SW.saveGame(g); if (!d) return false;
+    const desc = (MODE_JA[g.modeName] || g.modeName) + '・' + SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g))) + (g.phase === 'travel' ? 'の手前' : '');
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ d, at: Date.now(), desc, meta: { modeName: g.modeName, rkTrain: g.rkTrain, rkWeek: g.rkWeek, rookie: !!g.rookie, rule: g.rule ? g.rule.key : null } })); } catch (e) { return false; }
+    track('一人プレイを保存した');
+    return true;
+  }
+  function resumeSolo() {
+    const v = loadSave(); if (!v) return;
+    clearSave();
+    const m = v.meta, mode = m.modeName === 'ranked' ? 'ranked:' + m.rkTrain : m.modeName === 'ruletest' && m.rule ? 'ruletest:' + m.rule : m.modeName;
+    startGame(mode, v);
+  }
+  $('bResume').addEventListener('click', () => resumeSolo());
+  function showResume() {
+    const v = loadSave();
+    $('bResume').classList.toggle('hidden', !v); $('bLand').classList.toggle('hidden', !!v || !isTouch || !isPortrait());
+    if (v) $('bResume').textContent = '▶ 続きから（' + v.desc + '）';
+  }
+  // 募集中の部屋：ホストは 20 秒ごとに suwaritai/lobby/{合言葉} を書く。ひとりの人は 45 秒ごとに読む
+  const LOBBY = { pubT: 0, pub: null, pollT: 5, shown: null, dismissed: {} };
+  function lobbyTick(dt) {
+    if (DB || !fbAllowed) return;
+    // ホスト側
+    const pubOn = MP.code && MP.isHost && !MP.active && $('olPub') && $('olPub').checked && MP.state && MP.state.s === 'lobby';
+    if (pubOn) {
+      LOBBY.pubT -= dt;
+      if (LOBBY.pubT <= 0) {
+        LOBBY.pubT = 20; const code = MP.code, c = Math.max(1, mpSortedMembers().length);
+        net().then((N) => { N.set('suwaritai/lobby/' + code, { h: N.uid, n: rankName(), m: MP.modeSel || 'vs', c, t: N.TS }).catch(() => { }); N.onDisconnectRemove('suwaritai/lobby/' + code); LOBBY.pub = code; });
+      }
+    } else if (LOBBY.pub) { const code = LOBBY.pub; LOBBY.pub = null; LOBBY.pubT = 0; net().then((N) => N.remove('suwaritai/lobby/' + code)).catch(() => { }); }
+    // ひとりの人の側（遊んでいる最中か、タイトル）
+    const solo = (state === 'play' && G && !G.multi && !RP.active && !MP.code) || (state === 'title' && !MP.code);
+    if (!solo) { if (LOBBY.shown) lobbyHide(); return; }
+    LOBBY.pollT -= dt;
+    if (LOBBY.pollT > 0) return;
+    LOBBY.pollT = 45;
+    firebaseReady().then(async (F) => {
+      if (!F) return;
+      const v = (await withTimeout(F.db.ref('suwaritai/lobby').orderByChild('t').limitToLast(6).get(), 8000)).val() || {};
+      const now = Date.now();
+      const room = Object.entries(v).map(([code, x]) => Object.assign({ code }, x)).filter((x) => x.h !== F.uid && x.c < 4 && now - x.t < 75000 && !LOBBY.dismissed[x.code]).sort((a, b) => b.t - a.t)[0];
+      if (room) lobbyShow(room); else lobbyHide();
+    }).catch(() => { });
+  }
+  function lobbyShow(room) {
+    LOBBY.shown = room;
+    const el = $('lobbyBan');
+    el.innerHTML = `<span>🌐 ${nameHtml(dispName(room.n), 1)} さんが${room.m === 'coop' ? '🤝 共闘' : '⚔ 対戦'}の仲間を募集中（${room.c}/4人）</span><button id="lbGo">参加する</button><button id="lbX">✕</button>`;
+    el.classList.remove('hidden');
+    $('lbX').onclick = () => { LOBBY.dismissed[room.code] = 1; lobbyHide(); };
+    $('lbGo').onclick = () => {
+      const playing = state === 'play' || state === 'pause';
+      if (playing && !confirm('今の一人プレイを保存して、オンラインの部屋に参加しますか？（あとでタイトルの「▶ 続きから」で再開できます）')) return;
+      if (playing) { saveSolo(); if (document.pointerLockElement) document.exitPointerLock(); G = null; clearWorld(); }
+      lobbyHide(); track('募集中の部屋に参加した（' + (playing ? '一人プレイから' : 'タイトルから') + '）');
+      titleScreen(); openOnline(); $('olCode').value = room.code; mpJoin();
+    };
+    if (state === 'play') sfx('chime');
+  }
+  function lobbyHide() { LOBBY.shown = null; $('lobbyBan').classList.add('hidden'); }
   // ================================================================ 全画面（デストロイ碁と同じ仕組み）
   const fsTarget = document.documentElement;
   const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -3688,6 +3762,7 @@
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+    try { lobbyTick(dt); } catch (e) { }
     const t = now / 1000;
     if (RP.active && G && (state === 'play' || state === 'pause')) {
       rpTick(dt);
