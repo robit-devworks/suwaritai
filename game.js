@@ -1318,6 +1318,7 @@
   const skillsEl = $('skills');
   const skTip = document.createElement('div'); skTip.id = 'skTip'; skTip.className = 'hidden'; skillsEl.appendChild(skTip);
   let skTipT = 0;
+  const skBtns = []; // スキルのボタン（skillsEl.children は先頭が説明の吹き出しなので、ずれないようにこちらを使う）
   function showSkTip(i, first, ms) {
     const s = SW.SKILLS[i], cost = G ? SW.skillCost(G, i) : s.cost;
     skTip.innerHTML = `<b>${s.icon} ${s.name}</b>（${cost}徳）<br>${s.desc}` + (s.karma ? `<br><span class="k">⚠ 悪いこと：カルマ +${s.karma}</span>` : '') +
@@ -1346,7 +1347,7 @@
     b.addEventListener('mouseenter', () => { if (!isTouch) showSkTip(i, false); });
     b.addEventListener('mouseleave', () => { if (!isTouch) hideSkTip(); });
     b.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); if (!isTouch) use(); });
-    skillsEl.appendChild(b);
+    skillsEl.appendChild(b); skBtns.push(b);
   });
   $('skillHelp').innerHTML = `<div class="small" style="color:var(--sub);margin:2px 0 4px">${isTouch ? 'スキルのボタンは<b>長押しで説明</b>・タップで使う' : 'スキルのボタンに<b>マウスを乗せると説明</b>・クリックか数字キーで使う'}</div>` + SW.SKILLS.map(s => `<div style="font-size:13px;margin:3px 0">${s.icon} <b>${s.name}</b>（${s.cost}徳）… ${s.desc}</div>`).join('');
   function addToast(text, kind) {
@@ -1427,7 +1428,7 @@
     // スキル
     SW.SKILLS.forEach((s, i) => {
       const cost = SW.skillCost(g, i);
-      const el = skillsEl.children[i];
+      const el = skBtns[i];
       const on = !!pl.buffs[s.key] || pl.mode === s.key;
       const off = pl.toku < cost || (s.key === 'confess' && pl.confessCD > 0);
       const key = cost + (on ? 'o' : '') + (off ? 'x' : '');

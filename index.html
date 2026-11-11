@@ -121,7 +121,7 @@ body.touch #bLand{display:block}
 body.touch #skTip{bottom:auto;top:calc(100% + 8px)}
 @media (orientation: landscape) and (max-height:520px){body.touch #skTip{top:auto;bottom:calc(100% + 8px)}}
 html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
-.sk.off{opacity:.38}
+.sk.off{opacity:.55;filter:grayscale(1) brightness(.55)}
 .sk.on{box-shadow:0 0 0 2px var(--toku) inset;background:rgba(255,212,71,.18)}
 .sk .cd{position:absolute;left:0;right:0;bottom:0;background:rgba(255,212,71,.35);border-radius:0 0 11px 11px}
 #cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}
@@ -801,7 +801,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script src="logic.js?v=20261111004358"></script>
-<script src="game.js?v=20261111004358"></script>
+<script src="logic.js?v=20261111012137"></script>
+<script src="game.js?v=20261111012137"></script>
 </body>
 </html>
