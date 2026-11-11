@@ -1158,8 +1158,9 @@
 
     // 体力
     if (pl.seat >= 0) {
-      const regen = C.SIT_REGEN * (pl.fakeSleep ? 1.35 : 1) * (1 + 0.03 * ST(g, 'hp'));
+      const regen = g.mikiwame ? MK_REGEN : C.SIT_REGEN * (pl.fakeSleep ? 1.35 : 1) * (1 + 0.03 * ST(g, 'hp')); // 見極め線は座ると一気に回復
       pl.stamina = Math.min(C.MAX_STAMINA, pl.stamina + regen * dt);
+      if (g.mikiwame) { pl.mind = Math.min(100, pl.mind + regen * dt); mkElder(g); }
       pl.mind = Math.min(C.MAX_MIND, pl.mind + C.MIND_REGEN * (pl.fakeSleep ? 1.6 : 1) * dt);
       g.stats.sitTime += dt;
       if (pl.fakeSleep) g.stats.tanuki += dt;
@@ -1487,14 +1488,30 @@
     } else { if (s.mkCombo > 1) toast(g, '読みのコンボがとぎれた…', 'info'); s.mkCombo = 0; }
     seat.mkRead = false;
   }
-  // 座れた次の駅で、自動で席を譲る（また読む）
-  function mkArrive(g) {
-    const pl = g.player;
-    if (pl.seat >= 0 && pl.mkSitSt != null && pl.mkSitSt < g.station) {
-      playerStand(g); g.stats.mkGive++;
-      deed(g, 10, '席を譲った');
-      toast(g, '🧓 席を譲って立った。また降りる人を読もう', 'info');
+  // 座ると一気に回復（MK_REGEN）。満タンになったら、お年寄りが目の前に来て席を譲る（また立って読む）
+  const MK_REGEN = 40;
+  function mkArrive(g) { }
+  function mkElder(g) {
+    const pl = g.player, seat = g.seats[pl.seat]; if (!seat || g.over) return;
+    if (pl.stamina < C.MAX_STAMINA - 0.5 || g.t - pl.sitT < 2) return;
+    let e = pl.mkElder != null ? person(g, pl.mkElder) : null;
+    if (!e || e.state === 'gone' || e.state === 'exit' || e.state === 'seated') {
+      e = spawn(g, 'elderly', g.station, g.station + 2);
+      [e.x, e.z] = aisleClamp(seat.x + (seat.x > 0 ? -1.4 : 1.4), seat.fz * 0.3);
+      e.state = 'walk'; e.tx = seat.x; e.tz = seat.fz * 0.95; e.then = 'stand'; e.slot = -1; e.wantSeat = false; e.priority = 0;
+      g.people.push(e); pl.mkElder = e.id; pl.mkElderT = g.t;
+      bubble(g, e, 'よっこいしょ…', 1.6);
+      return;
     }
+    // 目の前に来たら（または 4 秒たったら）譲る
+    if (dist2(e.x, e.z, seat.x, seat.fz) > 0.35 && g.t - pl.mkElderT < 4) return;
+    playerStand(g);
+    pl.z = seat.fz * 0.6; pl.x = seat.x + (e.x > seat.x ? -0.45 : 0.45); [pl.x, pl.z] = aisleClamp(pl.x, pl.z);
+    seat.res = e.id; seat.gift = true; releaseSlot(g, e); e.state = 'walk'; e.tx = seat.x; e.tz = seat.fz; e.then = 'sit'; e.seatTarget = seat.id;
+    e.expr = 'happy'; e.exprT = 4; bubble(g, e, 'あら、ありがとうねぇ', 2.2);
+    pl.mkElder = null; g.stats.mkGive++;
+    deed(g, 10, '席を譲った');
+    toast(g, '🧓 体力満タン！ お年寄りに席を譲った。また降りる人を読もう', 'info');
   }
   function mkAnswer(g) {
     const f = g.mkFree; if (!f || !f.length) return;
