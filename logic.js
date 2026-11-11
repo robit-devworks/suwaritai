@@ -288,6 +288,7 @@
     // ボス駅テスト：毎駅がボス駅（1 つをくり返す／全部を順番に）。ほかの悪者は出ない。倒れない
     g.rules = (opts.rules || []).filter((k) => DAILY_RULES.some((r) => r.key === k)); // 今日のダイヤの特別ルール（DAILY_RULES）
     if (opts.mikiwame) { g.mikiwame = true; g.villainKinds = []; g.noBoss = true; g.nextChikanCheck = 1e9; g.nextItemCheck = 1e9; g.mkFree = []; Object.assign(g.stats, { mkSits: 0, mkHits: 0, mkCombo: 0, mkBest: 0, mkGive: 0 }); } // 見極め線（MIKIWAME の項）
+    if (opts.coop && g.multi) { g.coop = true; g.coopRev = 0; g.coopPen = 0; } // 共闘モード（COOP の項）
     if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
     if (opts.bossTest) { g.bossTest = opts.bossTest; g.endless = true; g.villainKinds = []; g.noBoss = false; }
     planBoss(g);
@@ -618,6 +619,7 @@
       const P = g.players[g.pi]; if (!P || P.out) return;
       P.out = true; P.outT = g.t; P.outStation = g.station; g.outCount = (g.outCount || 0) + 1; P.outOrder = g.outCount;
       P.result = Object.assign({ cause }, CAUSES[cause], extra || {});
+      if (g.coop && cause !== 'clear' && cause !== 'leave') { P.down = true; toOthers(g, { type: 'toast', text: '🆘 ' + P.name + ' が倒れた！ そばに行って「復活させる」', kind: 'warn' }); } // 共闘：仲間が復活させられる
       const pl = P.pl;
       if (pl.seat >= 0) { freeSeat(g, g.seats[pl.seat], -1); pl.seat = -1; }
       if (pl.carrying) { const it = pl.carrying; pl.carrying = null; [it.x, it.z] = aisleClamp(pl.x, pl.z); it.taken = false; it.t0 = g.t; g.items.push(it); }
@@ -665,6 +667,7 @@
     const aimId = g.aim, ap = aimId >= 0 ? person(g, aimId) : null;
     const apd = ap ? dist2(ap.x, ap.z, pl.x, pl.z) : 99;
     if (g.over) return null;
+    { const rv = revivePrompt(g); if (rv) return rv; }
     if (pl.mode === 'brainwash' && ap && ap.state === 'seated' && apd < 6) return { act: 'brainwash', label: '洗脳ビーム発射', id: ap.id };
     if (pl.mode === 'force' && ap && ap.state === 'seated' && apd < 1.7 && pl.seat < 0) return { act: 'force', label: '無理やりどかす', id: ap.id };
     if (pl.seat >= 0) {
@@ -900,6 +903,7 @@
         for (const q of g.people) if (q !== p && q.sleep === 0 && q.state === 'seated' && dist2(q.x, q.z, p.x, p.z) < 3) { q.expr = 'happy'; q.exprT = 2.5; }
         break;
       }
+      case 'revive': revive(g, pr.id - PID); break;
       case 'salt': {
         const p = person(g, pr.id); if (!p) return;
         emit(g, { type: 'sfx', name: 'whoosh' });
@@ -1105,6 +1109,7 @@
   function punchPlayer(g, j) {
     const me = g.pi, T = g.players[j];
     if (!T || T.out) return;
+    if (g.coop) return; // 共闘：仲間はなぐれない
     const tp = T.pl;
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hitPlayer', i: j });
     if (tp.stamina <= 20) {
@@ -1332,6 +1337,8 @@
     if (pr && pr.act === 'sit') { if (!mem.sitSeen) mem.sitSeen = g.t; if (g.t - mem.sitSeen > mem.react) { inp.action = true; mem.sitSeen = 0; } return inp; }
     mem.sitSeen = 0;
     if (pr && pr.act === 'staff') { inp.action = true; return inp; }
+    if (pr && pr.act === 'revive') { inp.action = true; return inp; }
+    if (g.coop && pl.seat < 0) { const D = g.players.find((Q) => Q.down); if (D) { const dx = D.pl.x - pl.x, dz = D.pl.z - pl.z; inp.yaw = Math.atan2(-dx, -dz); inp.mz = 1; return inp; } } // 共闘の CPU：倒れた仲間のところへ
     if (pl.stamina < 30 && pl.toku >= skillCost(g, 1)) inp.skill = 1;
     let best = null, bs = -1e9;
     for (const p of g.people) {
@@ -1352,6 +1359,33 @@
   }
   // i 人目の最終スコア
   function finalScoreOf(g, i) { const prev = g.pi; setCtx(g, i); const r = finalScore(g); setCtx(g, prev); return r; }
+  // ---------------------------------------------------------------- 共闘（COOP）
+  // みんなのスコアの合計がチームのスコア。仲間はなぐれない。倒れた仲間はそばで「復活させる」：
+  // 徳で払う（50 → 80 → 110…）。徳が足りなければ、チームのスコアから 2 倍（100 → 160 → 220…）を引く
+  const reviveCost = (g) => 50 + 30 * (g.coopRev || 0);
+  function revivePrompt(g) {
+    if (!g.coop || g.pi < 0) return null;
+    const pl = g.player; if (pl.seat >= 0) return null;
+    for (let j = 0; j < g.players.length; j++) {
+      const D = g.players[j]; if (j === g.pi || !D.down) continue;
+      if (dist2(D.pl.x, D.pl.z, pl.x, pl.z) > 1.3) continue;
+      const c = reviveCost(g);
+      return { act: 'revive', label: '💊 復活させる（' + (pl.toku >= c ? '徳 ' + c : 'スコア −' + c * 2) + '）', id: PID + j };
+    }
+    return null;
+  }
+  function revive(g, j) {
+    const D = g.players[j], pl = g.player; if (!g.coop || !D || !D.down || g.pi === j) return;
+    const c = reviveCost(g);
+    if (pl.toku >= c) pl.toku -= c; else g.coopPen += c * 2;
+    g.coopRev++; g.stats.revives = (g.stats.revives || 0) + 1;
+    D.out = false; D.down = false; D.result = null; g.outCount = Math.max(0, (g.outCount || 1) - 1);
+    D.pl.stamina = Math.max(D.pl.stamina, 50); D.pl.mind = Math.max(D.pl.mind, 50); D.pl.karma = Math.min(D.pl.karma, 60); D.pl.stagger = 0;
+    toast(g, '💊 ' + D.name + ' を復活させた！', 'good');
+    D.events.push({ type: 'toast', text: '💊 ' + g.players[g.pi].name + ' に復活させてもらった！', kind: 'good' }, { type: 'revived' });
+    emit(g, { type: 'sfx', name: 'clear' });
+  }
+  function teamScore(g) { if (!g.multi) return 0; let t = 0; g.players.forEach((P, i) => { t += finalScoreOf(g, i).total; }); return Math.max(0, t - (g.coopPen || 0)); }
   // 順位（スコアの高い順。同点なら長く残った人が上）
   function standings(g) {
     return g.players.map((P, i) => ({ i, name: P.name, cpu: P.cpu, score: finalScoreOf(g, i).total, cause: P.result ? P.result.cause : 'clear', outOrder: P.outOrder || 99, tricks: P.tricks, pko: P.pko }))
@@ -2647,6 +2681,7 @@
     PTYPES, diagnose, villainKO, BOSS,
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     DAILY_RULES, dailyRule, hasRule,
+    teamScore, reviveCost,
     create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
     _internal: { bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };

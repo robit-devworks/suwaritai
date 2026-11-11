@@ -1620,6 +1620,7 @@
     let oy = (Math.random() - 0.5) * shakeAmt * 0.06;
     roll += lurchKick * 0.05 + (pl.stagger > 0 ? Math.sin(now * 12) * 0.03 : 0);
     let yaw = pl.yaw, pitch = pl.pitch;
+    if (g.coop && MP.active && g.players[MP.me] && g.players[MP.me].down) { y = 0.45; roll = 0.5; pitch = Math.min(pitch, 0.1); } // 共闘で倒れているあいだは床から
     if (g.over) {
       endT += dt;
       const c = g.result.cause;
@@ -2675,6 +2676,9 @@
   document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
   function setRankTab(tab) {
     rankTab = tab;
+    $('coopTabs').classList.toggle('hidden', !/^coop/.test(tab));
+    document.querySelectorAll('[data-ct]').forEach((x) => x.classList.toggle('on', 'coop' + x.dataset.ct === tab));
+    if (/^coop/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'coop2')); loadRanking(tab); return; }
     document.querySelectorAll('[data-rt]').forEach(x => x.classList.toggle('on', x.dataset.rt === tab));
     loadRanking(tab);
   }
@@ -2701,6 +2705,22 @@
     }
     return html;
   }
+  // 共闘ランキング（人数ごと）
+  document.querySelectorAll('[data-ct]').forEach((b) => b.addEventListener('click', () => setRankTab('coop' + b.dataset.ct)));
+  async function loadCoop(tab, listEl) {
+    const n = tab.slice(4);
+    try {
+      if (DB) { $('rankNote').textContent = '共闘ランキングは遊ぶサイトのオンラインで'; listEl.innerHTML = '<p class="small">Claude 版ではオンライン対戦ができないので、共闘ランキングはありません</p>'; return; }
+      const F = await firebaseReady(); if (!F) throw new Error('none');
+      const snap = await withTimeout(F.db.ref('suwaritai/coop/' + n).orderByChild('s').limitToLast(TOP_N).get(), 10000);
+      if (rankTab !== tab) return;
+      const arr = []; snap.forEach((c) => { const v = c.val() || {}; arr.push({ id: c.key, names: String(v.n || '').split('・'), score: v.s || 0, rv: v.rv || 0, mine: c.key.split('_').includes(F.uid) }); });
+      arr.sort((a, b) => b.score - a.score);
+      $('rankNote').textContent = '🤝 共闘ランキング（' + n + '人・歴代）・オンラインの「共闘」を CPU なしで遊ぶと載る';
+      let prev = null, rank = 0;
+      listEl.innerHTML = arr.length ? arr.map((x, i) => { if (x.score !== prev) { rank = i + 1; prev = x.score; } return `<div class="rk ${x.mine ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${x.names.map((m) => nameHtml(dispName(m))).join('<br>')}${x.mine ? ' <span class="pill">あなたのチーム</span>' : ''}<div class="ttl">復活 ${x.rv} 回</div></span><span class="sc">${x.score}</span></div>`; }).join('') : '<p class="small">まだだれもいません。友だちと一番乗りしよう！</p>';
+    } catch (e) { $('rankNote').textContent = '共闘ランキングを読めませんでした'; }
+  }
   async function loadRanking(tab) {
     const dk = todayKey();
     const listEl = $('rankList');
@@ -2711,6 +2731,7 @@
     };
     if (!DB && !fbAllowed) { $('rankNote').textContent = 'この端末の記録'; local(); return; }
     $('rankNote').textContent = '読み込み中…'; listEl.innerHTML = '';
+    if (/^coop/.test(tab)) { loadCoop(tab, listEl); return; }
     try {
       const b = await fetchBoard(tab);
       if (!b) throw new Error('none');
@@ -2987,7 +3008,7 @@
     Object.assign(MP, {
       active: false, code: null, isHost: false, uid: null, hostUid: null, me: -1, offs: [], members: {}, state: null, players: [],
       remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, cnt: { a: 0, p: 0, bp: 0, fs: 0, sk: 0 }, skIdx: -1,
-      seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
+      seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
     });
   }
   mpReset();
@@ -3031,6 +3052,12 @@
   $('olBack').addEventListener('click', () => { if (MP.code) mpLeave(true); else titleScreen(); });
   $('olStart').addEventListener('click', () => mpStart());
   $('olCopy').addEventListener('click', () => { try { const p = navigator.clipboard.writeText('スワリタイ！のオンライン対戦で遊ぼう。合言葉は ' + MP.code + '\n' + SHARE_URL.split('?')[0]); if (p && p.catch) p.catch(() => { }); olNote('合言葉をコピーしました'); } catch (e) { } });
+  // 対戦／共闘の切りかえ（ホストだけ）
+  document.querySelectorAll('[data-olmode]').forEach((b) => b.addEventListener('click', () => {
+    if (!MP.isHost || !MP.code) return;
+    MP.modeSel = b.dataset.olmode; mpRenderRoom();
+    net().then((N) => N.update(roomP(MP.code) + '/state', { mode: MP.modeSel }));
+  }));
   $('olCpu').addEventListener('change', () => { if (MP.isHost && MP.code) net().then((N) => N.update(roomP(MP.code) + '/state', { cpu: $('olCpu').checked })); mpRenderRoom(); });
   $('mpGhost').addEventListener('click', () => { MP.ghost = true; MP.watching = false; $('mpOut').classList.add('hidden'); if (MP.isHost) G.players[MP.me].ghost = true; addToast('👻 ニセ乗客になった。座っている人を狙ってアクション', 'good'); track('オンライン：ニセ乗客になった'); });
   $('mpWatch').addEventListener('click', () => { MP.watching = true; $('mpOut').classList.add('hidden'); });
@@ -3098,6 +3125,9 @@
     }
     $('olMembers').innerHTML = html;
     $('olCpu').disabled = !MP.isHost; $('olCpu').checked = cpu;
+    const md = MP.modeSel || 'vs';
+    document.querySelectorAll('[data-olmode]').forEach((b) => { b.classList.toggle('on', b.dataset.olmode === md); b.disabled = !MP.isHost; });
+    $('olModeNote').textContent = md === 'coop' ? '🤝 共闘：みんなの合計がチームのスコア。倒れた仲間は徳で復活。CPU なしで遊ぶと、人数ごとのランキングに載ります' : '⚔ 対戦：いちばん徳を積んだ人の勝ち';
     $('olStart').classList.toggle('hidden', !MP.isHost);
     $('olWait').textContent = MP.spect ? '👀 観戦で入っています。試合が始まると見られます' : MP.isHost ? (mem.length < 2 && !cpu ? 'ほかの人が入るのを待っています（合言葉を送ってね）' : '') : 'ホストがスタートするのを待っています…';
   }
@@ -3112,8 +3142,9 @@
     MP.state = v;
     if (!v) return;
     if (!MP.isHost && typeof v.cpu === 'boolean') $('olCpu').checked = v.cpu;
+    if (!MP.isHost && v.mode) MP.modeSel = v.mode;
     if (v.s === 'play' && !MP.active) mpBegin(v);
-    else if (v.s === 'done' && MP.active) mpShowResult(v.res || []);
+    else if (v.s === 'done' && MP.active) mpShowResult(v.res || [], v);
     else if (v.s === 'lobby') { if (state === 'result' && $('mpres').classList.contains('hidden') === false || MP.active) { MP.active = false; openOnline(); } mpRenderRoom(); }
   }
   async function mpStart() {
@@ -3124,7 +3155,7 @@
     if (players.length < 2) { olNote('2 人以上（CPU をふくむ）で始められます'); return; }
     try {
       await N.remove(roomP(MP.code) + '/snap');
-      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, t: N.TS } });
+      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', t: N.TS } });
     } catch (e) { olNote('スタートできませんでした（' + (e && e.message || e) + '）'); }
   }
   function mpBegin(st) {
@@ -3135,7 +3166,8 @@
     MP.cnt = { a: 0, p: 0, bp: 0, fs: 0, sk: 0 };
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); } MP.avatars = {};
     initAudio(); clearWorld();
-    G = SW.create({ seed: st.seed, mode: 'online', players: st.players.map((p) => { const a = String(p.st || '').split(','), o = {}; SW.STATS.forEach((d, k) => { o[d.key] = +a[k] || 0; }); return { name: p.name, cpu: p.cpu, stats: o }; }) });
+    MP.modeSel = st.mode || 'vs';
+    G = SW.create({ seed: st.seed, mode: 'online', coop: st.mode === 'coop', players: st.players.map((p) => { const a = String(p.st || '').split(','), o = {}; SW.STATS.forEach((d, k) => { o[d.key] = +a[k] || 0; }); return { name: p.name, cpu: p.cpu, stats: o }; }) });
     G.modeName = 'online';
     MP.sentMax = G.nextId - 1; MP.base = MP.isHost ? G.nextId - 1 : 0;
     SW.setCtx(G, MP.me);
@@ -3147,12 +3179,12 @@
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (MP.spect) { document.body.classList.add('replay'); $('spBar').classList.remove('hidden'); spName(); addToast('👀 観戦中。「次の人」で見る人を切りかえ', 'good'); track('オンライン：観戦をはじめた'); }
     else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
-    if (!MP.spect) addToast('🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
+    if (!MP.spect) addToast(G.coop ? '🤝 共闘スタート！ みんなの合計で勝負。倒れた仲間はそばで「復活させる」' : '🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
     net().then((N) => {
       if (MP.isHost) MP.offs.push(N.on(roomP(MP.code) + '/inputs', (v) => { MP.remote = v || {}; }));
       else MP.offs.push(N.on(roomP(MP.code) + '/snap', (v) => { if (v) mpApply(v); }));
     });
-    track('オンライン：試合開始（人間' + st.players.filter((p) => !p.cpu).length + '人）');
+    track('オンライン：' + (G.coop ? '共闘' : '対戦') + '開始（人間' + st.players.filter((p) => !p.cpu).length + '人）');
   }
   // ---- ホスト：ほかの人の操作を受け取る
   function mpRemoteInput(i) {
@@ -3215,6 +3247,7 @@
       return plArr(g, P, obs);
     });
     snap.ev = MP.evRing.slice(-60); snap.sc = MP.scores;
+    if (g.coop) snap.co = [g.coopRev, g.coopPen, g.players.reduce((m, P, i) => m | (P.down ? 1 << i : 0), 0)]; // 共闘：復活の回数・引かれた点・倒れている人
     net().then((N) => N.set(roomP(MP.code) + '/snap', snap)).catch(() => { });
   }
   // ---- 参加者：受け取った様子を手元に写す
@@ -3276,6 +3309,7 @@
     });
     for (const [seq, i, e] of (snap.ev || [])) { if (seq > MP.seen) { MP.seen = seq; if (i === MP.me) G.events.push(e); } }
     MP.scores = snap.sc || MP.scores;
+    if (snap.co && g.coop) { g.coopRev = snap.co[0]; g.coopPen = snap.co[1]; g.players.forEach((P, i) => { P.down = !!(snap.co[2] & (1 << i)); }); }
   }
   // ---- 1 コマ
   function mpFrame(dt, t, li) {
@@ -3293,10 +3327,11 @@
       MP.snapT -= dt;
       if (MP.snapT <= 0) { MP.snapT = 0.2; mpSendSnap(); }
       if (meP.out && !MP.outShown) mpOnOut();
+      if (!meP.out && MP.outShown) mpRevived();
       if (g.over && !MP.resSent) {
         MP.resSent = true; mpSendSnap();
         const res = SW.standings(g).map((r) => Object.assign(r, { uid: MP.players[r.i].uid }));
-        net().then((N) => N.update(roomP(MP.code) + '/state', { s: 'done', res }));
+        net().then((N) => N.update(roomP(MP.code) + '/state', Object.assign({ s: 'done', res }, g.coop ? { coop: 1, team: SW.teamScore(g), rv: g.coopRev, pen: g.coopPen } : {})));
       }
     } else {
       g.t += dt; g.phaseT += dt;
@@ -3335,19 +3370,26 @@
       });
       for (const P of g.players) P.pl.punchAnim = Math.max(0, P.pl.punchAnim - dt);
       if (meP.out && !MP.outShown && !MP.spect) mpOnOut();
+      if (!meP.out && MP.outShown && !MP.spect) mpRevived();
     }
   }
+  function mpRevived() { MP.outShown = false; const d = $('downTag'); if (d) d.remove(); $('mpOut').classList.add('hidden'); sfx('clear'); }
   function mpOnOut() {
     MP.outShown = true;
     const P = G.players[MP.me], r = P.result || {};
     if (r.cause === 'clear') return;
+    if (G.coop && r.cause !== 'leave') { // 共闘：倒れて、仲間の復活を待つ
+      if (!$('downTag')) { const d = document.createElement('div'); d.id = 'downTag'; d.innerHTML = '🆘 倒れた…<br><small>仲間がそばで「復活させる」を押すのを待とう</small>'; document.body.appendChild(d); }
+      return;
+    }
     const T = { collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', pko: '👊 トドメを刺された', leave: '途中で降りた', broken: '🧠 心が折れた' }[r.cause] || '脱落…';
     $('mpOutT').textContent = T;
     $('mpOutS').textContent = (r.text || '') + ' ここまでの徳は記録に残ります。';
     $('mpOut').classList.remove('hidden');
     if (document.pointerLockElement) document.exitPointerLock();
   }
-  function mpShowResult(res) {
+  function mpShowResult(res, v) {
+    v = v || {}; { const d = $('downTag'); if (d) d.remove(); }
     MP.active = false; $('spBar').classList.add('hidden'); document.body.classList.remove('replay');
     $('mpOut').classList.add('hidden'); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden');
     if (document.pointerLockElement) document.exitPointerLock();
@@ -3360,16 +3402,36 @@
       return `<div class="mpr ${me ? 'me' : ''}"><span class="n">${k + 1}</span><i style="background:${MPCOL[r.i]}"></i><span class="nm">${nameHtml(r.name)}${r.cpu ? ' 🤖' : ''}${me ? ' <span class="pill">あなた</span>' : ''}<small>${esc(extra)}</small></span><span class="sc">${r.score}</span></div>`;
     }).join('');
     $('mpResNote').textContent = myRank === 1 ? '🎉 あなたの勝ち！' : myRank ? 'あなたは ' + myRank + ' 位' : '';
+    $('mpResT').textContent = v.coop ? '🤝 共闘の結果' : '🏁 オンライン対戦の結果';
+    if (v.coop) { // 共闘：チームのスコア。人間だけ（CPU なし）なら人数ごとのランキングに載せる（ホストが送る）
+      const humans = MP.players.filter((p) => !p.cpu), ok = humans.length === MP.players.length && humans.length >= 2;
+      $('mpResNote').innerHTML = `<b style="font-size:20px;color:#ffd447">🤝 チームのスコア ${v.team} 点</b><br>復活 ${v.rv || 0} 回${v.pen ? '（スコアから −' + v.pen + '）' : ''}` + (ok ? '' : '<br>※ CPU がいるので、共闘ランキングには載りません');
+      if (ok && MP.isHost && !NET_LOCAL) submitCoop(humans, v.team, v.rv || 0).then((t) => { if (t && state === 'result') $('mpResNote').innerHTML += '<br>' + t; });
+      track('オンライン：共闘の結果（' + MP.players.length + '人・' + (v.team >= 2000 ? '2000〜' : v.team >= 1000 ? '1000〜' : '〜999') + '）');
+    }
     $('mpAgain').classList.toggle('hidden', !MP.isHost);
-    if (!MP.isHost) $('mpResNote').textContent += '　（ホストが「もう一回」を押すと、同じ部屋で始まります）';
+    if (!MP.isHost) $('mpResNote').insertAdjacentHTML('beforeend', '<br>（ホストが「もう一回」を押すと、同じ部屋で始まります）');
     show('mpres');
-    sfx(myRank === 1 ? 'clear' : 'over');
-    track('オンライン：結果 ' + myRank + '位');
+    sfx(myRank === 1 || v.coop ? 'clear' : 'over');
+    if (!v.coop) track('オンライン：結果 ' + myRank + '位');
+  }
+  // 共闘ランキング：suwaritai/coop/{人数}/{メンバーの uid を並べて _ でつなぐ}。前より高いときだけ書く
+  async function submitCoop(humans, score, rv) {
+    try {
+      const F = await firebaseReady(); if (!F) return '';
+      const n = humans.length, key = humans.map((p) => p.uid).sort().join('_');
+      const ref = F.db.ref('suwaritai/coop/' + n + '/' + key);
+      const old = (await withTimeout(ref.get(), 10000)).val();
+      if (old && old.s >= score) return '🏆 共闘ランキング（' + n + '人）：前の記録 ' + old.s + ' 点のほうが上';
+      await withTimeout(ref.set({ n: humans.map((p) => p.name).join('・').slice(0, 60), s: score, rv, t: F.TS, v: SCORE_VER }), 10000);
+      const above = (await withTimeout(F.db.ref('suwaritai/coop/' + n).orderByChild('s').startAt(score + 0.5).limitToFirst(TOP_N).get(), 10000)).numChildren();
+      return '🏆 共闘ランキング（' + n + '人）：' + (above < TOP_N ? (above + 1) + '位' : '100位より下') + (old ? '（チームの記録更新！）' : '');
+    } catch (e) { return ''; }
   }
   async function mpAgain() {
     if (!MP.isHost) return;
     const N = await net();
-    await N.update(roomP(MP.code), { state: { s: 'lobby', cpu: $('olCpu').checked } }); // 操作の記録は残っていても、次の試合で最初の値を基準にするので問題ない
+    await N.update(roomP(MP.code), { state: { s: 'lobby', cpu: $('olCpu').checked, mode: MP.modeSel || 'vs' } }); // 操作の記録は残っていても、次の試合で最初の値を基準にするので問題ない
   }
   async function mpLeave(toMenu) {
     const code = MP.code, host = MP.isHost;
@@ -3381,14 +3443,14 @@
       }
     } catch (e) { }
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); }
-    mpReset();
+    mpReset(); { const d = $('downTag'); if (d) d.remove(); }
     $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('spBar').classList.add('hidden'); document.body.classList.remove('replay');
     if (toMenu) openOnline(); else titleScreen();
   }
   function mpAbort(msg) {
     const wasActive = MP.active;
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); }
-    mpReset();
+    mpReset(); { const d = $('downTag'); if (d) d.remove(); }
     $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('spBar').classList.add('hidden'); document.body.classList.remove('replay');
     titleScreen();
     titleToast(msg);
@@ -3435,7 +3497,7 @@
     if (!g.multi || !MP.active) return;
     g.players.forEach((P, i) => {
       let A = MP.avatars[i];
-      const show = i !== MP.me && !P.out;
+      const show = i !== MP.me && (!P.out || P.down); // 共闘で倒れている仲間も見せる（床に倒れた姿）
       if (!show) { if (A) { A.H.root.visible = false; if (A.tag) A.tag.visible = false; } return; }
       if (!A) {
         const fp = fakePerson(-10 - i, { female: i % 2, h: i % 2 ? 1.62 : 1.74, look: { top: MPCOL[i], bottom: '#22252c', skin: ['#f1c9a5', '#e8b88f', '#d9a27a', '#f5d6bc'][i], hair: ['#1d1612', '#3a2a1e', '#5a3d25', '#2b2018'][i], hairStyle: ['short', 'bob', 'side', 'pony'][i], glasses: i === 2, mask: false, bag: true, tie: null, topName: '' } });
@@ -3445,20 +3507,22 @@
       const b = P.pl, fp = A.H.p;
       A.H.root.visible = true; A.tag.visible = true;
       const moved = Math.hypot(b.x - fp.x, b.z - fp.z);
-      if (b.seat >= 0) { const s = g.seats[b.seat]; fp.state = 'seated'; fp.x = s.x; fp.z = s.z; fp.ry = s.side > 0 ? Math.PI : 0; fp.sleep = b.fakeSleep ? 2 : 0; }
+      if (P.down) { fp.state = 'ko'; fp.x = b.x; fp.z = b.z; }
+      else if (b.seat >= 0) { const s = g.seats[b.seat]; fp.state = 'seated'; fp.x = s.x; fp.z = s.z; fp.ry = s.side > 0 ? Math.PI : 0; fp.sleep = b.fakeSleep ? 2 : 0; }
       else { fp.state = moved > 0.004 ? 'walk' : 'stand'; fp.x = b.x; fp.z = b.z; fp.ry = b.yaw + Math.PI; fp.sleep = 0; if (moved > 0.004) fp.walkPhase += moved * 18; fp.speed = 1.6; }
-      fp.expr = b.stamina <= 20 ? 'sick' : b.stamina < 45 ? 'worried' : b.punchAnim > 0 ? 'angry' : 'neutral'; fp.exprT = 1;
+      fp.expr = P.down ? 'dazed' : b.stamina <= 20 ? 'sick' : b.stamina < 45 ? 'worried' : b.punchAnim > 0 ? 'angry' : 'neutral'; fp.exprT = 1;
       poseHuman(A.H, g, dt, now);
       if (b.punchAnim > 0 && b.seat < 0) { A.H.armR.sh.rotation.set(-1.55, 0, 0); A.H.armR.el.rotation.x = -0.1; }
       if (Math.hypot(b.x - g.player.x, b.z - g.player.z) < 11) faceState(A.H, g, now);
-      A.tag.position.set(fp.x, (b.seat >= 0 ? 1.0 : fp.h * 0.93) + 0.38, fp.z);
+      A.tag.position.set(fp.x, P.down ? 0.75 : (b.seat >= 0 ? 1.0 : fp.h * 0.93) + 0.38, fp.z);
     });
   }
   // HUD：みんなのいまの徳
   function updateMpBoard(g) {
     if (!g.multi || !MP.active) return;
     const rows = g.players.map((P, i) => ({ i, P, sc: MP.scores[i] != null ? MP.scores[i] : P.pl.earned })).sort((a, b) => b.sc - a.sc);
-    const html = rows.map((r) => `<div class="${r.P.out ? 'out' : ''} ${r.i === MP.me ? 'me' : ''}"><i style="background:${MPCOL[r.i]}"></i>${esc(r.P.name.slice(0, 7))}<b>${r.sc}</b></div>`).join('');
+    let html = rows.map((r) => `<div class="${r.P.out ? 'out' : ''} ${r.i === MP.me ? 'me' : ''}"><i style="background:${MPCOL[r.i]}"></i>${r.P.down ? '🆘' : ''}${esc(r.P.name.slice(0, 7))}<b>${r.sc}</b></div>`).join('');
+    if (g.coop) html = `<div class="me">🤝 チーム<b>${Math.max(0, rows.reduce((t, r) => t + r.sc, 0) - (g.coopPen || 0))}</b></div>` + html;
     if (html !== MP.boardHtml) { MP.boardHtml = html; $('mpBoard').innerHTML = html; }
   }
 
