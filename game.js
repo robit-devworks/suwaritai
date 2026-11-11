@@ -268,7 +268,7 @@
       ['降りる人の見分け方', '掲示板をチラ見する人は', 'もうすぐ降りる！', '#fff3c4', '#b45309'],
       ['鉄の脚プロテイン', '立ちっぱなしの', 'あなたに。', '#dff3ff', '#0b5394'],
       ['寝てる人ほど', '目覚めは突然。', '〜寝過ごし注意〜', '#ffe1e1', '#b91c1c'],
-      ['痴漢は犯罪です', '構えた瞬間を', 'ねらえ！（自己責任）', '#e7ffe7', '#166534'],
+      ['迷惑行為は', '見て見ぬふり', 'しないで！', '#e7ffe7', '#166534'],
       ['週刊ヒマ人', '観光客は路線図ばかり', '見ている…!?', '#f3e8ff', '#6b21a8'],
       ['善い行いを。', '徳は つながる。', 'コンボ最大2.5倍', '#fff', '#c2410c'],
     ];
@@ -816,7 +816,9 @@
       else if (slot && slot.kind === 'door') faceRy = slot.side > 0 ? Math.PI : 0;
       else if (p.targetPlayer && pl.seat >= 0) { const s = g.seats[pl.seat]; faceRy = s.side > 0 ? 0 : Math.PI; }
       if (p.role === 'victim') { tgt.shLx = tgt.shRx = -0.35; tgt.elL = tgt.elR = -1.9; tgt.shLz = 0.25; tgt.shRz = -0.25; tgt.hp = 0.35; tgt.lean = -0.04; }
-      else if (p.role === 'chikan' && ch && ch.stage !== 'fight') { tgt.hy = Math.sin(now * 3 + p.id) * 0.5; tgt.shRx = -0.3; tgt.elR = -0.4; faceRy = p.ry; }
+      else if (p.role === 'chikan' && ch && ch.stage !== 'fight') { // 絡み屋：相手のほうを向いて、指をさしながら話しかける
+        const v = g.people.find((q) => q.id === ch.victimId); if (v) faceRy = Math.atan2(v.x - p.x, v.z - p.z);
+        tgt.lean = 0.12; tgt.shRx = -1.35; tgt.shRz = 0.1; tgt.elR = -0.25 + Math.sin(now * 5 + p.id) * 0.3; tgt.hp = -0.05; tgt.hr = Math.sin(now * 2 + p.id) * 0.15; }
       else if (H.strap && anim === 'none' && idle !== 'map' && idle !== 'game') { tgt.shRx = -2.85; tgt.shRz = 0.12; tgt.elR = -0.25; if (idle === 'phone' || idle === 'book') { tgt.shLx = -0.45; tgt.elL = -1.65; tgt.hp = 0.4; } }
       else if (anim === 'none') applyIdle(tgt, idle);
       if (p.priority && p.targetPlayer) { tgt.lean = 0.12; tgt.hp = 0.15; }
@@ -838,7 +840,7 @@
       if (anim === 'watch') { tgt.shLx = -0.75; tgt.shLz = 0.45; tgt.elL = -1.75; tgt.hp = 0.55; tgt.hy = -0.35; }
     }
     // 怒り・にらむ人はプレイヤーを見る
-    if ((p.expr === 'angry' || p.expr === 'glare' || p.bubble) && st !== 'ko' && !p.sleep && anim !== 'board') {
+    if ((p.expr === 'angry' || p.expr === 'glare' || p.bubble) && st !== 'ko' && !p.sleep && anim !== 'board' && !(p.role === 'chikan' && ch && ch.stage !== 'fight')) { // 絡み屋は相手を見たまま
       const yaw = angDiff(H.ry, Math.atan2(pl.x - p.x, pl.z - p.z));
       if (Math.abs(yaw) < 1.6) { tgt.hy = yaw * 0.8; tgt.hp = 0; }
     }
@@ -1518,7 +1520,7 @@
     for (const e of g.events) {
       if (e.type === 'seatFree') { const s = g.seats[e.id]; if (s && Math.hypot(s.x - g.player.x, s.fz - g.player.z) < 3.5 && g.player.seat < 0) tip('seat', '🟩 光っている席は空席！ 近づいてアクションで座れ'); }
       if (e.type === 'thiefSteal') tip('thief', '落とし物泥棒がいる！ キョロキョロしている人を探してパンチ。逃げたら追いかけてもう一発');
-      if (e.type === 'chikan') tip('chikan', '困っている人のそばに痴漢が。照準を合わせて見極めてからパンチ！ 間違えるとカルマ。非常通報ボタンでも助けられる');
+      if (e.type === 'chikan') tip('chikan', '困っている人のそばに絡み屋が。照準を合わせて見極めてからパンチ！ 間違えるとカルマ。非常通報ボタンでも助けられる');
       if (e.type === 'drop') tip('drop', '落とし物！ 拾って持ち主に届けよう。持ち主は「あれ？」と探しはじめる');
       switch (e.type) {
         case 'toast': addToast(e.text, e.kind); break;
@@ -1530,7 +1532,7 @@
         case 'lurchWarn': if (g.player.seat < 0) { $('warn').classList.remove('hidden'); $('warn').firstChild.textContent = '⚠ 揺れるぞ！'; $('warnSub').textContent = isTouch ? '🛡「踏ん張る」を押せ！' : '[Space] で踏ん張れ！'; warnT = 1.15; sfx('warn'); } break;
         case 'lurch': lurchKick = 1; sfx('lurch'); break;
         case 'brace': if (e.ok) addPop('踏ん張った！'); else addToast('よろけた！ 体力-7', 'bad'); $('warn').classList.add('hidden'); break;
-        case 'chikan': addToast('…どこかで困っている人がいる？（痴漢かも）', 'warn'); break;
+        case 'chikan': addToast('…どこかで困っている人がいる？（絡まれているかも）', 'warn'); break;
         case 'thiefSteal': if (!G.__thiefTold) { G.__thiefTold = true; addToast('…だれかが落とし物をこっそり持っていった？（泥棒かも）', 'warn'); } break;
         case 'rare': { const p = SW.person(g, e.id); if (p) addToast(p.type === 'ceo' ? '金のネクタイの紳士が乗ってきた…' : '…なにか様子のおかしい乗客が乗ってきた', 'warn'); break; }
         case 'arrive': sfx('arrive'); showAnn(g.ann); speak(SW.stationName(g, g.station) + '、' + SW.stationName(g, g.station)); break;
@@ -1856,7 +1858,7 @@
     $('bModes').textContent = '🚇 ほかの路線・練習 ' + n + '/3';
     const list = [
       ['endless', '♾ 終点なしモード', '終点がない。どこまで立っていられるか。だんだん疲れやすくなる', '開放条件：一度、終点まで行く'],
-      ['hard', '🔥 満員地獄モード', '超満員・席取りおばちゃん倍増・痴漢多め', '開放条件：タイトル画面で伝説のコマンド（スマホはスワイプで）'],
+      ['hard', '🔥 満員地獄モード', '超満員・席取りおばちゃん倍増・絡み屋多め', '開放条件：タイトル画面で伝説のコマンド（スマホはスワイプで）'],
       ['jiji', '👴 敬老の日モード', '乗客がほぼ全員お年寄り。譲り放題…体力がもつか？', '開放条件：タイトルのロゴを何度もタップ'],
     ];
     $('modeList').innerHTML = list.map(([k, name, desc, cond]) => profile.unlock[k]
@@ -2260,7 +2262,7 @@
   function shareText(R) {
     const s = R.stats;
     const modeTxt = R.mode === 'daily' ? '【今日のダイヤ】' : R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車' }[R.mode] || '') + '】';
-    const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '痴漢に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
+    const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const dg = R.dg ? `わたしは「${R.dg.icon}${R.dg.name}」タイプの乗客でした！\n（${R.dg.desc}）\n\n` : '';
     return `${dg}${modeTxt}スワリタイ！で ${R.sc.total}点・${how}\n譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}\n\n▶ ブラウザですぐ遊べます（無料）\n${SHARE_URL}\n\n#スワリタイ #乗客タイプ診断 #バカゲー`;
   }

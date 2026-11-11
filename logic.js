@@ -155,7 +155,7 @@
     { id: 'first_sit', name: 'はじめての着席', desc: '席に座る' },
     { id: 'quick5', name: '秒速着席', desc: '空いてから1秒以内に座る×5（1回で）' },
     { id: 'saint5', name: '聖人', desc: '1回で5回席を譲る' },
-    { id: 'hunter3', name: '痴漢ハンター', desc: '痴漢を合計3人KO' },
+    { id: 'hunter3', name: '絡み屋ハンター', desc: '絡み屋を合計3人KO' },
     { id: 'counter5', name: 'カウンターの鬼', desc: '1回でカウンター5回' },
     { id: 'lost5', name: '落とし物名人', desc: '1回で落とし物を5回届ける' },
     { id: 'teeth', name: '入れ歯の恩人', desc: '入れ歯を持ち主に届ける' },
@@ -167,7 +167,7 @@
     { id: 'alien_punch', name: '未知との遭遇', desc: '???を殴る', hidden: 1 },
     { id: 'arrested', name: '連行', desc: 'カルマが限界をこえる' },
     { id: 'collapse', name: '膝が笑う', desc: '体力0で倒れる' },
-    { id: 'ko', name: '返り討ち', desc: '痴漢に倒される' },
+    { id: 'ko', name: '返り討ち', desc: '絡み屋に倒される' },
     { id: 'brain3', name: '洗脳マスター', desc: '1回で洗脳3回' },
     { id: 'wrong', name: '誤爆', desc: '関係ない人を殴る' },
     { id: 'tanuki', name: '狸', desc: '1回で狸寝入り合計60秒' },
@@ -575,7 +575,7 @@
   }
   const CAUSES = {
     collapse: { title: '膝が笑った', text: '立ちっぱなしで体力が尽きた…' },
-    ko: { title: 'KO負け', text: '痴漢の反撃で床に沈んだ…' },
+    ko: { title: 'KO負け', text: '絡み屋の反撃で床に沈んだ…' },
     arrest: { title: '駅員に連行', text: 'カルマがたまりすぎて、次の駅で降ろされた…' },
     clear: { title: '終点到着！', text: 'おつかれさまでした' },
     pko: { title: 'トドメを刺された', text: 'ライバルのパンチで床に沈んだ…' },
@@ -678,7 +678,7 @@
       if (Math.abs(pl.x - g.runner.door) < 0.75 && Math.sign(pl.z) === g.doorSide && Math.abs(pl.z) > 0.9) return { act: 'door', label: 'ドアを押さえる' };
     }
     for (const d of DOORS) for (const side of [-1, 1]) {
-      if (dist2(pl.x, pl.z, d + 0.75, side * 1.1) < 0.55 && Math.abs(pl.z) > 0.8) return { act: 'sos', label: g.chikan && g.chikan.stage === 'active' ? '非常通報ボタン（痴漢を通報）' : '非常通報ボタン（いたずら厳禁）' };
+      if (dist2(pl.x, pl.z, d + 0.75, side * 1.1) < 0.55 && Math.abs(pl.z) > 0.8) return { act: 'sos', label: g.chikan && g.chikan.stage === 'active' ? '非常通報ボタン（絡み屋を通報）' : '非常通報ボタン（いたずら厳禁）' };
     }
     return wrongWarnPrompt(g, ap, apd);
   }
@@ -825,7 +825,7 @@
       case 'sos': {
         if (g.chikan && g.chikan.stage === 'active') {
           g.chikan.stage = 'reported'; g.stats.sos++;
-          deed(g, 35, '非常通報で痴漢を通報した');
+          deed(g, 35, '非常通報で絡み屋を通報した');
           toast(g, '通報した！次の駅で駅員が来る', 'good');
           const v = person(g, g.chikan.victimId); if (v) { v.expr = 'relief'; v.exprT = 4; }
         } else {
@@ -1024,7 +1024,7 @@
         p.state = 'fight'; releaseSlot(g, p);
         bubble(g, p, ch.kind === 'boxer' ? 'ほう…やる気か' : 'な、なにを！', 1.8);
         const v = person(g, ch.victimId); if (v) { v.expr = 'surprised'; v.exprT = 3; }
-        toast(g, '痴漢との戦闘！ ' + (ch.kind === 'boxer' ? '（元ボクサーだ！）' : '') + ' 構えたらパンチでカウンター、ガードで防御', 'warn');
+        toast(g, '絡み屋との戦闘！ ' + (ch.kind === 'boxer' ? '（元ボクサーだ！）' : '') + ' 構えたらパンチでカウンター、ガードで防御', 'warn');
       }
       let dmg = dmgMul;
       if (ch.fstate !== 'windup' && g.r() < (ch.kind === 'boxer' ? 0.6 : ch.kind === 'small' ? 0.2 : 0.4)) {
@@ -1040,7 +1040,7 @@
         g.stats.chikanKO++;
         const v = person(g, ch.victimId);
         if (v) { v.expr = 'happy'; v.exprT = 6; v.role = null; bubble(g, v, '助かりました…！', 2.5); }
-        deed(g, base, '痴漢を撃退した！');
+        deed(g, base, '絡み屋を撃退した！');
         p.koT = 0;
         emit(g, { type: 'sfx', name: 'ko' });
       }
@@ -1840,7 +1840,7 @@
         if (q.bumpT <= 0) { q.bumpT = N.cd; if (N.sta) { pl.stamina = Math.max(0.1, pl.stamina - N.sta); pl.hitFlash = 0.25; } if (N.mind) hurtMind(g, N.mind, N.why || ''); else if (N.why) toast(g, N.why, 'bad'); emit(g, { type: 'sfx', name: 'block' }); }
       }
     }
-    // 女性専用車両の乗換駅：手を挙げずに女性のすぐ横を通ると、痴漢とまちがえられる
+    // 女性専用車両の乗換駅：手を挙げずに女性のすぐ横を通ると、不審者とまちがえられる
     if (g.boss && g.boss.hands && pl.seat < 0 && !pl.braceHeld && pl.moving) {
       g.handT = (g.handT || 0) - dt;
       if (g.handT <= 0) {
@@ -1848,7 +1848,7 @@
         if (w) {
           g.handT = 2.5; g.boss.fail++;
           w.expr = 'angry'; w.exprT = 3; bubble(g, w, g.r.pick(['ちょっと！ 今さわった？', 'え、なに？', '…（にらむ）']), 2);
-          hurtMind(g, 4, '痴漢とまちがえられそうになった'); addKarma(g, 3, '手を挙げずに通った');
+          hurtMind(g, 4, '不審者とまちがえられそうになった'); addKarma(g, 3, '手を挙げずに通った');
           if (!g.handTip) { g.handTip = true; toast(g, '🙋 女性の近くを通るときは、踏ん張る（手を挙げる）で通ろう', 'warn'); }
         }
       }
@@ -2289,7 +2289,7 @@
     } else if (p.bfs === 'recover' && p.bft <= 0) { p.bfs = 'idle'; p.bft = g.r.range(0.9, 1.8); }
   }
 
-  // ---------------------------------------------------------------- 痴漢
+  // ---------------------------------------------------------------- 絡み屋（ほかの乗客にしつこく絡む人。中の名前は前のまま chikan）
   function updateFighter(g, p, dt) {
     if (g.multi) {
       const ch = g.chikan;
@@ -2301,7 +2301,7 @@
   function fighterStep(g, p, dt) {
     const ch = g.chikan, pl = g.player;
     if (!ch || ch.chikanId !== p.id) { p.state = 'stand'; return; }
-    if (pl.seat >= 0) { toast(g, '痴漢は逃げ出した！', 'bad'); ch.stage = 'active'; endChikan(g, 'escaped'); return; }
+    if (pl.seat >= 0) { toast(g, '絡み屋は逃げ出した！', 'bad'); ch.stage = 'active'; endChikan(g, 'escaped'); return; }
     const d = dist2(p.x, p.z, pl.x, pl.z);
     p.ry = Math.atan2(pl.x - p.x, pl.z - p.z);
     if (d > 0.85) { const [nx, nz] = aisleClamp(p.x + (pl.x - p.x) / d * 1.2 * dt, p.z + (pl.z - p.z) / d * 1.2 * dt); p.x = nx; p.z = nz; }
@@ -2325,22 +2325,23 @@
   function endChikan(g, how) {
     const ch = g.chikan; if (!ch) return;
     const p = person(g, ch.chikanId), v = person(g, ch.victimId);
-    if (how === 'escaped') { toast(g, '痴漢は逃げてしまった…', 'bad'); if (v) { v.expr = 'sad'; v.exprT = 5; } }
-    if (how === 'arrested') toast(g, '通報した痴漢は駅員に連れていかれた', 'good');
+    if (how === 'escaped') { toast(g, '絡み屋は逃げてしまった…', 'bad'); if (v) { v.expr = 'sad'; v.exprT = 5; } }
+    if (how === 'arrested') toast(g, '通報した絡み屋は駅員に連れていかれた', 'good');
     if (p && p.state !== 'gone') {
       if (how === 'arrested' || how === 'escaped') { p.role = null; p.dest = g.station; leave(g, p); p.state = 'exit'; }
     }
     if (v) v.role = null;
     g.chikan = null;
   }
+  const KARAMI_LINES = ['なぁ、聞いてんのか？', 'ちょっと付き合えよ〜', 'その態度なんだよ', '無視すんなって', 'おまえ、どこの駅で降りんの？'];
   function tryStartChikan(g) {
     if (g.chikan || g.phase !== 'travel' || g.phaseT > C.T_TRAVEL - 8 || g.phaseT < 2) return;
     const standing = g.people.filter(p => p.state === 'stand' && p.sleep === 0 && !p.leaving && p.dest > g.station + 1 && !p.role && !p.fake);
-    const victims = standing.filter(p => p.female && (p.type === 'ol' || p.type === 'student'));
+    const victims = standing.filter(p => p.type === 'ol' || p.type === 'student' || p.type === 'salaryman' || p.type === 'elderly'); // 絡まれる人（男女とも）
     if (!victims.length || standing.length < 5) return;
     const v = g.r.pick(victims);
-    // 痴漢役：近くの男性を選ぶか新たに作る
-    let men = standing.filter(p => !p.female && p.id !== v.id && (p.type === 'salaryman' || p.type === 'otaku' || p.type === 'gamer') && dist2(p.x, p.z, v.x, v.z) < 3.5 && !p.undercover);
+    // 絡み屋役：近くの人から選ぶ
+    let men = standing.filter(p => p.id !== v.id && p.type !== 'elderly' && (p.type === 'salaryman' || p.type === 'otaku' || p.type === 'gamer') && dist2(p.x, p.z, v.x, v.z) < 3.5 && !p.undercover);
     if (men.length < 1) return;
     const c = g.r.pick(men);
     const decoys = men.filter(m => m !== c);
@@ -2374,14 +2375,14 @@
               // ぶつかる
               const near = g.people.filter(p => (p.state === 'stand') && dist2(p.x, p.z, pl.x, pl.z) < 0.75);
               const f = near.find(p => p.female);
-              if (f && g.r.chance(0.35)) { f.expr = 'angry'; f.exprT = 4; bubble(g, f, 'ちょっと！どこ触って…！', 2); addKarma(g, 8, 'ぶつかった（誤解）'); hurtMind(g, 10, '誤解された'); }
+              if (f && g.r.chance(0.35)) { f.expr = 'angry'; f.exprT = 4; bubble(g, f, 'ちょっと！押さないで…！', 2); addKarma(g, 8, 'ぶつかった（誤解）'); hurtMind(g, 10, '誤解された'); }
               else if (near.length) { bubble(g, near[0], 'おっと', 1); }
             }
           });
         }
       }
     }
-    // 痴漢の発生
+    // 絡み屋の発生
     g.nextChikanCheck -= dt;
     if (g.nextChikanCheck <= 0) {
       g.nextChikanCheck = g.r.range(9, 16);
@@ -2391,8 +2392,9 @@
       const ch = g.chikan, c = person(g, ch.chikanId), v = person(g, ch.victimId);
       if (!c || !v && ch.stage !== 'fight' && ch.stage !== 'done') { g.chikan = null; }
       else if (ch.stage === 'active' || ch.stage === 'reported') {
-        c.expr = 'shifty'; c.exprT = 1;
-        if (v && g.r() < 0.12 * dt) bubble(g, v, g.r.chance(0.5) ? '…っ' : '（やめて…）', 1.5);
+        c.expr = 'glare'; c.exprT = 1;
+        if (!c.bubble && g.r() < 0.16 * dt) bubble(g, c, g.r.pick(KARAMI_LINES), 1.8);
+        if (v && g.r() < 0.12 * dt) bubble(g, v, g.r.chance(0.5) ? '…あの、やめてください' : '（こまったな…）', 1.5);
         if (v && v.state === 'seated') endChikan(g, 'escaped');
       }
     }
@@ -2516,7 +2518,7 @@
     if (p.role === 'bx' && !p.bxDone) { const X = BX[p.bxk]; if (!X.hidden || dist2(p.x, p.z, g.player.x, g.player.z) < 1.6) out.push(X.note); }
     const recentLooks = p.looks.filter(t => g.t - t < 30).length;
     const recentWatch = p.watches.filter(t => g.t - t < 30).length;
-    if (p.role === 'chikan' && g.chikan && g.chikan.stage !== 'done') out.push('👀 目が泳いでいる…汗だく');
+    if (p.role === 'chikan' && g.chikan && g.chikan.stage !== 'done') out.push('😠 となりの人にしつこく絡んでいる');
     if (p.role === 'victim') out.push('😣 困った顔で固まっている');
     if (p.role === 'decoy') out.push('📱 スマホに夢中');
     if (p.role === 'thief') {
