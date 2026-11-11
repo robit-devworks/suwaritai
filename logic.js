@@ -1745,7 +1745,7 @@
     const pick = (tier) => r.pick(Object.keys(BOSS).filter((k) => BOSS[k].tier === tier));
     if (g.endless) { for (let st = 4; st < 400; st += 4) g.bossAt[st] = pick(1 + ((st / 4 - 1) % 3)); return; }
     if (g.online) { g.bossAt[r.int(2, 3)] = pick(1); g.bossAt[5] = pick(3); return; }
-    g.bossAt[r.int(3, 4)] = pick(1); g.bossAt[r.int(6, 7)] = pick(2); g.bossAt[r.int(last - 2, last - 1)] = pick(3);
+    g.bossAt[r.int(3, 4)] = pick(1); g.bossAt[r.int(6, 7)] = pick(2); g.bossAt[r.int(last - 2, last - 1)] = pick(g.practice ? 2 : 3); // 最終ボス駅は本番だけ（練習乗車では中級が代わりに出る）
     if (r.chance(0.4)) { const st = r.pick([2, 5].filter((s) => !g.bossAt[s] && !g.bossAt[s + 1] && !g.bossAt[s - 1])); if (st) g.bossAt[st] = 'rojin'; }
   }
   function opts_noBoss(g) { return !!g.noBoss; }

@@ -1859,7 +1859,7 @@
     $('modeList').innerHTML = list.map(([k, name, desc, cond]) => profile.unlock[k]
       ? `<button class="btn" data-mode="${k}">${name}</button><p class="modeinfo">${desc}${profile.bests[k] ? '・ベスト ' + profile.bests[k] : ''}</p>`
       : `<button class="btn" disabled style="opacity:.45">🔒 ？？？</button><p class="modeinfo">${cond}</p>`).join('');
-    $('modeList').innerHTML = `<button class="btn sub2" data-mode="practice">🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。ボス駅もじっくり見られる（ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
+    $('modeList').innerHTML = `<button class="btn sub2" data-mode="practice">🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
     // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
     if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
       const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
