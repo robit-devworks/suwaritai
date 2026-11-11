@@ -267,6 +267,7 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 #rpProg{display:block;height:100%;width:0;background:#ffd447}
 .rpMark{font-size:10px;color:var(--sub);text-align:right;margin-top:3px}
 .fbx{margin:6px 0;color:var(--sub);text-align:center}.fbx a{color:#7fd1ff;font-weight:700}
+.rk.hof{background:linear-gradient(90deg,rgba(255,212,71,.18),rgba(255,212,71,.04));border:1px solid rgba(255,212,71,.5);border-radius:10px}.rk.hof .sc{color:#ffd447}
 #shareMenu{position:fixed;inset:0;z-index:58;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}#shareMenu.hidden{display:none}#shareMenu .card{max-width:380px;width:calc(100% - 28px)}#shareMenu .btn{display:block;margin:6px 0;width:100%;text-align:center}#shareMenu .btn:disabled{opacity:.45}
 #vidBox{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}#vidBox.hidden{display:none}#vidBox .card{max-width:420px;width:calc(100% - 28px);max-height:calc(100% - 24px);overflow:auto}#vidBox video{width:100%;max-height:50vh;border-radius:10px;background:#000}#vidBox .btn{display:block;margin:6px 0}
 body.vrec #rpPlay,body.vrec #rpSpeed,body.vrec #rpTpv{opacity:.4;pointer-events:none}
@@ -671,7 +672,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h3>🌐 オンライン（β）</h3>
     <ul>
       <li><b>🎲 ランダムマッチ</b>：待合室のだれかと対戦。<b>🏅 レート戦（β）</b>：レートの近い人と対戦して、対戦レートが上下する</li>
-      <li><b>合言葉の部屋</b>（友だちと）：2〜4 人（空いた席は CPU）。7 駅の短い路線で、いちばんスコアが高い人の勝ち</li>
+      <li><b>合言葉の部屋</b>（友だちと）：2〜4 人（CPU なし・人間だけ）。7 駅の短い路線で、いちばんスコアが高い人の勝ち</li>
       <li><b>🤝 共闘</b>：部屋のホストが選べる。みんなの合計スコアで勝負。倒れた仲間はそばで「💊 復活させる」（徳を使う。足りなければスコアから）。人数ごとの共闘ランキングあり</li>
       <li>ひとりで遊んでいるときに、募集中の部屋や待っている人がいると上に出る。参加すると今のプレイは保存されて、タイトルの「▶ 続きから」で再開できる</li>
       <li>ライバルを殴ると、相手はよろけるだけ（体力 −8）で、自分のカルマ +15。<b>具合が悪そうな顔</b>（体力 20 以下）ならトドメを刺せる（カルマ +25）</li>
@@ -811,7 +812,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <div id="olMembers"></div>
       <div class="row" id="olModeRow"><button class="btn sub2" data-olmode="vs">⚔ 対戦</button><button class="btn sub2" data-olmode="coop">🤝 共闘</button></div>
       <p class="small" id="olModeNote" style="margin:0 0 4px;color:var(--sub)"></p>
-      <label class="small olcpu"><input type="checkbox" id="olCpu" checked> 空いた席は CPU で埋める</label>
+      <label class="small olcpu hidden"><input type="checkbox" id="olCpu"> 空いた席は CPU で埋める</label>
       <label class="small olcpu" id="olPubL"><input type="checkbox" id="olPub" checked> 🌐 だれでも入れる（ひとりで遊んでいる人に知らせる）</label>
       <button class="btn main" id="olStart">🚃 スタート</button>
       <p class="small" id="olWait"></p>
@@ -901,7 +902,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261111141607"</script><script src="logic.js?v=20261111141607"></script>
-<script src="game.js?v=20261111141607"></script>
+<script>window.SW_VER="20261111144316"</script><script src="logic.js?v=20261111144316"></script>
+<script src="game.js?v=20261111144316"></script>
 </body>
 </html>

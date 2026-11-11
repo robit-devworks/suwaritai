@@ -705,6 +705,7 @@
       if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.2) return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
       { const wp = warnPrompt(g, ap, apd, true); if (wp) return wp; }
       { const wp = wrongWarnPrompt(g, ap, apd); if (wp) return wp; }
+      if (g.mikiwame) return null; // 見極め線：一度座ったら、お年寄りに譲るまで立てない（立って座ってのくり返しで点を稼げないように）
       return { act: 'stand', label: '立ち上がる' };
     }
     // 落とし物を持っていても、注意・座るなどは先に出す（渡すのは、ほかにすることがないとき）
@@ -800,7 +801,7 @@
     const T = (p) => TYPES[p.type];
     switch (pr.act) {
       case 'sit': playerSit(g, g.seats[pr.id]); break;
-      case 'stand': playerStand(g); break;
+      case 'stand': if (!g.mikiwame) playerStand(g); break;
       case 'wake': pl.fakeSleep = false; break;
       case 'give': {
         const p = person(g, pr.id); if (!p) return;

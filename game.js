@@ -3049,6 +3049,14 @@
     playReplay('rk', x.uid, { path: 'suwaritai/rk/rp/' + L.wk + '/' + L.i + '/' + x.uid, list: L, k });
   }
   // 見極め線のランキング：suwaritai/mk/best・suwaritai/mk/week/{週}。人数が少ないうちは点数の分布は使わず、上の人を数える
+  // 見極め線の殿堂入り（suwaritai/mk/hof/{週}）：ランキングを作り直したとき、その週の 1 位をお礼として残す
+  let mkHofCache = null;
+  async function mkHof() {
+    try {
+      if (mkHofCache == null) { const F = await firebaseReady(); if (!F) return ''; mkHofCache = (await withTimeout(F.db.ref('suwaritai/mk/hof').get(), 8000)).val() || {}; }
+      return Object.entries(mkHofCache).sort((a, b) => b[0] < a[0] ? -1 : 1).map(([wk, h]) => `<div class="rk hof"><span class="n">🏛</span><span class="nm">${nameHtml(dispName(h.n, h.uid))}<div class="ttl">殿堂入り（${esc(wk.slice(5).replace('-', '/'))} の週）・${esc(h.why || '')}</div></span><span class="sc">${h.s}</span></div>`).join('');
+    } catch (e) { return ''; }
+  }
   async function submitMk(R, rec) {
     $('rRank').textContent = 'ランキングに記録中…';
     try {
@@ -3316,6 +3324,7 @@
       const wk = weekKey().slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/');
       $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット', mkweek: '👀 見極め線・今週（' + wk + '〜）', mkbest: '👀 見極め線・歴代' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
       listEl.innerHTML = b.list.length ? rankRows(b, TOP_N) : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
+      if (/^mk/.test(tab)) mkHof().then((h) => { if (h && rankTab === tab) listEl.insertAdjacentHTML('afterbegin', h); });
       // 自分が下のほうにいるときは「あなたの順位へ」ボタン（押すと自分の行まで動く）
       const meRow = listEl.querySelector('.rk.me');
       if (meRow && b.mine && (typeof b.mine.rank !== 'number' || b.mine.rank > 8)) {
@@ -3903,7 +3912,7 @@
           if (ex.created && ex.created < Date.now() - 3600000) { try { await N.remove(roomP(code)); } catch (e) { continue; } }
           else continue;
         }
-        await N.update(roomP(code), { host: N.uid, created: N.TS, state: { s: 'lobby', cpu: true } });
+        await N.update(roomP(code), { host: N.uid, created: N.TS, state: { s: 'lobby', cpu: false } }); // オンラインは CPU なし（人間だけ）
         MP.isHost = true;
         await mpEnter(code);
         track('オンライン：部屋をつくった');
@@ -3954,9 +3963,9 @@
     $('olCpu').disabled = !MP.isHost; $('olCpu').checked = cpu;
     const md = MP.modeSel || 'vs';
     document.querySelectorAll('[data-olmode]').forEach((b) => { b.classList.toggle('on', b.dataset.olmode === md); b.disabled = !MP.isHost; });
-    $('olModeNote').textContent = md === 'coop' ? '🤝 共闘：みんなの合計がチームのスコア。倒れた仲間は徳で復活。CPU なしで遊ぶと、人数ごとのランキングに載ります' : '⚔ 対戦：いちばん徳を積んだ人の勝ち';
+    $('olModeNote').textContent = md === 'coop' ? '🤝 共闘：みんなの合計がチームのスコア。倒れた仲間は徳で復活。人数ごとのランキングに載ります' : '⚔ 対戦：いちばんスコアが高い人の勝ち（脱落なし・倒れたらスコア 0 からやり直し）';
     $('olStart').classList.toggle('hidden', !MP.isHost);
-    $('olWait').textContent = MP.spect ? '👀 観戦で入っています。試合が始まると見られます' : MP.isHost ? (mem.length < 2 && !cpu ? 'ほかの人が入るのを待っています（合言葉を送ってね）' : '') : 'ホストがスタートするのを待っています…';
+    $('olWait').textContent = MP.spect ? '👀 観戦で入っています。試合が始まると見られます' : MP.isHost ? (mem.length < 2 ? 'ほかの人が入るのを待っています（合言葉を送ってね）' : '') : 'ホストがスタートするのを待っています…';
   }
   function mpMembersChanged() {
     if (!MP.active || !G) return;
@@ -3978,8 +3987,8 @@
     const N = await net();
     const mem = mpSortedMembers();
     const players = mem.map(([uid, m]) => ({ uid, name: dispName(m.n, uid).slice(0, 12), cpu: false, st: String(m.s || '') }));
-    if ($('olCpu').checked) while (players.length < 4) players.push({ uid: 'cpu' + players.length, name: CPU_NAMES[players.length], cpu: true });
-    if (players.length < 2) { olNote('2 人以上（CPU をふくむ）で始められます'); return; }
+    $('olCpu').checked = false; // オンラインは CPU なし（2026-11-11 本人：フレンド戦・ランダムマッチ・レート戦どれもいらない）
+    if (players.length < 2) { olNote('2 人そろったら始められます（合言葉を友だちに送ってね）'); return; }
     try {
       await N.remove(roomP(MP.code) + '/snap');
       await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', rated: !!MP.mmRated, t: N.TS } });
