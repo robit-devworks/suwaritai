@@ -20,7 +20,7 @@
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
   const NEW_UNTIL = '2026-11-25'; // この日まで、新しく入ったもの（今日のルール・練習乗車）に「NEW」の印
-  const MODE_JA = { online: 'オンライン', bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const MODE_JA = { rookie: '見習い乗車', online: 'オンライン', bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -2003,6 +2003,7 @@
     if (BAL2) $('bestLine').textContent = '🧪 新バランスのお試し版（落とし物が少なめ・座ると点）';
     renderModes();
   }
+  const ROOKIE_N = 3; // はじめの何回を見習い乗車にするか
   function renderModes() {
     const n = (profile.unlock.endless ? 1 : 0) + (profile.unlock.hard ? 1 : 0) + (profile.unlock.jiji ? 1 : 0);
     $('bModes').innerHTML = '<i class="ic">🚇</i>路線・練習'; // NEW の印は中の練習乗車・ボス駅ラッシュに出す（ボタンがせまいので）
@@ -2014,7 +2015,7 @@
     $('modeList').innerHTML = list.map(([k, name, desc, cond]) => profile.unlock[k]
       ? `<button class="btn" data-mode="${k}">${name}</button><p class="modeinfo">${desc}${profile.bests[k] ? '・ベスト ' + profile.bests[k] : ''}</p>`
       : `<button class="btn" disabled style="opacity:.45">🔒 ？？？</button><p class="modeinfo">${cond}</p>`).join('');
-    $('modeList').innerHTML = `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
+    $('modeList').innerHTML = `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="rookie">🔰 見習い乗車</button><p class="modeinfo">体力がへりにくい・最初のボス駅はおそめ。はじめの ${ROOKIE_N} 回と同じ（ランキングなし）</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
     // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
     if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
       const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
@@ -2036,6 +2037,9 @@
     track(resume ? '続きから再開：' + (MODE_JA[mode.split(':')[0]] || mode) : (profile.plays ? '出発した：' : '初めて出発した：') + (MODE_JA[mode.split(':')[0]] || mode));
     initAudio();
     clearWorld();
+    // 見習い乗車：はじめの 3 回は自動（たちっぱ線）。「路線・練習」の「🔰 見習い乗車」でいつでも遊べる
+    const rookieSel = mode === 'rookie';
+    if (rookieSel) mode = 'normal';
     const rkTrain = mode.startsWith('ranked:') ? +mode.slice(7) : -1; // ランク線：今週の電車（rkSeed）
     if (rkTrain >= 0) mode = 'ranked';
     const seed = mode === 'daily' ? dailySeed() : rkTrain >= 0 ? rkSeed(weekKey(), rkTrain) : (Math.random() * 1e9) | 0;
@@ -2049,7 +2053,8 @@
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
     G.rkTrain = rkTrain; G.rkWeek = resume ? resume.meta.rkWeek : weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
-    G.rookie = resume ? !!resume.meta.rookie : mode === 'normal' && !profile.plays && !profile.rookieDone;
+    G.rookie = resume ? !!resume.meta.rookie : rookieSel || (mode === 'normal' && (profile.plays || 0) < ROOKIE_N && !profile.rookieOff);
+    if (rookieSel) G.modeName = 'rookie';
     if (G.rookie && !resume && G.bossAt) { // 見習い乗車：はじめのボス駅（初級）は 5 駅目から（2026-11-12：はじめての人の多くが 2〜3 駅目で倒れていた）
       for (const st of Object.keys(G.bossAt).map(Number)) if (SW.BOSS[G.bossAt[st]] && SW.BOSS[G.bossAt[st]].tier === 1 && st < 5) { const k = G.bossAt[st]; delete G.bossAt[st]; if (!G.bossAt[5] && !G.bossAt[6]) G.bossAt[5] = k; }
     }
@@ -2073,7 +2078,8 @@
     if (!G.rookie && !BAL2 && !resume) recStart(mode); else REC = null; // 続きからのときはリプレイなし
     document.body.classList.toggle('nosk', mikiwame);
     if (resume) { addToast('▶ 続きから再開：' + resume.desc, 'good'); showAnn(G.ann); return; }
-    if (G.rookie) addToast('🔰 見習い乗車：はじめの 1 回は体力がへりにくい（ランキングには載りません）', 'good');
+    if (G.rookie && !rookieSel && !profile.rookieOff) setTimeout(() => { if (G && G.rookie && state === 'play') addToast('すぐ本番にしたいときは、一時停止の「🚃 本番にする」から', 'info'); }, 4000);
+    if (G.rookie) addToast(rookieSel ? '🔰 見習い乗車：体力がへりにくい・最初のボス駅はおそめ（ランキングには載りません）' : '🔰 見習い乗車（' + ((profile.plays || 0) + 1) + '/' + ROOKIE_N + '回目）：体力がへりにくい（ランキングには載りません）', 'good');
     if (rule) { addToast('📅 今日のルール「' + rule.icon + ' ' + rule.name + '」：' + rule.desc, 'warn'); track('今日のルール：' + rule.name + '：出発'); }
     document.body.classList.toggle('nosk', mikiwame);
     if (mikiwame) addToast('👀 見極め線：様子のカードはなし。しぐさだけで降りる人を読もう。座れたら次の駅で席を譲って、また読む', 'good');
@@ -2416,6 +2422,7 @@
   function pause() {
     if (state !== 'play') return;
     state = 'pause'; backTo = 'pause'; show('pause');
+    $('bRookieOff').classList.toggle('hidden', !(G && G.rookie && G.modeName === 'normal'));
   }
   $('bStart').addEventListener('click', () => startGame('normal')); // 最初はまず体験してもらう（チュートリアルは聞かない）
   // ---- チュートリアル
@@ -2944,7 +2951,12 @@
   let submitting = Promise.resolve();
   function submitScore(R) {
     if (BAL2) { $('rRank').textContent = '🧪 新バランスのお試し版なので、ランキングには載りません'; return; }
-    if (R.rookie) { $('rRank').textContent = '🔰 見習い乗車なので、ランキングには載りません。次から本番！'; return; }
+    if (R.rookie) {
+      const left = profile.rookieOff ? 0 : ROOKIE_N - (profile.plays || 0);
+      $('rRank').innerHTML = '🔰 見習い乗車なので、ランキングには載りません。' + (R.mode === 'rookie' ? '慣れたら「出発する」で本番へ！' : left > 0 ? 'あと ' + left + ' 回は見習い乗車。<br><button class="btn sub2" id="rookieOff" style="margin-top:6px;padding:6px 10px;width:auto">🚃 もう慣れた！次から本番にする</button>' : '次から本番！');
+      const b = $('rookieOff'); if (b) b.onclick = () => { profile.rookieOff = true; saveProfile(); b.outerHTML = '<b>次から本番（ランキングに載ります）！</b>'; track('見習い乗車をやめた'); };
+      return;
+    }
     if (R.mode === 'mikiwame') { const rec = REC && REC.done ? REC : null; REC = null; if (!DB && fbAllowed) submitMk(R, rec); return; }
     if (R.mode === 'ranked') { const rec = REC && REC.done ? REC : null; REC = null; if (!DB && fbAllowed) submitRanked(R, rec); return; } // 見極め線は自分のランキング（今週・歴代）
     if (R.mode !== 'normal' && R.mode !== 'daily') return;
@@ -3741,6 +3753,7 @@
   });
   $('bMyRp').addEventListener('click', () => playMyRp('result'));
   $('bMyRp2').addEventListener('click', () => playMyRp('rank'));
+  $('bRookieOff').addEventListener('click', () => { profile.rookieOff = true; saveProfile(); track('見習い乗車をやめた（一時停止）'); startGame('normal'); }); // 見習い乗車（はじめの 3 回）をやめて本番へ
   $('mpMyRp').addEventListener('click', () => playMyRp('mpres'));
   function rpButtons() {
     $('rpPlay').textContent = RP.paused ? '▶' : '⏸';
@@ -4417,7 +4430,7 @@
     if (wasActive) track('オンライン：試合が中断した');
   }
   // ---- 3 人称視点（リプレイと観戦だけ）：見ている人の体を出して、カメラをうしろ上に置く
-  let TPV = !!profile.tpv, selfH = null, camYaw = null;
+  let TPV = !!profile.tpv, selfH = null, selfHD = null, camYaw = null;
   const tpvOn = () => (TPV && (RP.active || (MP.active && MP.spect))) || !!window.__tpvForce; // __tpvForce：見た目を確かめる用
   function setTpv(on) {
     TPV = on; profile.tpv = on ? 1 : 0; saveProfile(); camYaw = null;
@@ -4427,18 +4440,23 @@
   }
   function updateSelfFig(g, dt, now) {
     const on = tpvOn(); document.body.classList.toggle('tpv', on);
-    if (!on) { if (selfH) selfH.root.visible = false; return; }
+    if (!on) { if (selfH) selfH.root.visible = false; if (selfHD) selfHD.root.visible = false; return; }
     if (!selfH) selfH = buildHuman(fakePerson(-99, { h: 1.72, look: { top: '#e0703a', bottom: '#22252c', skin: '#f1c9a5', hair: '#1d1612', hairStyle: 'short', topName: 'オレンジ' } }));
-    const b = g.player, fp = selfH.p;
-    selfH.root.visible = !g.over || (g.result && g.result.cause === 'clear');
+    const b = g.player;
+    // 変装（👴）しているあいだは、お年寄りの姿で映す
+    const dis = !!(b.buffs && b.buffs.disguise);
+    if (dis && !selfHD) selfHD = buildHuman(fakePerson(-98, { type: 'elderly', h: 1.56, look: { top: '#8b7d6b', bottom: '#4a4a4a', skin: '#e9c3a3', hair: '#e2e2e2', hairStyle: 'short', glasses: true, mask: false, bag: false, tie: null, topName: '' } }));
+    const H = dis ? selfHD : selfH, fp = H.p;
+    selfH.root.visible = false; if (selfHD) selfHD.root.visible = false;
+    H.root.visible = !g.over || (g.result && g.result.cause === 'clear');
     const moved = Math.hypot(b.x - fp.x, b.z - fp.z);
     if (b.seat >= 0) { const s = g.seats[b.seat]; fp.state = 'seated'; fp.x = s.x; fp.z = s.z; fp.ry = s.side > 0 ? Math.PI : 0; fp.sleep = b.fakeSleep ? 2 : 0; }
     else { fp.state = moved > 0.004 ? 'walk' : 'stand'; fp.x = b.x; fp.z = b.z; fp.ry = b.yaw + Math.PI; fp.sleep = 0; if (moved > 0.004) fp.walkPhase += moved * 18; fp.speed = 1.6; }
     fp.expr = b.stamina <= 20 ? 'sick' : b.stamina < 45 ? 'worried' : b.punchAnim > 0 ? 'angry' : 'neutral'; fp.exprT = 1;
-    poseHuman(selfH, g, dt, now);
-    if (b.punchAnim > 0 && b.seat < 0) { selfH.armR.sh.rotation.set(-1.55, 0, 0); selfH.armR.el.rotation.x = -0.1; }
-    if (b.braceHeld && b.seat < 0) { selfH.armR.sh.rotation.set(-2.85, 0, 0.12); selfH.armL.sh.rotation.set(-2.85, 0, -0.12); }
-    faceState(selfH, g, now);
+    poseHuman(H, g, dt, now);
+    if (b.punchAnim > 0 && b.seat < 0) { H.armR.sh.rotation.set(-1.55, 0, 0); H.armR.el.rotation.x = -0.1; }
+    if (b.braceHeld && b.seat < 0) { H.armR.sh.rotation.set(-2.85, 0, 0.12); H.armL.sh.rotation.set(-2.85, 0, -0.12); }
+    faceState(H, g, now);
   }
   // 3 人称のカメラ：立っているときはうしろ上、座っているときは通路から。車両の外や天井に出ないようにする
   function tpvCamera(g, dt) {
