@@ -1344,11 +1344,11 @@
     inp.yaw = FACE.y0 + (FACE.y1 - FACE.y0) * e; inp.pitch = FACE.p0 + (FACE.p1 - FACE.p0) * e;
     if (FACE.t >= 1) FACE = null;
   }
-  // 移動スティックの場所：自由（さわった所に出る）／固定・左下／固定・右下（片手用）
+  // 移動スティックの場所：自由（さわった所に出る）／固定・左下／固定・左下（片手用：ボタンも左へ）／固定・右下（片手用）
   const joyFix = () => profile.joyFix || '';
-  function applyJoy() { const f = joyFix(); document.body.classList.toggle('joyfix', !!f); document.body.classList.toggle('joyR', f === 'r'); joyKnob.style.transform = ''; if ($('joyMode')) $('joyMode').value = f; }
+  function applyJoy() { const f = joyFix(); document.body.classList.toggle('joyfix', !!f); document.body.classList.toggle('joyR', f === 'r'); document.body.classList.toggle('joyL1', f === 'L'); joyKnob.style.transform = ''; if ($('joyMode')) $('joyMode').value = f; }
   applyJoy();
-  $('joyMode').addEventListener('change', () => { profile.joyFix = $('joyMode').value || null; saveProfile(); applyJoy(); track('移動スティック：' + ({ l: '固定・左下', r: '固定・右下' }[profile.joyFix] || '自由')); });
+  $('joyMode').addEventListener('change', () => { profile.joyFix = $('joyMode').value || null; saveProfile(); applyJoy(); track('移動スティック：' + ({ l: '固定・左下', L: '固定・左下（片手）', r: '固定・右下' }[profile.joyFix] || '自由')); });
   joyEl.addEventListener('touchstart', e => {
     initAudio();
     const t = e.changedTouches[0], q = tp(t); joyId = t.identifier; joyO = q;
@@ -1740,7 +1740,7 @@
   }
 
   // ================================================================ 画面
-  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'stat', 'videos', 'namegacha', 'tutask', 'pause', 'result', 'online', 'mpres'];
+  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'stat', 'videos', 'news', 'namegacha', 'tutask', 'pause', 'result', 'online', 'mpres'];
   let backTo = 'title';
   function show(id) {
     for (const s of screens) $(s).classList.toggle('hidden', s !== id);
@@ -2564,6 +2564,39 @@
       else { a.removeAttribute('href'); a.classList.add('soon'); a.textContent += '　準備中'; }
     });
   }
+  // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
+  // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
+  const NEWS = [
+    { d: '2026-11-12', t: '新スキル 3 つ・見習い乗車 3 回 ほか', items: [
+      '🆕 新スキル「👴 変装」「🗣 ひとこと注意」「📱 乗換案内」',
+      '🎒 スキルは 7 つまで選んで付けかえ（「Lv」→「スキルのセット」）',
+      '🔰 見習い乗車がはじめの 3 回に。「路線・練習」からいつでも遊べる',
+      '🕹 移動スティックを固定できる（一時停止の画面・縦画面の片手用は左下・右下）',
+      '🎬 作者の実況プレイ動画を公開（結果画面の「作者の実況」・ホームの「動画で見る」）',
+      '🎬 リプレイ：バーで好きな場面へ・動画にする範囲を [ ] で選べる',
+      '🤝 オンラインの試合もリプレイで見られる',
+      '⚠ ボス駅の難しさをそろえた（あと何人か出る・1 人までなら残してもクリア）',
+      '📅 今日のダイヤに、毎日ちがう特別ルール',
+      '#ABCD 名前の横にプレイヤー ID（名前を変えても同じ人だと分かる）',
+      '🐛 スマホでスキルのボタンが押せなかったのを直しました',
+    ] },
+    { d: '2026-11-11', t: '大型アップデート', items: [
+      '👀 見極め線（しぐさだけで降りる人を読む）',
+      '⚠ ボス駅と、ボス駅ラッシュ・🔰 練習乗車',
+      '🤝 フレンドと共闘・⚔ 対戦・ランダムマッチ・レート戦',
+      '🎬 自分のリプレイを動画にしてシェア',
+      '🎟 シェアから友だちが遊ぶと、2 人とも名前ガチャのチケット',
+      '🏆 今週のランキング上位に、毎週ごほうび',
+    ] },
+    { d: '2026-11-08', t: 'スワリタイ！公開', items: ['🚃 公開しました！ その後、ランキング・名前ガチャ・横向きにも対応'] },
+  ];
+  function newsDot() { $('newsDot').classList.toggle('hidden', !NEWS.length || (profile.newsSeen || '') >= NEWS[0].d); }
+  function renderNews() {
+    const seen = profile.newsSeen || '';
+    $('newsList').innerHTML = NEWS.map((n) => `<div class="nw ${n.d > seen ? 'new' : ''}"><h4>${n.d.slice(5).replace('-', '/')}　${esc(n.t)}${n.d > seen ? '<span class="pill">NEW</span>' : ''}</h4><ul>${n.items.map((x) => '<li>' + esc(x) + '</li>').join('')}</ul></div>`).join('');
+  }
+  newsDot();
+  $('bNews').addEventListener('click', () => { renderNews(); profile.newsSeen = NEWS[0].d; saveProfile(); newsDot(); backTo = 'title'; show('news'); track('お知らせを開いた'); });
   $('bVideo').addEventListener('click', () => { backTo = 'title'; show('videos'); track('動画で見るを開いた'); });
   $('bDaily').addEventListener('click', () => startGame('daily'));
   $('bMiki').addEventListener('click', () => startGame('mikiwame'));

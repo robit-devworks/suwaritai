@@ -167,6 +167,7 @@ html body.joyfix.joyR #joy{left:auto;right:max(10px,env(safe-area-inset-right))}
 html body.joyfix #joyHint{display:none!important}
 html body.joyfix #joyBase{display:block!important;left:50%!important;top:50%!important;width:130px;height:130px;margin:-65px 0 0 -65px;border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.1)}
 html body.joyfix.joyR #tbtns{bottom:calc(max(14px,env(safe-area-inset-bottom)) + 178px)}
+html body.joyfix.joyL1 #tbtns{left:max(12px,env(safe-area-inset-left));right:auto;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 178px)}
 #joyHint{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));width:96px;height:96px;border-radius:50%;border:2px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,.5)}
 #tbtns{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:190px;height:190px;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(20,24,32,.6);font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.15;text-align:center;padding:0}
@@ -201,6 +202,8 @@ body.touch #pcHint{display:none}
 .btn.sub2{font-size:14px;padding:10px}
 .row{display:flex;gap:8px}.row .btn{flex:1}
 .small{font-size:12px;color:var(--sub);text-align:center;line-height:1.6}
+#newsDot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 0 2px #10131a}#newsDot.hidden{display:none}
+#newsList{max-height:62vh;overflow:auto;text-align:left}.nw{margin:0 0 10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line)}.nw.new{border-color:var(--toku)}.nw h4{margin:0 0 4px;font-size:14px}.nw h4 .pill{margin-left:6px}.nw ul{margin:0;padding-left:1.2em;font-size:13px;line-height:1.55}
 .namebox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;font-size:13px;margin-top:6px}
 .namebox>*{white-space:nowrap}
 .namebox input{min-width:0;flex:1 1 110px;max-width:170px}
@@ -428,6 +431,8 @@ html.pland #title .nmlbl{display:none}
   #bGuard{right:10px;bottom:86px;width:60px;height:60px}
   #bSleep{right:86px;bottom:70px;width:50px;height:50px}
   #joy{width:38%;height:78%}
+  body.touch.joyfix.joyR #joy{left:max(10px,env(safe-area-inset-left));right:auto}
+  body.touch.joyfix.joyR #tbtns,body.touch.joyfix.joyL1 #tbtns{left:auto;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom))}
   #joyHint{width:76px;height:76px}
   .screen{padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left))}
   .card{padding:12px 16px}
@@ -503,6 +508,8 @@ html.pland #bPunch{right:86px;bottom:2px;width:60px;height:60px}
 html.pland #bGuard{right:10px;bottom:86px;width:60px;height:60px}
 html.pland #bSleep{right:86px;bottom:70px;width:50px;height:50px}
 html.pland #joy{width:38%;height:78%}
+html.pland body.touch.joyfix.joyR #joy{left:max(10px,env(safe-area-inset-left));right:auto}
+html.pland body.touch.joyfix.joyR #tbtns, html.pland body.touch.joyfix.joyL1 #tbtns{left:auto;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom))}
 html.pland #joyHint{width:76px;height:76px}
 html.pland .screen{padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left))}
 html.pland .card{padding:12px 16px}
@@ -629,7 +636,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
     <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る <span class="pill">PV・作者の実況プレイ</span></button></div>
     <div class="row"><button class="btn sub2" id="bHow"><i class="ic">📖</i>遊び方</button><button class="btn sub2" id="bRank"><i class="ic">🏆</i>ランキング</button><button class="btn sub2" id="bAch"><i class="ic">🎖</i>実績</button><button class="btn sub2" id="bStat"><i class="ic">📊</i>Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
-    <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
+    <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bNews" title="お知らせ" style="width:auto;margin:0;padding:6px 10px;position:relative">📰<i id="newsDot" class="hidden"></i></button><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
     <button class="btn sub2 hidden" id="bPort">📱 縦画面にもどす</button>
@@ -761,6 +768,15 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   </div>
 </div>
 
+<div id="news" class="screen hidden">
+  <div class="card">
+    <h2>📰 お知らせ</h2>
+    <div id="newsList"></div>
+    <p class="small" style="color:var(--sub);margin:8px 0 4px">不具合・要望は <b>#スワリタイ</b> でつぶやいてね</p>
+    <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
 <div id="videos" class="screen hidden">
   <div class="card">
     <h2>🎬 動画で見る</h2>
@@ -819,7 +835,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn sub2 hidden" id="bRookieOff">🚃 もう慣れた！本番にする（最初から）</button>
     <button class="btn fs-btn" id="bFs2">⛶ 全画面</button>
     <button class="btn hidden" id="bPort2">📱 縦画面にもどす</button>
-    <label class="sensrow touchonly">🕹 移動スティック <select id="joyMode"><option value="">自由（さわった所に出る）</option><option value="l">固定・左下</option><option value="r">固定・右下（片手用）</option></select></label>
+    <label class="sensrow touchonly">🕹 移動スティック <select id="joyMode"><option value="">自由（さわった所に出る）</option><option value="l">固定・左下</option><option value="L">固定・左下（片手用・縦画面）</option><option value="r">固定・右下（片手用・縦画面）</option></select></label>
     <label class="sensrow">👀 視点の感度 <input type="range" id="sensR" min="0.5" max="3" step="0.1" value="1"> <b id="sensV">1.0倍</b></label>
     <button class="btn" id="bHow2">📖 遊び方</button>
     <button class="btn" id="bQuit">タイトルへ（途中でやめる）</button>
@@ -937,7 +953,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261112230346"</script><script src="logic.js?v=20261112230346"></script>
-<script src="game.js?v=20261112230346"></script>
+<script>window.SW_VER="20261112232013"</script><script src="logic.js?v=20261112232013"></script>
+<script src="game.js?v=20261112232013"></script>
 </body>
 </html>
