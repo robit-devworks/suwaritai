@@ -2014,7 +2014,9 @@
     const dr = SW.dailyRule(dk); // 今日の特別ルール
     showResume();
     verCheck();
-    if (profile.plays > 0 && profile.newSkill !== 'transfer') { profile.newSkill = 'transfer'; saveProfile(); setTimeout(() => titleToast('🆕 新しいスキル「👴 変装」「🗣 ひとこと注意」「📱 乗換案内」！ Lv の画面の「🎒 スキルのセット」でつけかえられます'), 1200); }
+    // 片手で遊べるようになったお知らせ（スマホで、まだ選んでいない人に 1 回だけ。2026-11-13）
+    if (isTouch && profile.plays > 0 && !profile.ohSeen && !profile.joyFix && !(window.claude && window.claude.use)) { profile.ohSeen = 1; saveProfile(); setTimeout(() => { if (state === 'title') { $('oneHand').classList.remove('hidden'); track('片手のお知らせを出した'); } }, 900); }
+    else if (profile.plays > 0 && profile.newSkill !== 'transfer') { profile.newSkill = 'transfer'; saveProfile(); setTimeout(() => titleToast('🆕 新しいスキル「👴 変装」「🗣 ひとこと注意」「📱 乗換案内」！ Lv の画面の「🎒 スキルのセット」でつけかえられます'), 1200); }
     // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
     const isNew = dk <= NEW_UNTIL;
     $('bDaily').querySelector('.newb') || (isNew && $('bDaily').insertAdjacentHTML('afterbegin', '<span class="newb">NEW</span>'));
@@ -2567,6 +2569,10 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
+    { d: '2026-11-13', t: '片手で遊べるように！', items: [
+      '🕹 移動スティックを親指の下に固定して、ボタンもすぐ上に。電車でつり革を持ちながらでも遊びやすい',
+      '一時停止の「🕹 移動スティック」→「固定・右下（片手用）」か「固定・左下（片手用）」（縦画面のとき）',
+    ] },
     { d: '2026-11-12', t: '新スキル 3 つ・見習い乗車 3 回 ほか', items: [
       '🆕 新スキル「👴 変装」「🗣 ひとこと注意」「📱 乗換案内」',
       '🎒 スキルは 7 つまで選んで付けかえ（「Lv」→「スキルのセット」）',
@@ -2590,6 +2596,8 @@
     ] },
     { d: '2026-11-08', t: 'スワリタイ！公開', items: ['🚃 公開しました！ その後、ランキング・名前ガチャ・横向きにも対応'] },
   ];
+  const ohPick = (v) => { profile.joyFix = v; saveProfile(); applyJoy(); $('oneHand').classList.add('hidden'); if (v) titleToast(v === 'r' ? '✋ 右手で遊ぶ設定にしました' : '🤚 左手で遊ぶ設定にしました'); track('片手のお知らせ：' + (v === 'r' ? '右手' : v === 'L' ? '左手' : 'あとで')); };
+  $('ohR').addEventListener('click', () => ohPick('r')); $('ohL').addEventListener('click', () => ohPick('L')); $('ohNo').addEventListener('click', () => ohPick(profile.joyFix || null));
   function newsDot() { $('newsDot').classList.toggle('hidden', !NEWS.length || (profile.newsSeen || '') >= NEWS[0].d); }
   function renderNews() {
     const seen = profile.newsSeen || '';

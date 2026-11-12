@@ -202,6 +202,7 @@ body.touch #pcHint{display:none}
 .btn.sub2{font-size:14px;padding:10px}
 .row{display:flex;gap:8px}.row .btn{flex:1}
 .small{font-size:12px;color:var(--sub);text-align:center;line-height:1.6}
+#oneHand{position:fixed;inset:0;z-index:57;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}#oneHand.hidden{display:none}#oneHand .card{max-width:380px;width:calc(100% - 28px);text-align:center}#oneHand h3{margin:0 0 4px;font-size:19px}#oneHand .row{display:flex;gap:8px}#oneHand .row .btn{flex:1;margin:4px 0}
 #newsDot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 0 2px #10131a}#newsDot.hidden{display:none}
 #newsList{max-height:62vh;overflow:auto;text-align:left}.nw{margin:0 0 10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line)}.nw.new{border-color:var(--toku)}.nw h4{margin:0 0 4px;font-size:14px}.nw h4 .pill{margin-left:6px}.nw ul{margin:0;padding-left:1.2em;font-size:13px;line-height:1.55}
 .namebox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;font-size:13px;margin-top:6px}
@@ -790,6 +791,13 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   </div>
 </div>
 
+<div id="oneHand" class="hidden"><div class="card">
+  <h3>🕹 片手で遊べるようになりました！</h3>
+  <p class="small" style="margin:4px 0 10px">移動スティックを親指の下に固定して、ボタンもすぐ上に。電車でつり革を持ちながらでも遊びやすい</p>
+  <div class="row"><button class="btn main" id="ohR">✋ 右手で遊ぶ</button><button class="btn main" id="ohL">🤚 左手で遊ぶ</button></div>
+  <button class="btn sub2" id="ohNo">あとで（両手のまま）</button>
+  <p class="small" style="color:var(--sub);margin:6px 0 0">一時停止の「🕹 移動スティック」でいつでも変えられます（縦画面のとき）</p>
+</div></div>
 <div id="tutask" class="screen hidden">
   <div class="card">
     <h2>🎓 はじめての乗車</h2>
@@ -953,7 +961,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261112232013"</script><script src="logic.js?v=20261112232013"></script>
-<script src="game.js?v=20261112232013"></script>
+<script>window.SW_VER="20261112232423"</script><script src="logic.js?v=20261112232423"></script>
+<script src="game.js?v=20261112232423"></script>
 </body>
 </html>
