@@ -1558,7 +1558,7 @@
       }
     }
     const bs = bl.join('|');
-    if (bs !== hud.buffs) { hud.buffs = bs; $('buffs').innerHTML = bl.map(b => `<span class="buff">${b}</span>`).join(''); }
+    if (bs !== hud.buffs) { hud.buffs = bs; $('buffs').innerHTML = bl.map(b => `<span class="buff">${b}</span>`).join(''); document.body.classList.toggle('hasbuff', bl.length > 0); }
     // スキル
     SLOT.forEach((i, slot) => {
       const s = SW.SKILLS[i], cost = SW.skillCost(g, i);
@@ -1919,8 +1919,17 @@
   keepList();
   // 名前がない人・前に自分で入れた名前の人には、ガチャで 1 つ引いておく（ランキングの名前も次に送るときに変わる）
   if (!validName(profile.name)) { profile.name = makeName(); profile.nameFix = 1; saveProfile(); }
+  // プレイヤーID：uid から決まる 4 文字（#ABCD）。名前を変えても変わらないので、ランキングでだれか分かる（デストロイ碁と同じ作り）
+  function playerTag(u) {
+    if (!u) return '';
+    let h = 2166136261; for (let i = 0; i < u.length; i++) { h ^= u.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const C = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let t = ''; h >>>= 0;
+    for (let i = 0; i < 4; i++) { t += C[h % C.length]; h = Math.floor(h / C.length); }
+    return t;
+  }
+  const tagHtml = (u) => (u && u !== 'me' ? `<small class="ptag" title="プレイヤーID（名前を変えても変わりません）">#${playerTag(u)}</small>` : '');
   function showName() {
-    $('nameShow').innerHTML = nameHtml(profile.name || '名無しの乗客');
+    $('nameShow').innerHTML = nameHtml(profile.name || '名無しの乗客') + tagHtml(profile.fbUid);
     $('nameIn').value = profile.name || '';
     if ($('olNameShow')) $('olNameShow').innerHTML = nameHtml(profile.name || '名無しの乗客');
     if ($('olName')) $('olName').value = profile.name || '';
@@ -3123,7 +3132,7 @@
   async function mkHof() {
     try {
       if (mkHofCache == null) { const F = await firebaseReady(); if (!F) return ''; mkHofCache = (await withTimeout(F.db.ref('suwaritai/mk/hof').get(), 8000)).val() || {}; }
-      return Object.entries(mkHofCache).filter(([wk]) => wk === weekKey()).map(([wk, h]) => `<div class="rk hof"><span class="n">🏛</span><span class="nm">${nameHtml(dispName(h.n, h.uid))}<div class="ttl">殿堂入り（${esc(wk.slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/'))} の週）<br>${esc(h.why || '')}</div></span><span class="sc">${h.s}</span></div>`).join('');
+      return Object.entries(mkHofCache).filter(([wk]) => wk === weekKey()).map(([wk, h]) => `<div class="rk hof"><span class="n">🏛</span><span class="nm">${nameHtml(dispName(h.n, h.uid))}${tagHtml(h.uid)}<div class="ttl">殿堂入り（${esc(wk.slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/'))} の週）<br>${esc(h.why || '')}</div></span><span class="sc">${h.s}</span></div>`).join('');
     } catch (e) { return ''; }
   }
   async function submitMk(R, rec) {
@@ -3325,7 +3334,7 @@
       if (x.score !== prev) { rank = i + 1; prev = x.score; }
       const me = x.id === b.me; if (me) meShown = true;
       const rp = b.rp && rank <= RP_TOP && b.rp.has[x.id] === x.score ? b.rp : null;
-      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${crownOf(b, x.id)}${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}${rpStats(rp, x.id)}</div></span><span class="sc">${x.score}</span>${rp ? `<button class="rpb" data-rp="${esc(x.id)}" data-kind="${rp.kind}" title="リプレイを見る">▶</button>` : ''}</div>`;
+      html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${crownOf(b, x.id)}${nameHtml(x.name || '名無しの乗客')}${tagHtml(x.id)}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}${rpStats(rp, x.id)}</div></span><span class="sc">${x.score}</span>${rp ? `<button class="rpb" data-rp="${esc(x.id)}" data-kind="${rp.kind}" title="リプレイを見る">▶</button>` : ''}</div>`;
     });
     if (b.mine && !meShown) {
       // 100 位より下：自分の点数のまわり（上と下の数人）を出す。結果画面の小さい表では上下 1 人ずつ
@@ -3335,7 +3344,7 @@
       const inList = new Set(b.list.slice(0, limit).map((x) => x.id));
       near.slice(Math.max(0, m - k), m + k + 1).filter((x) => !inList.has(x.id)).forEach((x) => {
         const me = x.id === b.me;
-        html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${x.rank == null ? '-' : x.rank}</span><span class="nm">${crownOf(b, x.id)}${nameHtml(x.name || '名無しの乗客')}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
+        html += `<div class="rk ${me ? 'me' : ''}"><span class="n">${x.rank == null ? '-' : x.rank}</span><span class="nm">${crownOf(b, x.id)}${nameHtml(x.name || '名無しの乗客')}${tagHtml(x.id)}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${verTag(x)}${esc(x.title)}</div></span><span class="sc">${x.score}</span></div>`;
       });
     }
     return html;
@@ -3357,7 +3366,7 @@
       arr.sort((a, b) => b.r - a.r);
       $('rankNote').textContent = (online ? '🌐 オンライン対戦のレート（レート戦）' : '🏅 ランク線のレート（ひとり）') + '・' + season.replace('-', '年') + '月のシーズン・' + arr.length + '人';
       let prev = null, rank = 0;
-      listEl.innerHTML = arr.length ? arr.map((x, i) => { if (x.r !== prev) { rank = i + 1; prev = x.r; } const me = x.id === F.uid; return `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name)}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${rkBadge(x.r)}・${x.g} 回</div></span><span class="sc">${x.r}</span></div>`; }).join('') : '<p class="small">まだだれもいません。ランク線で一番乗りしよう！</p>';
+      listEl.innerHTML = arr.length ? arr.map((x, i) => { if (x.r !== prev) { rank = i + 1; prev = x.r; } const me = x.id === F.uid; return `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name)}${tagHtml(x.id)}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${rkBadge(x.r)}・${x.g} 回</div></span><span class="sc">${x.r}</span></div>`; }).join('') : '<p class="small">まだだれもいません。ランク線で一番乗りしよう！</p>';
     } catch (e) { $('rankNote').textContent = 'ランク線のランキングを読めませんでした'; }
   }
   async function loadCoop(tab, listEl) {
@@ -4050,7 +4059,7 @@
     let html = '';
     for (let i = 0; i < 4; i++) {
       const m = mem[i];
-      if (m) html += `<div class="olm"><i style="background:${MPCOL[i]}"></i>${nameHtml(dispName(m[1].n, m[0]))}${m[0] === MP.hostUid ? ' <span class="pill">ホスト</span>' : ''}${m[0] === MP.uid ? ' <span class="pill">あなた</span>' : ''}</div>`;
+      if (m) html += `<div class="olm"><i style="background:${MPCOL[i]}"></i>${nameHtml(dispName(m[1].n, m[0]))}${tagHtml(m[0])}${m[0] === MP.hostUid ? ' <span class="pill">ホスト</span>' : ''}${m[0] === MP.uid ? ' <span class="pill">あなた</span>' : ''}</div>`;
       else html += `<div class="olm empty"><i style="background:${MPCOL[i]}"></i>${cpu ? '🤖 ' + CPU_NAMES[i] : '（あき）'}</div>`;
     }
     $('olMembers').innerHTML = html;
@@ -4359,7 +4368,7 @@
     $('mpResList').innerHTML = res.map((r, k) => {
       const me = r.uid === MP.uid; if (me) myRank = k + 1;
       const extra = [causeJa[r.cause] || '', r.pko ? 'トドメ×' + r.pko : '', r.tricks ? 'いたずら×' + r.tricks : ''].filter(Boolean).join('・');
-      return `<div class="mpr ${me ? 'me' : ''}"><span class="n">${k + 1}</span><i style="background:${MPCOL[r.i]}"></i><span class="nm">${nameHtml(r.name)}${r.cpu ? ' 🤖' : ''}${me ? ' <span class="pill">あなた</span>' : ''}<small>${esc(extra)}</small></span><span class="sc">${r.score}</span></div>`;
+      return `<div class="mpr ${me ? 'me' : ''}"><span class="n">${k + 1}</span><i style="background:${MPCOL[r.i]}"></i><span class="nm">${nameHtml(r.name)}${r.cpu ? ' 🤖' : tagHtml(r.uid)}${me ? ' <span class="pill">あなた</span>' : ''}<small>${esc(extra)}</small></span><span class="sc">${r.score}</span></div>`;
     }).join('');
     $('mpResNote').textContent = myRank === 1 ? '🎉 あなたの勝ち！' : myRank ? 'あなたは ' + myRank + ' 位' : '';
     $('mpResT').textContent = v.coop ? '🤝 共闘の結果' : '🏁 オンライン対戦の結果';
