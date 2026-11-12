@@ -2541,7 +2541,9 @@
   // 動画で見る（1 分版・3 分版）。URL は YouTube に上げたら入れる
   const VIDEO_1MIN = 'https://youtu.be/ErsstCp5flw', VIDEO_3MIN = 'https://youtu.be/OGOFh99BOPc';
   // 開発者のプレイ動画（実況）。YouTube に上げたら URL を入れる（空のあいだはボタンを出さない）
-  const VIDEO_PLAY = '';
+  const VIDEO_PLAY = 'https://youtu.be/HlIpZ3c2qOo'; // 2026-11-12 公開：【開発2日目】の版を作った本人が遊んだ動画
+  // 結果画面のシェアの横：作者の実況動画（前は「🔔 フォロー」だった。フォローはタイトル・遊び方・オンラインの結果に残す）
+  if (VIDEO_PLAY) { $('bPlayVid').href = VIDEO_PLAY; $('bPlayVid').addEventListener('click', () => track('開発者のプレイ動画を見た（結果）')); } else $('bPlayVid').classList.add('hidden');
   document.querySelectorAll('.vidP').forEach((a) => { if (VIDEO_PLAY) { a.href = VIDEO_PLAY; a.addEventListener('click', () => track('開発者のプレイ動画を見た')); } else a.classList.add('hidden'); });
   // URL がまだないものは「準備中」と出して押せないようにする
   $('bVideo').classList.remove('hidden');
