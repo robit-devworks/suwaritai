@@ -129,6 +129,9 @@
     { key: 'legs', name: '鉄の脚', icon: '🦵', cost: 35, dur: 40, desc: '立っていても体力が減らない＆揺れに強い（40秒）' },
     { key: 'protein', name: '鉄拳プロテイン', icon: '🥊', cost: 20, dur: 60, desc: 'パンチの威力2倍、ガードで無傷（60秒）' },
     { key: 'confess', name: '懺悔', icon: '🙏', cost: 45, desc: 'カルマ-25（30秒に1回）' },
+    { key: 'shout', name: 'ひとこと注意', icon: '🗣', cost: 10, desc: '離れたところから、注意できる悪者を 1 人注意する（狙った人、いなければいちばん近い人）。こわい人は逆ギレして向かってくる' },
+    { key: 'transfer', name: '乗換案内', icon: '📱', cost: 12, desc: '車両ぜんぶから、次の駅で空く席を 1 つ光らせて矢印で案内（その席が空くまで）。いなければ使えない' },
+    { key: 'disguise', name: '変装', icon: '👴', cost: 30, dur: 20, desc: 'お年寄りに変装（20秒）。優しそうな人（サラリーマン・OL・学生など）の前に立つと席を譲ってくれる…かも（バレるとカルマ+15）。怖い人・寝ている人は譲ってくれない。オンラインではほかのプレイヤーにもお年寄りに見える' },
   ];
 
   // ステータス（やりこむとレベルが上がって割り振れる）。どれも 0〜10、1 ポイントの効き目は小さめ
@@ -250,7 +253,7 @@
     return {
       x, z, yaw: Math.PI / 2, pitch: 0, seat: -1, stamina: C.MAX_STAMINA, karma: 0, toku: 0, earned: 0,
       combo: 0, lastDeedT: -999, carrying: null, lastBraceT: -99, braceHeld: false, punchCD: 0, hitFlash: 0,
-      fakeSleep: false, mode: null, modeT: 0, buffs: {}, drinkCount: 0, confessCD: 0, stagger: 0, punchAnim: 0,
+      fakeSleep: false, mode: null, modeT: 0, buffs: {}, nav: -1, drinkCount: 0, confessCD: 0, stagger: 0, punchAnim: 0,
       ignoreT: 0, sitT: 0, st: normStats(null), mind: 100,
     };
   }
@@ -710,6 +713,8 @@
     if (pl.mode === 'brainwash' && ap && ap.state === 'seated' && apd < 6) return { act: 'brainwash', label: '洗脳ビーム発射', id: ap.id };
     if (pl.mode === 'force' && ap && ap.state === 'seated' && apd < 1.7 && pl.seat < 0) return { act: 'force', label: '無理やりどかす', id: ap.id };
     if (pl.seat >= 0) {
+      // オンライン：お年寄りに変装したプレイヤー（見た目はお年寄り）。譲ると、あとで「プレイヤーだった！」
+      if (g.multi && aimId >= PID) { const j = aimId - PID, T = g.players[j]; if (T && j !== g.pi && !T.out && !T.down && T.pl.buffs.disguise && T.pl.seat < 0 && dist2(T.pl.x, T.pl.z, pl.x, pl.z) < 2.2) return { act: 'giveP', label: 'お年寄りに席を譲る', id: aimId }; }
       const pr = priorityNear(g);
       if (pl.carrying && ap && ap !== pr && apd < 1.8 && ap.state !== 'ko' && !(WARN_ROLES[ap.role] && !ap.warned)) return { act: 'deliver', label: pl.carrying.name + 'を渡す', id: ap.id };
       if (pr) return { act: 'give', label: TYPES[pr.type].name === '???' ? '席を譲る（？）' : TYPES[pr.type].name + 'に席を譲る', id: pr.id };
@@ -813,6 +818,13 @@
     switch (pr.act) {
       case 'sit': playerSit(g, g.seats[pr.id]); break;
       case 'stand': if (!g.mikiwame) playerStand(g); break;
+      case 'giveP': { // オンライン：変装したプレイヤーに席を譲ってしまった
+        const j = pr.id - PID, T = g.players[j], me = g.pi; if (!T || !T.pl.buffs.disguise || T.pl.seat >= 0 || pl.seat < 0) return;
+        const seat = g.seats[pl.seat]; playerStand(g);
+        setCtx(g, j); playerSit(g, seat); g.stats.disguiseSits = (g.stats.disguiseSits || 0) + 1; toast(g, '👴 変装で ' + g.players[me].name + ' に席をゆずってもらった！', 'good'); setCtx(g, me);
+        hurtMind(g, 10, 'お年寄りだと思ったらプレイヤーだった'); toast(g, '😳 …お年寄りじゃなくて ' + T.name + ' だった！', 'bad');
+        break;
+      }
       case 'wake': pl.fakeSleep = false; break;
       case 'give': {
         const p = person(g, pr.id); if (!p) return;
@@ -1003,7 +1015,7 @@
         freeSeat(g, seat, p.id); p.seat = -1; p.leaving = true;
         p.state = 'walk'; const d = nearestDoor(p.x); p.tx = d + (g.r() - 0.5) * 0.5; p.tz = Math.sign(p.z || 1) * 1.0; p.then = 'stand';
         emit(g, { type: 'sfx', name: 'beam' });
-        emit(g, { type: 'beam', id: p.id });
+        emit(g, { type: 'beam', id: p.id }); emit(g, { type: 'skill', key: 'brainwash', quiet: true });
         break;
       }
       case 'force': {
@@ -1026,7 +1038,7 @@
         p.expr = 'angry'; p.exprT = 8; p.angry = 10; bubble(g, p, 'えっ!? ちょっと！', 2);
         p.state = 'stand'; p.x = seat.x + 0.5; p.z = seat.fz; placeStanding(g, p, false);
         playerSit(g, seat);
-        emit(g, { type: 'sfx', name: 'push' });
+        emit(g, { type: 'sfx', name: 'push' }); emit(g, { type: 'skill', key: 'force', quiet: true });
         break;
       }
     }
@@ -1046,6 +1058,34 @@
     }
     if (sk.key === 'drink' && hasRule(g, 'nodrink')) { toast(g, '今日は「回復禁止の日」：エナドリは売り切れ…', 'bad'); return false; }
     if (pl.toku < cost) { toast(g, '徳が足りない（' + cost + '必要）', 'bad'); return false; }
+    if (sk.key === 'shout') {
+      // 注意できる相手（音もれ・弁当など＋ボス駅の困った人）。狙っている人がそうならその人、いなければいちばん近い人
+      const ok = (p) => p && p.state !== 'gone' && p.state !== 'exit' && p.state !== 'ko' && p.state !== 'fight' && !p.warned && (WARN_ROLES[p.role] || (p.role === 'bx' && !p.bxDone && BX[p.bxk] && BX[p.bxk].label));
+      let t = g.aim >= 0 && g.aim < PID ? person(g, g.aim) : null;
+      if (!ok(t)) { t = null; let bd = 1e9; for (const p of g.people) if (ok(p)) { const d = dist2(p.x, p.z, pl.x, pl.z); if (d < bd) { bd = d; t = p; } } }
+      if (!t) { toast(g, '注意できる相手がいない', 'info'); return false; }
+      const keep = g.prompt; g.prompt = { act: 'warn', id: t.id };
+      pl.toku -= cost; g.stats.skillsUsed++; g.stats.shouts = (g.stats.shouts || 0) + 1;
+      emit(g, { type: 'skill', key: sk.key });
+      doAction(g); g.prompt = keep;
+      return true;
+    }
+    if (sk.key === 'transfer') {
+      if (pl.seat >= 0) { toast(g, 'もう座っている', 'info'); return false; }
+      const ns = nextStation(g);
+      let best = null, bd = 1e9;
+      for (const p of g.people) {
+        if (p.state !== 'seated' || p.seat < 0 || p.role || p.fake || p.dest !== ns) continue;
+        const sx = g.seats[p.seat];
+        const d = dist2(sx.x, sx.z, pl.x, pl.z); if (d < bd) { bd = d; best = p; }
+      }
+      if (!best) { toast(g, '📱 次の駅で降りる人が見つからない…（徳は減らない）', 'info'); return false; }
+      pl.nav = best.seat; pl.navId = best.id; pl.buffs.transfer = 90;
+      pl.toku -= cost; g.stats.skillsUsed++;
+      emit(g, { type: 'skill', key: sk.key });
+      toast(g, '📱 次の駅で空く席を見つけた！ 光っている席へ', 'good');
+      return true;
+    }
     if (sk.key === 'confess') {
       if (pl.confessCD > 0) { toast(g, 'まだ懺悔できない（' + Math.ceil(pl.confessCD) + '秒）', 'bad'); return false; }
       if (pl.karma <= 0) { toast(g, '懺悔することがない', 'info'); return false; }
@@ -1061,6 +1101,46 @@
     pl.toku -= cost; g.stats.skillsUsed++;
     emit(g, { type: 'skill', key: sk.key });
     return true;
+  }
+  // 変装：お年寄りに化けて、目の前に座っている人に席を譲ってもらう（2.5 秒ごとに。5 回に 1 回くらいバレる）
+  // 変装しても譲ってくれない人：[ひとこと, 精神のダメージ]
+  const DISG_NO = {
+    yankee: ['あぁ？ じいさんでも立たねぇよ', 8], emperor: ['ここはワシの席じゃ', 8], henchman: ['帝王の前で何してんだ', 6],
+    obachan: ['私だって疲れてるのよ！', 4], drunk: ['うぃ〜…じいちゃん、飲む？', 2], gamer: ['…（ゲームに夢中で気づかない）', 0],
+    dasher: ['次で降りるんで！ …いや降りないけど', 2], thief: ['…（目をそらす）', 0],
+  };
+  function disguiseStep(g, dt) {
+    const pl = g.player;
+    pl.disgT = (pl.disgT || 0) - dt; if (pl.disgT > 0) return;
+    pl.disgT = 2.5;
+    let best = null, bd = 0.8;
+    for (const s of g.seats) {
+      if (s.occ < 0) continue;
+      const q = person(g, s.occ); if (!q || q.role || q.priority || q.state !== 'seated' || q.leaving || q.disgNo) continue;
+      const d = Math.hypot(s.x - pl.x, s.fz - pl.z); if (d < bd) { bd = d; best = [s, q]; }
+    }
+    if (!best) return;
+    const [seat, q] = best;
+    // 優しそうな人（サラリーマン・OL・学生・観光客・オタク）しか譲ってくれない。怖い人・自分のことで手いっぱいの人は断る（同じ人には 1 回だけ）
+    const no = DISG_NO[q.type] || (q.sleep ? ['zzz…（寝ていて気づかない）', 0] : null);
+    if (no) {
+      q.disgNo = true; bubble(g, q, no[0], 2.2);
+      if (no[1]) { q.expr = 'angry'; q.exprT = 2.5; hurtMind(g, no[1], '変装したのに断られた'); }
+      g.stats.disguiseNo = (g.stats.disguiseNo || 0) + 1;
+      return;
+    }
+    if (g.r.chance(0.15)) {
+      delete pl.buffs.disguise; q.expr = 'angry'; q.exprT = 3; bubble(g, q, g.r.pick(['…あれ？ 若くない？', 'それ、つけヒゲですよね？']), 2.2);
+      addKarma(g, 15, '変装がバレた', false); hurtMind(g, 4, '変装がバレて恥ずかしい');
+      g.stats.disguiseCaught = (g.stats.disguiseCaught || 0) + 1;
+      return;
+    }
+    bubble(g, q, g.r.pick(['どうぞ、おかけください', 'あ、どうぞどうぞ', 'お座りください']), 2);
+    q.expr = 'happy'; q.exprT = 2;
+    freeSeat(g, seat, q.id); q.seat = -1; q.state = 'stand'; q.x = seat.x + 0.45; q.z = seat.fz; placeStanding(g, q, false);
+    playerSit(g, seat);
+    g.stats.disguiseSits = (g.stats.disguiseSits || 0) + 1;
+    toast(g, '👴 変装で席をゆずってもらった', 'good');
   }
   function skillCost(g, idx) {
     const sk = SKILLS[idx];
@@ -1186,6 +1266,13 @@
     pl.punchCD = Math.max(0, pl.punchCD - dt); pl.punchAnim = Math.max(0, pl.punchAnim - dt);
     pl.hitFlash = Math.max(0, pl.hitFlash - dt); pl.confessCD = Math.max(0, pl.confessCD - dt); pl.stagger = Math.max(0, pl.stagger - dt);
     for (const k in pl.buffs) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { delete pl.buffs[k]; toast(g, (SKILLS.find(s => s.key === k) || {}).name + 'の効果が切れた', 'info'); } }
+    if (pl.buffs.disguise && pl.seat < 0) disguiseStep(g, dt);
+    if (pl.buffs.transfer) { // 乗換案内：座ったら終わり。案内した人が席を立ったら、あと 8 秒だけ光らせる
+      const q = person(g, pl.navId);
+      if (pl.seat >= 0) delete pl.buffs.transfer;
+      else if ((!q || q.seat !== pl.nav) && pl.buffs.transfer > 8) pl.buffs.transfer = 8;
+    }
+    if (!pl.buffs.transfer) pl.nav = -1;
     if (pl.mode) { pl.modeT -= dt; if (pl.modeT <= 0) pl.mode = null; }
     pl.braceHeld = !!input.brace;
     if (input.bracePressed) pl.lastBraceT = g.t;

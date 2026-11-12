@@ -269,9 +269,11 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 .rpMark{font-size:10px;color:var(--sub);text-align:right;margin-top:3px}
 .fbx{margin:6px 0;color:var(--sub);text-align:center}.fbx a{color:#7fd1ff;font-weight:700}
 .rk.hof{background:linear-gradient(90deg,rgba(255,212,71,.18),rgba(255,212,71,.04));border:1px solid rgba(255,212,71,.5);border-radius:10px}.rk.hof .sc{color:#ffd447}.rk.hof .nm{white-space:normal}.rk.hof .ttl{white-space:normal;line-height:1.35;margin-top:1px}
+#loadList{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}#loadList button{font:inherit;font-size:12px;padding:5px 7px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--sub);cursor:pointer}#loadList button.on{border-color:var(--toku);color:#fff;background:rgba(255,212,71,.14)}#loadList button b{color:var(--toku);margin-right:3px}
 #shareMenu{position:fixed;inset:0;z-index:58;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}#shareMenu.hidden{display:none}#shareMenu .card{max-width:380px;width:calc(100% - 28px)}#shareMenu .btn{display:block;margin:6px 0;width:100%;text-align:center}#shareMenu .btn:disabled{opacity:.45}
 #vidBox{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}#vidBox.hidden{display:none}#vidBox .card{max-width:420px;width:calc(100% - 28px);max-height:calc(100% - 24px);overflow:auto}#vidBox video{width:100%;max-height:50vh;border-radius:10px;background:#000}#vidBox .btn{display:block;margin:6px 0}
-body.vrec #rpPlay,body.vrec #rpSpeed,body.vrec #rpTpv{opacity:.4;pointer-events:none}
+#rpWho i{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 3px 0 1px}
+body.vrec #rpPlay,body.vrec #rpSpeed,body.vrec #rpTpv,body.vrec #rpWho{opacity:.4;pointer-events:none}
 #rpEnd{position:fixed;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)}
 #rpEnd .card{max-width:360px;width:calc(100% - 32px)}
 .rk .rpb{flex:0 0 auto;font:inherit;font-size:14px;width:34px;height:30px;border-radius:8px;border:1px solid #ffd447;background:rgba(255,212,71,.12);color:#ffd447;cursor:pointer}
@@ -535,7 +537,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="fx"><div id="hitFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
 
 <div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spTpv">🎥 3人称</button><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
-<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpLike">🤍 いいね</button><button id="rpVid" class="hidden" title="いちばん大きな出来事を自動で選んで動画にする">📹 おまかせ</button><button id="rpClip" class="hidden" title="始まりと終わりを自分で選んで動画にする（最大 1 分）">✂ 選ぶ</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
+<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpWho" class="hidden" title="見る人を切りかえる"></button><button id="rpLike">🤍 いいね</button><button id="rpVid" class="hidden" title="いちばん大きな出来事を自動で選んで動画にする">📹 おまかせ</button><button id="rpClip" class="hidden" title="始まりと終わりを自分で選んで動画にする（最大 1 分）">✂ 選ぶ</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
 <div id="rpEnd" class="hidden"><div class="card"><h3 id="rpEndT"></h3><button class="btn main" id="rpLike2">🤍 いいね</button><button class="btn sub2" id="rpAgain">もう一度見る</button><button class="btn sub2" id="rpBack">ランキングにもどる</button></div></div>
 <div id="vidBox" class="hidden"></div>
 <div id="shareMenu" class="hidden"><div class="card"><h3>📣 シェアする</h3>
@@ -670,6 +672,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     </ul>
     <h3>スキル（徳で買う）</h3>
     <div id="skillHelp"></div>
+    <p class="small">使うスキルは「Lv」の画面の<b>🎒 スキルのセット</b>で 7 つまで選べます。<b>👴 変装</b>は座っている人の前に立つと席を譲ってもらえる…かも（バレるとカルマ）。オンラインではほかのプレイヤーにもお年寄りに見えて、譲った人は精神が減ります</p>
     <h3>🌐 オンライン（β）</h3>
     <ul>
       <li><b>🎲 ランダムマッチ</b>：待合室のだれかと対戦。<b>🏅 レート戦（β）</b>：レートの近い人と対戦して、対戦レートが上下する</li>
@@ -678,6 +681,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <li>ひとりで遊んでいるときに、募集中の部屋や待っている人がいると上に出る。参加すると今のプレイは保存されて、タイトルの「▶ 続きから」で再開できる</li>
       <li>ライバルを殴ると、相手はよろけるだけ（体力 −8）で、自分のカルマ +15。<b>具合が悪そうな顔</b>（体力 20 以下）ならトドメを刺せる（カルマ +25）</li>
       <li>⚔ 対戦は<b>脱落なし</b>：みんな<b>徳 30</b> を持ってスタート。膝が笑う・KO・連行・心が折れると、その場で<b>スコア 0・徳 30 からやり直し</b></li>
+      <li>終わったら「🎬 この試合のリプレイを見る」でふり返れる（「👤」で見る人を切りかえ・動画にもできる）。共闘ランキングの上位 10 チームはリプレイを ▶ で見られる</li>
       <li>部屋をつくった人（ホスト）の端末が試合を進めます。ホストは試合中にアプリを切りかえないでね</li>
       <li>合言葉を入れて <b>👀 観戦</b>もできる（「次の人」で見る人を切りかえ・1 人称／3 人称）</li>
     </ul>
@@ -742,6 +746,8 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <p class="small" style="color:var(--sub);margin:2px 0 8px">まずはサクッと、雰囲気を知りたい人に</p>
     <a class="btn vid3" target="_blank" rel="noopener" style="text-decoration:none">📖 くわしい遊び方（3 分）</a>
     <p class="small" style="color:var(--sub);margin:2px 0 8px">悪者・スキル・やりこみまで、ぜんぶ知りたい人に</p>
+    <a class="btn vidP" target="_blank" rel="noopener" style="text-decoration:none">🎮 開発者のプレイ動画（開発2日目の版）</a>
+    <p class="small vidP" style="color:var(--sub);margin:2px 0 8px">作った本人が、開発2日目のスワリタイを遊んでみた</p>
     <button class="btn sub2" data-back>もどる</button>
   </div>
 </div>
@@ -777,6 +783,9 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="stwrap"><canvas id="stHex" width="400" height="370"></canvas><div id="stList"></div></div>
     <p class="small" id="stDesc" style="margin:4px 0 0;min-height:1.4em"></p>
     <p class="small" id="stFree" style="margin:2px 0;color:var(--toku)"></p>
+    <h3 style="margin:10px 0 2px;font-size:15px">🎒 スキルのセット</h3>
+    <p class="small" style="margin:0 0 4px;color:var(--sub)">遊ぶときに使うスキルを <b>7 つまで</b>選べます（押すとつけはずし）</p>
+    <div id="loadList"></div>
     <div class="row"><button class="btn sub2" id="stReset">↺ 振り直し</button><button class="btn sub2" data-back>もどる</button></div>
   </div>
 </div>
@@ -838,6 +847,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div id="mpResList"></div>
     <p class="small" id="mpResNote"></p>
     <p class="small"><a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">🔔 作者（𝕏 @ROBITdesuyo）をフォローして、アップデート情報を受け取る</a></p>
+    <button class="btn sub2 hidden" id="mpMyRp">🎬 この試合のリプレイを見る（動画にもできる）</button>
     <button class="btn main" id="mpAgain">もう一回（同じ部屋で）</button>
     <button class="btn sub2" id="mpLeave">部屋を出る</button>
   </div>
@@ -903,7 +913,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261111235451"</script><script src="logic.js?v=20261111235451"></script>
-<script src="game.js?v=20261111235451"></script>
+<script>window.SW_VER="20261112012416"</script><script src="logic.js?v=20261112012416"></script>
+<script src="game.js?v=20261112012416"></script>
 </body>
 </html>
