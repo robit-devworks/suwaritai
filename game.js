@@ -1344,9 +1344,20 @@
     inp.yaw = FACE.y0 + (FACE.y1 - FACE.y0) * e; inp.pitch = FACE.p0 + (FACE.p1 - FACE.p0) * e;
     if (FACE.t >= 1) FACE = null;
   }
+  // 移動スティックの場所：自由（さわった所に出る）／固定・左下／固定・右下（片手用）
+  const joyFix = () => profile.joyFix || '';
+  function applyJoy() { const f = joyFix(); document.body.classList.toggle('joyfix', !!f); document.body.classList.toggle('joyR', f === 'r'); joyKnob.style.transform = ''; if ($('joyMode')) $('joyMode').value = f; }
+  applyJoy();
+  $('joyMode').addEventListener('change', () => { profile.joyFix = $('joyMode').value || null; saveProfile(); applyJoy(); track('移動スティック：' + ({ l: '固定・左下', r: '固定・右下' }[profile.joyFix] || '自由')); });
   joyEl.addEventListener('touchstart', e => {
     initAudio();
     const t = e.changedTouches[0], q = tp(t); joyId = t.identifier; joyO = q;
+    if (joyFix()) { // 固定：スティックのまん中から、どれだけずらしたかで動く
+      const r = joyBase.getBoundingClientRect(); joyO = tp({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
+      const dx0 = q.x - joyO.x, dy0 = q.y - joyO.y, l0 = Math.hypot(dx0, dy0), m0 = 48, k0 = l0 > m0 ? m0 / l0 : 1;
+      joyKnob.style.transform = `translate(${dx0 * k0}px,${dy0 * k0}px)`; inp.joyX = dx0 * k0 / m0; inp.joyY = dy0 * k0 / m0;
+      e.preventDefault(); return;
+    }
     const H = pland ? window.innerWidth : window.innerHeight;
     joyBase.style.display = 'block'; joyBase.style.left = q.x + 'px'; joyBase.style.top = (q.y - (H - joyEl.offsetHeight)) + 'px';
     joyKnob.style.transform = ''; $('joyHint').style.display = 'none'; e.preventDefault();
@@ -1368,7 +1379,7 @@
   }, { passive: false });
   const endTouch = e => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) { joyId = null; inp.joyX = inp.joyY = 0; joyBase.style.display = 'none'; $('joyHint').style.display = ''; }
+      if (t.identifier === joyId) { joyId = null; inp.joyX = inp.joyY = 0; joyKnob.style.transform = ''; joyBase.style.display = 'none'; $('joyHint').style.display = ''; }
       if (t.identifier === lookId) { lookId = null; if (lookMv < 10 && performance.now() - lookT0 < 350 && state === 'play') tapFace(tp(t)); }
     }
   };

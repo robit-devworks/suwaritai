@@ -161,6 +161,12 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 #joy{position:absolute;left:0;bottom:0;width:46%;height:55%;pointer-events:auto}
 #joyBase{position:absolute;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.06);display:none}
 #joyKnob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(255,255,255,.35)}
+/* 移動スティックの場所を固定（一時停止の「🕹 移動スティック」・片手で遊ぶとき用。profile.joyFix） */
+html body.joyfix #joy{width:170px;height:170px;top:auto;bottom:max(14px,env(safe-area-inset-bottom));left:max(10px,env(safe-area-inset-left))}
+html body.joyfix.joyR #joy{left:auto;right:max(10px,env(safe-area-inset-right))}
+html body.joyfix #joyHint{display:none!important}
+html body.joyfix #joyBase{display:block!important;left:50%!important;top:50%!important;width:130px;height:130px;margin:-65px 0 0 -65px;border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.1)}
+html body.joyfix.joyR #tbtns{bottom:calc(max(14px,env(safe-area-inset-bottom)) + 178px)}
 #joyHint{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));width:96px;height:96px;border-radius:50%;border:2px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,.5)}
 #tbtns{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:190px;height:190px;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(20,24,32,.6);font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.15;text-align:center;padding:0}
@@ -172,6 +178,7 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 #bPunch{right:100px;bottom:4px;width:70px;height:70px}
 #bGuard{right:14px;bottom:100px;width:70px;height:70px}
 #bSleep{right:100px;bottom:84px;width:60px;height:60px;font-size:10px}
+body:not(.touch) .touchonly{display:none!important}.sensrow select{flex:1;min-width:0;font:inherit;font-size:13px;padding:4px;border-radius:8px;background:#1b1f29;color:#fff;border:1px solid var(--line)}
 .sensrow{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;font-weight:700}.sensrow input{flex:1;min-width:0;accent-color:var(--toku)}.sensrow b{min-width:44px;text-align:right}
 body.touch #skills{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 134px);left:50%}
 @media (orientation: portrait){body.touch.hasbuff #skills{top:calc(max(8px,env(safe-area-inset-top)) + 160px)}body.touch.hasbuff #toasts{top:calc(max(8px,env(safe-area-inset-top)) + 214px)}} /* 効果中の表示（🦵 30秒など）と重ならないように */
@@ -812,6 +819,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn sub2 hidden" id="bRookieOff">🚃 もう慣れた！本番にする（最初から）</button>
     <button class="btn fs-btn" id="bFs2">⛶ 全画面</button>
     <button class="btn hidden" id="bPort2">📱 縦画面にもどす</button>
+    <label class="sensrow touchonly">🕹 移動スティック <select id="joyMode"><option value="">自由（さわった所に出る）</option><option value="l">固定・左下</option><option value="r">固定・右下（片手用）</option></select></label>
     <label class="sensrow">👀 視点の感度 <input type="range" id="sensR" min="0.5" max="3" step="0.1" value="1"> <b id="sensV">1.0倍</b></label>
     <button class="btn" id="bHow2">📖 遊び方</button>
     <button class="btn" id="bQuit">タイトルへ（途中でやめる）</button>
@@ -929,7 +937,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261112124125"</script><script src="logic.js?v=20261112124125"></script>
-<script src="game.js?v=20261112124125"></script>
+<script>window.SW_VER="20261112230346"</script><script src="logic.js?v=20261112230346"></script>
+<script src="game.js?v=20261112230346"></script>
 </body>
 </html>
