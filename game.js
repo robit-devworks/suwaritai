@@ -3539,7 +3539,7 @@
     $('rpName').innerHTML = (RP.list ? `<small>${RP.k + 1}/${RP.list.list.length}</small> ` : '') + nameHtml(RP.name) + ` <b>${RP.score}</b>点`;
     $('rpBar').classList.remove('hidden'); $('rpEnd').classList.add('hidden'); document.body.classList.add('replay');
     $('mpBoard').classList.toggle('hidden', !RP.mp); MP.boardHtml = ''; $('rpWho').classList.toggle('hidden', !RP.mp); if (RP.mp) rpWhoText();
-    $('rpLike').classList.toggle('hidden', !!o.own); $('rpLike2').classList.toggle('hidden', !!o.own); $('rpVid').classList.toggle('hidden', !o.own || !vidType()); $('rpClip').classList.toggle('hidden', !o.own || !vidType()); RP.clipA = null; $('rpClip').textContent = '✂ 選ぶ'; $('rpClip').classList.remove('pulse');
+    $('rpLike').classList.toggle('hidden', !!o.own); $('rpLike2').classList.toggle('hidden', !!o.own); $('rpVid').classList.toggle('hidden', !o.own || !vidType()); $('rpClip').classList.toggle('hidden', !o.own || !vidType()); clipClose();
     $('rpBack').textContent = o.own ? 'もどる' : 'ランキングにもどる';
     rpButtons();
   }
@@ -3590,7 +3590,7 @@
   });
   $('smClip').addEventListener('click', async () => {
     $('shareMenu').classList.add('hidden');
-    if (await playMyRp('result')) { $('rpClip').classList.add('pulse'); addToast('✂ 動画にしたい場面の始まりで「✂ 選ぶ」を押してね（もう一度押すと終わり・最大 1 分）', 'good'); }
+    if (await playMyRp('result')) { clipOpen(); addToast('✂ バーをドラッグして場面を探し、赤い [ ] で始まりと終わりを決めてね（最大 1 分）', 'good'); }
   });
   // ---- ダイジェスト動画（おまかせ）：いちばん大きな出来事の前後 14 秒を切らずに流して、最後に点数のカード。✂ 選ぶ：自分で場面を選ぶ（最大 1 分）
   // 3D の画面にスコアや見せ場の文字を重ねて、MediaRecorder で録る（ボタンを押したときだけ。ふだんは重くならない）
@@ -3645,11 +3645,10 @@
   function vrStart(range) {
     const vt = vidType(); if (!vt || !RP.active || !RP.own) return;
     track(range ? '場面を選んで動画を作った' : 'ダイジェスト動画を作った');
-    RP.clipA = null; $('rpClip').textContent = '✂ 選ぶ';
+    clipClose();
     // 最初から、見せ場だけをつないで流す
-    const keep = { fr: RP.fr, looks: RP.looks }; clearWorld();
-    G = SW.create({ seed: RP.data.seed, mode: RP.data.mode, mikiwame: !!RP.data.mk }); G.modeName = RP.data.mk ? 'mikiwame' : RP.data.mode;
-    RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null, speed: 1 }, keep); RP.P.out = false; RP.P.result = null; // 動画はいつも 1 倍（早送りなし）
+    const keep = { fr: RP.fr, looks: RP.looks }; rpNewG();
+    Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null, speed: 1 }, keep); RP.P.out = false; RP.P.result = null; // 動画はいつも 1 倍（早送りなし）
     RP.dg = range ? { wins: [[range[0], range[1], '']] } : dgPlan(RP.fr);
     $('rpEnd').classList.add('hidden');
     const src = renderer.domElement, k = 960 / Math.max(src.width, src.height);
@@ -3733,7 +3732,7 @@
     const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
     const R = { sc: { total: RP.score } };
     const text = 'スワリタイ！で ' + RP.score + '点のダイジェスト🚃\nあなたは座れる？\n\n▶ ブラウザですぐ遊べます（無料）\n' + shareUrl() + '\n\n#スワリタイ #バカゲー';
-    $('vidBox').innerHTML = `<div class="card"><h3>📹 ダイジェスト動画ができました</h3><video src="${vidUrl}" controls playsinline loop></video>
+    $('vidBox').innerHTML = `<div class="card"><button class="vx" id="vidX2" title="とじる">✕</button><h3>📹 動画ができました</h3><video src="${vidUrl}" controls playsinline loop></video>
       <p class="small" style="margin:6px 0">${(blob.size / 1048576).toFixed(1)}MB${xOk ? '' : '・このブラウザでは WebM 形式なので、X に載せるときは Chrome / Edge / Safari がおすすめ'}</p>
       ${canShare ? '<button class="btn main" id="vidShare">📤 共有する（X など）</button>' : ''}
       <a class="btn ${canShare ? '' : 'main'}" id="vidSave" href="${vidUrl}" download="${name}" style="text-decoration:none">💾 保存する</a>
@@ -3743,25 +3742,79 @@
     if ($('vidShare')) $('vidShare').onclick = () => { navigator.share({ files: [file], text }).then(() => { track('ダイジェスト動画を共有した'); shareReward(); }).catch(() => { }); };
     $('vidSave').onclick = () => track('ダイジェスト動画を保存した');
     $('vidX').onclick = () => { track('ダイジェスト動画からXへ'); shareReward(); };
+    $('vidBox').onclick = (e) => { if (e.target === $('vidBox')) $('vidClose').onclick(); }; // 外をタップしても閉じる
+    $('vidX2').onclick = () => $('vidClose').onclick();
     $('vidClose').onclick = () => { $('vidBox').classList.add('hidden'); if (RP.active && RP.ended) { $('rpEnd').classList.remove('hidden'); $('rpEndT').innerHTML = nameHtml(RP.name) + ' のリプレイ　<b>' + RP.score + '</b>点'; } };
   }
   $('rpVid').addEventListener('click', () => { if (VR) { vrStop(true); addToast('録画をやめました', 'warn'); } else vrStart(); });
   // 場面を自分で選ぶ：1 回目で始まり、2 回目で終わり（最大 1 分。1 分たったら自動で終わり）
   const CLIP_MAX = 60;
-  function clipEnd() {
-    const a = RP.clipA, now = RP.t0 + RP.t, b = Math.min(now, a + CLIP_MAX);
-    if (b - a < 1) { addToast('もう少し長く選んでね（1 秒以上）', 'warn'); return; }
-    vrStart([a, b]);
+
+  $('rpClip').addEventListener('click', () => { if (VR || !RP.active) return; if (RP.cb) clipClose(); else clipOpen(); });
+  // ---- 再生バー：ドラッグで好きなところへ（記録はそのときの様子がまるごと入っているので、そのコマへ飛べる）
+  const rpLen = () => RP.fr[RP.fr.length - 1].t - RP.t0;
+  const fmtT = (x) => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0');
+  function rpSeekTo(sec) {
+    if (!RP.active || VR) return;
+    const fr = RP.fr, want = RP.t0 + Math.max(0, Math.min(rpLen(), sec));
+    let j = 0; while (j + 1 < fr.length && fr[j + 1].t <= want) j++;
+    RP.i = j - 1; RP.t = fr[j].t - RP.t0; RP.nextI = -2; RP.np = null; RP.seekSkip = true; // 飛んだ先のコマは出来事（お知らせ・音）を出さない
+    if (RP.ended) { RP.ended = false; $('rpEnd').classList.add('hidden'); }
+    $('toasts').innerHTML = ''; $('pops').innerHTML = '';
   }
-  $('rpClip').addEventListener('click', () => {
-    if (VR || !RP.active) return;
-    if (RP.clipA == null) {
-      RP.clipA = RP.t0 + RP.t; if (RP.ended) { addToast('「もう一度見る」で最初から流して選んでね', 'warn'); RP.clipA = null; return; }
-      if (RP.paused) { RP.paused = false; rpButtons(); }
-      $('rpClip').textContent = '✂ ここまで'; $('rpClip').classList.remove('pulse');
-      addToast('✂ ここから！ 終わりでもう一度押してね（最大 1 分）', 'good');
-    } else clipEnd();
-  });
+  function rpSeekUI() {
+    if (!RP.fr) return;
+    const L = rpLen() || 1, cur = Math.min(L, RP.t), f = (x) => Math.max(0, Math.min(100, x / L * 100)) + '%';
+    $('rpProg').style.width = f(cur); $('rpHead').style.left = f(cur);
+    let tx = fmtT(cur) + ' / ' + fmtT(L);
+    if (RP.cb) {
+      const a = RP.cb.a, b = RP.cb.b;
+      $('rpHA').style.left = f(a); $('rpHB').style.left = f(b); $('rpClipR').style.left = f(a); $('rpClipR').style.width = Math.max(0, (b - a) / L * 100) + '%';
+      const len = b - a; $('cbGo').textContent = '🎬 動画にする（' + Math.round(len) + '秒）'; $('cbGo').disabled = len < 1;
+      $('cbNote').textContent = '赤い [ ] が動画にする範囲（' + fmtT(a) + '〜' + fmtT(b) + '・最大 1 分）。[ ] はドラッグでも動かせます';
+      if (RP.cb.play && RP.t >= b) { RP.paused = true; RP.cb.play = false; rpButtons(); }
+    }
+    $('rpTime').textContent = tx;
+  }
+  (function seekDrag() {
+    const el = $('rpSeek'); let drag = null;
+    const secAt = (e) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * rpLen(); };
+    el.addEventListener('pointerdown', (e) => {
+      if (!RP.active || VR) return; e.preventDefault(); e.stopPropagation();
+      drag = e.target.id === 'rpHA' ? 'a' : e.target.id === 'rpHB' ? 'b' : 'seek'; el.setPointerCapture(e.pointerId); move(e);
+    });
+    const move = (e) => {
+      if (!drag) return; const t = secAt(e);
+      if (drag === 'seek') rpSeekTo(t);
+      else clipSet(drag, t);
+      rpSeekUI();
+    };
+    el.addEventListener('pointermove', move);
+    const up = () => { if (drag === 'seek') track('リプレイの再生バーを動かした'); drag = null; };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  })();
+  // ---- 動画にする範囲を選ぶ：開始と終了の [ ] を、ボタン（今の場所）かドラッグで決める
+  function clipSet(k, t) {
+    const L = rpLen(), c = RP.cb; if (!c) return;
+    t = Math.max(0, Math.min(L, t));
+    if (k === 'a') { c.a = t; if (c.b < c.a + 1) c.b = Math.min(L, c.a + 1); if (c.b - c.a > CLIP_MAX) c.b = c.a + CLIP_MAX; }
+    else { c.b = t; if (c.b < c.a + 1) c.a = Math.max(0, c.b - 1); if (c.b - c.a > CLIP_MAX) c.a = c.b - CLIP_MAX; }
+  }
+  function clipOpen() {
+    const L = rpLen(), a = Math.max(0, Math.min(RP.t, L - 1));
+    RP.cb = { a, b: Math.min(L, a + 15), play: false };
+    $('clipBox').classList.remove('hidden'); $('rpBar').classList.add('clip'); $('rpClip').classList.add('pulse'); $('rpClip').textContent = '✂ 選び中';
+    if (!RP.paused) { RP.paused = true; rpButtons(); }
+    rpSeekUI(); track('動画の範囲を選ぶを開いた');
+  }
+  function clipClose() { RP.cb = null; $('clipBox').classList.add('hidden'); $('rpBar').classList.remove('clip'); $('rpClip').classList.remove('pulse'); $('rpClip').textContent = '✂ 選ぶ'; }
+  $('cbA').addEventListener('click', () => { clipSet('a', RP.t); rpSeekUI(); });
+  $('cbB').addEventListener('click', () => { clipSet('b', RP.t); rpSeekUI(); });
+  $('cbPlay').addEventListener('click', () => { if (!RP.cb) return; rpSeekTo(RP.cb.a); RP.cb.play = true; RP.paused = false; rpButtons(); });
+  $('cbX').addEventListener('click', clipClose);
+  $('cbGo').addEventListener('click', () => { const c = RP.cb; if (!c || c.b - c.a < 1) return; const r = [RP.t0 + c.a, RP.t0 + c.b]; clipClose(); vrStart(r); });
+  // ---- 操作のバーをかくす／出す（画面を広く見たいとき）
+  $('rpHide').addEventListener('click', () => { const m = !$('rpBar').classList.contains('mini'); $('rpBar').classList.toggle('mini', m); $('rpHide').textContent = m ? '▴ 出す' : '▾ かくす'; });
   $('bMyRp').addEventListener('click', () => playMyRp('result'));
   $('bMyRp2').addEventListener('click', () => playMyRp('rank'));
   $('bRookieOff').addEventListener('click', () => { profile.rookieOff = true; saveProfile(); track('見習い乗車をやめた（一時停止）'); startGame('normal'); }); // 見習い乗車（はじめの 3 回）をやめて本番へ
@@ -3777,8 +3830,6 @@
   }
   function rpTick(dt) {
     const g = G, fr = RP.fr;
-    if (RP.clipA != null && !VR && RP.t0 + RP.t - RP.clipA >= CLIP_MAX) clipEnd(); // 1 分たったら自動で終わり
-    if (RP.clipA != null && !VR) $('rpClip').textContent = '✂ ここまで ' + Math.floor(RP.t0 + RP.t - RP.clipA) + '秒';
     const cut = RP.dg && !RP.ended ? dgCut() : false;
     if (!RP.paused && !RP.ended && state === 'play' && !cut) RP.t += dt * RP.speed;
     const now = RP.t0 + RP.t;
@@ -3794,8 +3845,9 @@
       b._tx = a[0] / 100; b._tz = a[1] / 100; b._tyaw = a[2] / 100; b._tpitch = a[3] / 100;
       applyPl(g, RP.P, a);
       g.aim = RP.P.aim; g.prompt = RP.P.prompt; RP.obs = a[27] || null;
-      if (RP.speed <= 2 && !cut) for (const e of f.ev || []) g.events.push(e);
+      if (RP.speed <= 2 && !cut && !RP.seekSkip) for (const e of f.ev || []) g.events.push(e);
       if (VR && !cut) for (const e of f.ev || []) vrPop(e);
+      RP.seekSkip = false;
     }
     // なめらかに動かす：今のコマ（i）と次のコマ（i+1）のあいだを、時間でまっすぐつなぐ（0.2 秒ごとの記録でもカクカクしない）
     if (RP.nextI !== RP.i) { RP.nextI = RP.i; rpPrepNext(g); }
@@ -3820,7 +3872,7 @@
     }
     b.punchAnim = Math.max(0, b.punchAnim - dt);
     if (RP.mp) { const k = Math.min(1, dt * 9); g.players.forEach((P, j) => { if (j === RP.mp.me || P.pl._tx == null) return; P.pl.x += (P.pl._tx - P.pl.x) * k; P.pl.z += (P.pl._tz - P.pl.z) * k; P.pl.punchAnim = Math.max(0, P.pl.punchAnim - dt); }); }
-    $('rpProg').style.width = Math.min(100, (RP.i + 1) / fr.length * 100) + '%';
+    rpSeekUI();
     if (!RP.ended && RP.i >= fr.length - 1) {
       RP.ended = true;
       if (VR) { VR.endAt = performance.now() + 3200; return; } // 動画のときは最後のカードを出してから止める
@@ -3876,7 +3928,14 @@
   });
   function rpAvClear() { const av = RP.mp && RP.mp.av; if (av) for (const k in av) { scene.remove(av[k].H.root); if (av[k].tag) scene.remove(av[k].tag); if (av[k].HD) scene.remove(av[k].HD.root); } if (RP.mp) RP.mp.av = {}; $('mpBoard').classList.add('hidden'); }
   $('rpBack').addEventListener('click', () => rpStop(true));
-  $('rpAgain').addEventListener('click', () => { const keep = { fr: RP.fr, looks: RP.looks }; clearWorld(); const seed = G.seed, mode = G.mode; const dm = RP.data && RP.data.mp; rpAvClear(); G = dm ? SW.create({ seed, mode: 'online', coop: !!dm.coop, players: dm.pl.map((p) => ({ name: p.n, cpu: false, stats: {} })) }) : SW.create({ seed, mode, mikiwame: !!(RP.data && RP.data.mk) }); if (dm) { SW.setCtx(G, RP.mp.me); RP.P = G.players[RP.mp.me]; } else RP.P.pl = G.player; Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null }, keep); RP.P.out = false; RP.P.result = null; $('rpEnd').classList.add('hidden'); });
+  // リプレイを最初からやり直すための、まっさらな世界（オンラインの試合なら、プレイヤーも作る）
+  function rpNewG() {
+    const d = RP.data, dm = d && d.mp; rpAvClear(); clearWorld();
+    G = dm ? SW.create({ seed: d.seed, mode: 'online', coop: !!dm.coop, players: dm.pl.map((p) => ({ name: p.n, cpu: false, stats: {} })) }) : SW.create({ seed: d.seed, mode: d.mode, mikiwame: !!d.mk });
+    G.modeName = d.mk ? 'mikiwame' : d.mode;
+    if (dm) { SW.setCtx(G, RP.mp.me); RP.P = G.players[RP.mp.me]; $('mpBoard').classList.remove('hidden'); } else RP.P.pl = G.player;
+  }
+  $('rpAgain').addEventListener('click', () => { const keep = { fr: RP.fr, looks: RP.looks }; rpNewG(); Object.assign(RP, { i: -1, t: 0, ended: false, paused: false, nextI: -2, np: null }, keep); RP.P.out = false; RP.P.result = null; $('rpEnd').classList.add('hidden'); });
   for (const id of ['rpLike', 'rpLike2']) $(id).addEventListener('click', async () => {
     if (RP.liked || RP.uid === RP.me) return;
     RP.liked = true; RP.likes = (RP.likes || 0) + 1; rpButtons(); sfx('combo');

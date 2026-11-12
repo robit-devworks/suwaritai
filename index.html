@@ -81,7 +81,7 @@ body.inapp .logo{margin-bottom:6px}
 #inapp button{flex:none;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:800}
 #inapp #inappClose{padding:5px 9px}
 #dailyRow .btn,#modesRow .btn{flex:1}
-#modesRow .btn{white-space:nowrap;padding-left:4px;padding-right:4px;overflow:hidden;text-overflow:ellipsis}#title .row .btn{min-width:0}#modesRow .newb{margin-right:3px}
+#modesRow .pill{font-size:11px;padding:0 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}#modesRow .btn{white-space:nowrap;padding-left:4px;padding-right:4px;overflow:hidden;text-overflow:ellipsis}#title .row .btn{min-width:0}#modesRow .newb{margin-right:3px}
 .olcodein{flex:1;min-width:0;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:18px;text-align:center;letter-spacing:.2em;user-select:text;-webkit-user-select:text}
 .olcode{text-align:center;font-size:15px;margin:4px 0 8px}
 .olcode b{font-size:30px;letter-spacing:.15em;color:var(--toku)}
@@ -264,8 +264,22 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 .rpCtl{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.rpCtl #rpVid,.rpCtl #rpClip{flex:1 1 40%}.rpCtl #rpClip.pulse{border-color:var(--toku);color:var(--toku);animation:blink .6s infinite alternate}
 .rpCtl button{font:inherit;font-size:13px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer;flex:0 0 auto}
 .rpCtl #rpLike{flex:1}.rpCtl button:disabled{opacity:.7;cursor:default}
-.rpProgW{height:4px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:6px;overflow:hidden}
-#rpProg{display:block;height:100%;width:0;background:#ffd447}
+#rpSeek{position:relative;height:22px;margin-top:4px;touch-action:none;cursor:pointer}
+.rpProgW{position:absolute;left:0;right:0;top:8px;height:6px;background:rgba(255,255,255,.14);border-radius:3px;overflow:hidden}
+#rpProg{position:absolute;left:0;top:0;display:block;height:100%;width:0;background:#ffd447}
+#rpClipR{position:absolute;top:0;height:100%;background:rgba(255,77,77,.55);display:none}
+#rpHead{position:absolute;top:4px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#ffd447;box-shadow:0 0 0 2px #000}
+.rph{position:absolute;top:0;width:20px;margin-left:-10px;text-align:center;font-style:normal;font-weight:900;font-size:18px;line-height:22px;color:#ff4d4d;text-shadow:0 0 3px #000;display:none;touch-action:none}
+#rpBar.clip .rph,#rpBar.clip #rpClipR{display:block}
+#rpTime{font-size:11px;color:var(--sub);margin-top:1px}
+#clipBox{margin-top:6px;padding:6px;border:1px solid rgba(255,77,77,.5);border-radius:10px;background:rgba(255,77,77,.08)}#clipBox.hidden{display:none}
+.cbRow{display:flex;gap:6px;margin-bottom:5px}.cbRow button{flex:1;font:inherit;font-size:12.5px;padding:7px 4px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer}
+.cbRow button.go{background:#e01010;border-color:#fff;color:#fff;font-weight:800}#cbNote{font-size:11.5px;color:var(--sub)}
+#rpHide{margin-left:auto;font:inherit;font-size:12px;padding:3px 9px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer;flex:none}
+#rpBar.mini{width:auto;left:auto;right:max(10px,env(safe-area-inset-right));transform:none;padding:5px 8px;background:rgba(12,14,20,.45)}
+#rpBar.mini .rpCtl,#rpBar.mini #rpSeek,#rpBar.mini #rpTime,#rpBar.mini #clipBox,#rpBar.mini .rpMark,#rpBar.mini #rpName{display:none!important}
+#vidBox .vx{position:sticky;top:0;float:right;font:inherit;font-size:18px;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(20,24,34,.95);color:#fff;cursor:pointer;z-index:2}
+#vidBox video{max-height:42vh!important}
 .rpMark{font-size:10px;color:var(--sub);text-align:right;margin-top:3px}
 .fbx{margin:6px 0;color:var(--sub);text-align:center}.fbx a{color:#7fd1ff;font-weight:700}
 .rk.hof{background:linear-gradient(90deg,rgba(255,212,71,.18),rgba(255,212,71,.04));border:1px solid rgba(255,212,71,.5);border-radius:10px}.rk.hof .sc{color:#ffd447}.rk.hof .nm{white-space:normal}.rk.hof .ttl{white-space:normal;line-height:1.35;margin-top:1px}
@@ -379,7 +393,7 @@ html.pland #title .nmlbl{display:none}
   html:not(.pland) #title .row .btn{white-space:nowrap;font-size:clamp(12px,3.6vw,15px);padding:9px 2px;min-width:0}
   html:not(.pland) #title .row:not(#dailyRow):not(#modesRow){gap:6px}
   html:not(.pland) #title .row:not(#dailyRow):not(#modesRow) .btn{flex:1 1 auto;min-width:auto;padding:9px 4px;font-size:clamp(11px,3.4vw,15px)}
-  html:not(.pland) #title #dailyRow .btn{display:flex;flex-direction:column;align-items:center;gap:2px}
+  html:not(.pland) #title #dailyRow .btn,html:not(.pland) #title #modesRow .btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
   html:not(.pland) #title .small{margin:0}
   html:not(.pland) #title .logo .tag{display:none}
   html:not(.pland) #title #bLand, html:not(.pland) #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
@@ -436,7 +450,7 @@ html.pland #title .nmlbl{display:none}
   #title #bLand, #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
   #title #dailyRow .btn, #title #modesRow .btn{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,2.1vw,16px);padding:7px 4px}
   #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #title #dailyRow .pill{font-size:10px;padding:0 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
+  #title #dailyRow .pill,#title #modesRow .pill{font-size:10px;padding:0 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
   body.touch #bLand.landed{display:none}
   #online .card>p.small:first-of-type{display:none}
   #online h2{margin-bottom:4px;font-size:17px}
@@ -510,7 +524,7 @@ html.pland #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;paddin
 html.pland #title #bLand, html.pland #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
 html.pland #title #dailyRow .btn, html.pland #title #modesRow .btn{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,calc(var(--ph) * 2.1 / 100),16px);padding:7px 4px}
 html.pland #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-html.pland #title #dailyRow .pill{font-size:10px;padding:0 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
+html.pland #title #dailyRow .pill, html.pland #title #modesRow .pill{font-size:10px;padding:0 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
 html.pland body.touch #bLand.landed{display:none}
 html.pland #online .card>p.small:first-of-type{display:none}
 html.pland #online h2{margin-bottom:4px;font-size:17px}
@@ -538,7 +552,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="fx"><div id="hitFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
 
 <div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spTpv">🎥 3人称</button><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
-<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpWho" class="hidden" title="見る人を切りかえる"></button><button id="rpLike">🤍 いいね</button><button id="rpVid" class="hidden" title="いちばん大きな出来事を自動で選んで動画にする">📹 おまかせ</button><button id="rpClip" class="hidden" title="始まりと終わりを自分で選んで動画にする（最大 1 分）">✂ 選ぶ</button><button id="rpClose">✕ 終わる</button></div><div class="rpProgW"><i id="rpProg"></i></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
+<div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span><button id="rpHide" title="操作のバーをかくす／出す">▾ かくす</button></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpWho" class="hidden" title="見る人を切りかえる"></button><button id="rpLike">🤍 いいね</button><button id="rpVid" class="hidden" title="いちばん大きな出来事を自動で選んで動画にする">📹 おまかせ</button><button id="rpClip" class="hidden" title="始まりと終わりを自分で選んで動画にする（最大 1 分）">✂ 選ぶ</button><button id="rpClose">✕ 終わる</button></div><div id="rpSeek" title="ドラッグで好きなところへ"><div class="rpProgW"><i id="rpProg"></i><i id="rpClipR"></i></div><i id="rpHead"></i><i class="rph" id="rpHA">[</i><i class="rph" id="rpHB">]</i></div><div id="rpTime"></div><div id="clipBox" class="hidden"><div class="cbRow"><button id="cbA">[ 開始をここに</button><button id="cbB">終了をここに ]</button></div><div class="cbRow"><button id="cbPlay">▶ 範囲を見る</button><button id="cbGo" class="go">🎬 動画にする</button><button id="cbX">やめる</button></div><div id="cbNote"></div></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
 <div id="rpEnd" class="hidden"><div class="card"><h3 id="rpEndT"></h3><button class="btn main" id="rpLike2">🤍 いいね</button><button class="btn sub2" id="rpAgain">もう一度見る</button><button class="btn sub2" id="rpBack">ランキングにもどる</button></div></div>
 <div id="vidBox" class="hidden"></div>
 <div id="shareMenu" class="hidden"><div class="card"><h3>📣 シェアする</h3>
@@ -606,7 +620,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
-    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る</button></div>
+    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る <span class="pill">PV・作者の実況プレイ</span></button></div>
     <div class="row"><button class="btn sub2" id="bHow"><i class="ic">📖</i>遊び方</button><button class="btn sub2" id="bRank"><i class="ic">🏆</i>ランキング</button><button class="btn sub2" id="bAch"><i class="ic">🎖</i>実績</button><button class="btn sub2" id="bStat"><i class="ic">📊</i>Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
@@ -915,7 +929,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261112120243"</script><script src="logic.js?v=20261112120243"></script>
-<script src="game.js?v=20261112120243"></script>
+<script>window.SW_VER="20261112124125"</script><script src="logic.js?v=20261112124125"></script>
+<script src="game.js?v=20261112124125"></script>
 </body>
 </html>
