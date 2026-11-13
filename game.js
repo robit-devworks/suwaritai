@@ -1499,6 +1499,8 @@
     const rg = $('joyRing'), d = ringD(); rg.style.width = rg.style.height = d + 'px'; rg.style.margin = (-d / 2) + 'px 0 0 ' + (-d / 2) + 'px';
     if ($('ohRow')) { /* 一時停止の「視点だけの範囲」は 2026-11-13 にやめた（感度・ボタン調整の画面で輪を見ながら） */ $('ohR').value = ohR(); $('ohV').textContent = Math.round(ohR() * 100) + '%'; const pv = $('ohPrev').firstChild; pv.style.width = pv.style.height = (d / 150 * 100) + '%'; }
     JO = null; applyLay(); document.body.classList.toggle('joyL1', f === 'L'); document.body.classList.toggle('joyRR', f === 'R'); joyKnob.style.transform = ''; if ($('joyMode')) $('joyMode').value = f; }
+  // 感度・ボタン調整の中でも移動スティックを選べる（2026-11-13・本人：一時停止の中にしかなかった）。変えたら、その操作方法の並びで開き直す（ボタンの位置は操作方法ごとに覚えている）
+  $('leJoy').addEventListener('change', () => { $('joyMode').value = $('leJoy').value; $('joyMode').dispatchEvent(new Event('change')); layOpen(); });
   $('joyMode').addEventListener('change', () => { profile.joyFix = $('joyMode').value || null; saveProfile(); applyJoy(); track('移動スティック：' + ({ l: '固定・左下', R: '固定・右下（ボタンは左）', O: '片手モード', L: '固定・左下（片手）', r: '固定・右下（片手）' }[profile.joyFix] || '自由')); });
   // 画面のタップ：「どこでも 2 回タップでアクション」（profile.dblTap）のとき（2026-11-13・本人と決めた形）
   //   1 回目：向きだけすぐ変える（遅れなし）。歩き出すのは 2 回目が来なかったとき（0.33 秒後）
@@ -1594,6 +1596,7 @@
     LS = { sz: Object.assign({}, (L && L.size) || {}), r: ohR() }; $('leR').value = LS.r;
     $('leRrow').classList.toggle('hidden', !(joyFix() === 'O' && OH_RING));
     $('leNote').classList.toggle('hidden', profile.tapWalk === 0); $('leTap').checked = profile.tapWalk !== 0; $('leDbl').checked = !!profile.dblTap;
+    $('leJoy').value = joyFix() || '';
     $('leTitle').textContent = '🎛 感度・ボタン調整（' + JOY_JA[joyFix()] + '・' + (layO() === 'l' ? '横' : '縦') + '）'; leTab('B');
     $('leSens').value = profile.sens || SENS0; $('leSensV').textContent = (profile.sens || SENS0).toFixed(1) + '倍';
     $('leAccel').checked = !!profile.lookAccel; accUI();
