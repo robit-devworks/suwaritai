@@ -391,7 +391,7 @@ html.pland #title .nmlbl{display:none}
 .newach{margin-top:8px;font-size:13px;color:var(--good);text-align:center}
 #result .card{display:flex;flex-direction:column}
 #result .rL,#result .rR{display:contents}
-#rCause{order:1}#rText{order:2}#rScore{order:3}#rTitle{order:4}#rBrk{order:5}#rStats{order:6}#rAch{order:7}#rRank{order:8}#rNudge{order:8}
+#rCause{order:1}#rText{order:2}#rScore{order:3}#rTitle{order:4}#rkRow{order:4}#rBrk{order:5}#rStats{order:6}#rAch{order:7}#rRank{order:8}#rNudge{order:8}
 #result .rR .row{order:9}#result .fbx{order:9}#bMyRp{order:9}#bToTitle{order:10}#rMiniBox{order:11}
 .modeinfo{font-size:12px;color:var(--sub);margin:-4px 0 6px;text-align:center}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;background:var(--bg);font-size:16px;color:var(--sub);text-align:center;padding:20px}
@@ -960,6 +960,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <p class="res-text" id="rText"></p>
     <div class="score" id="rScore">0</div>
     <div class="rtitle" id="rTitle"></div>
+    <div class="row hidden" id="rkRow" style="margin:8px 0 2px"><button class="btn sub2" id="bRookieTry">🔰 見習い乗車で練習する（体力がへりにくい）</button></div>
     <div class="newach" id="rAch"></div>
     <p class="small" id="rRank"></p>
     <div id="rNudge" class="hidden"></div>
@@ -995,7 +996,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261113072337"</script><script src="logic.js?v=20261113072337"></script>
-<script src="game.js?v=20261113072337"></script>
+<script>window.SW_VER="20261113232918"</script><script src="logic.js?v=20261113232918"></script>
+<script src="game.js?v=20261113232918"></script>
 </body>
 </html>

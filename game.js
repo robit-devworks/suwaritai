@@ -2324,7 +2324,7 @@
     if (BAL2) $('bestLine').textContent = '🧪 新バランスのお試し版（落とし物が少なめ・座ると点）';
     renderModes();
   }
-  const ROOKIE_N = 3; // はじめの何回を見習い乗車にするか
+  const ROOKIE_N = 0; // はじめの何回を見習い乗車にするか（2026-11-13・本人：0 にした。最初の 1 回からランキングに載せる。すぐ倒れた人には結果画面で見習い乗車をすすめる：rkTip）
   function renderModes() {
     const n = (profile.unlock.endless ? 1 : 0) + (profile.unlock.hard ? 1 : 0) + (profile.unlock.jiji ? 1 : 0);
     $('bModes').innerHTML = '<i class="ic">🚇</i>路線・練習・感度調整'; // NEW の印は中の練習乗車・ボス駅ラッシュに出す（ボタンがせまいので）
@@ -2337,7 +2337,7 @@
       ? `<button class="btn" data-mode="${k}">${name}</button><p class="modeinfo">${desc}${profile.bests[k] ? '・ベスト ' + profile.bests[k] : ''}</p>`
       : `<button class="btn" disabled style="opacity:.45">🔒 ？？？</button><p class="modeinfo">${cond}</p>`).join('');
     $('modeList').innerHTML = `<button class="btn sub2" id="bTune">🎛 感度・ボタン調整</button><p class="modeinfo">練習乗車（体力が減らない）で、視点の感度・移動スティック・ボタンの位置と大きさを試しながら決める</p>`
-      + `<h3 style="margin:10px 0 4px">🤖 CPU 戦（生き残り）</h3><div class="cpuRow">${[1, 2, 3].map((l) => `<button class="btn sub2" data-cpu="${l}">${['', '🟢 初級', '🟡 中級', '🔴 上級'][l]}${profile.cpuWin && profile.cpuWin[l] ? ' 🏆' : ''}</button>`).join('')}</div><p class="modeinfo">CPU 3 人と 7 駅。倒れたら即脱落。最後の 1 人になるか、終点で生き残った人の中で徳がいちばん多ければ勝ち。上級の CPU は弱ったライバルにトドメを刺しにくる</p>` + `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="rookie">🔰 見習い乗車</button><p class="modeinfo">体力がへりにくい・最初のボス駅はおそめ。はじめの ${ROOKIE_N} 回と同じ（ランキングなし）</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力・精神が減らない（操作やボタンの位置を試すのにも）。連行されても続く。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
+      + `<h3 style="margin:10px 0 4px">🤖 CPU 戦（生き残り）</h3><div class="cpuRow">${[1, 2, 3].map((l) => `<button class="btn sub2" data-cpu="${l}">${['', '🟢 初級', '🟡 中級', '🔴 上級'][l]}${profile.cpuWin && profile.cpuWin[l] ? ' 🏆' : ''}</button>`).join('')}</div><p class="modeinfo">CPU 3 人と 7 駅。倒れたら即脱落。最後の 1 人になるか、終点で生き残った人の中で徳がいちばん多ければ勝ち。上級の CPU は弱ったライバルにトドメを刺しにくる</p>` + `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="rookie">🔰 見習い乗車</button><p class="modeinfo">体力がへりにくい・最初のボス駅はおそめ（ランキングなし）</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力・精神が減らない（操作やボタンの位置を試すのにも）。連行されても続く。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
     // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
     if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
       const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
@@ -2922,6 +2922,7 @@
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
     { d: '2026-11-13', t: 'CPU 戦・タップで移動・落とし物を投げる ほか', items: [
+      '🏆 1 回目からランキングに載るように（見習い乗車は「路線・練習」からいつでも遊べる）',
       '🤖 CPU 戦（生き残り）！ 初級・中級・上級の CPU 3 人と勝負。倒れたら即脱落（「路線・練習・感度調整」から）',
       '🏅 レート戦は生き残りに。倒れたら脱落・脱落した順で順位が決まる（途中で抜けたら負け）',
       '🎯 落とし物を頭に当てるとヘッドショット（1.5 倍）',
@@ -3050,6 +3051,7 @@
   showSens();
   $('bResume').addEventListener('click', () => { state = 'play'; show(null); if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } } });
   $('bQuit').addEventListener('click', () => { if (MP.active || MP.code) mpLeave(false); else titleScreen(); });
+  $('bRookieTry').addEventListener('click', () => { track('見習い乗車をすすめて押された'); startGame('rookie'); });
   $('bRetry').addEventListener('click', () => { if (G && G.modeName === 'ranked') { startRanked(); return; } startGame(G && G.modeName && G.modeName !== 'practice' ? G.modeName : 'normal'); }); // 練習のあとは本番へ・ランク線は別の電車へ
   $('bToTitle').addEventListener('click', () => titleScreen());
 
@@ -3130,6 +3132,10 @@
     }
     lastResult.moment = momentText(g); setShareHref(); showNudge(g);
     $('bRetry').textContent = mode === 'practice' ? '🚃 本番に挑戦！' : 'もう一回乗る';
+    // すぐ倒れた（3 駅目まで）はじめのころの人にだけ、見習い乗車をすすめる（2026-11-13：はじめの 3 回の見習い乗車をやめたかわり）
+    const rkTip = mode === 'normal' && !g.rookie && r.cause !== 'clear' && Math.min(s.stations, SW.lastStation(g)) <= 3 && (profile.plays || 0) <= 10;
+    $('rkRow').classList.toggle('hidden', !rkTip);
+    if (rkTip) track('見習い乗車をすすめた');
     show('result');
     myRpKeep(g);
     if (g.modeName !== 'tutorial') invRedeem();
