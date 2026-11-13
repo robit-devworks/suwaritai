@@ -168,6 +168,26 @@ html body.joyfix #joyHint{display:none!important}
 html body.joyfix #joyBase{display:block!important;left:50%!important;top:50%!important;width:130px;height:130px;margin:-65px 0 0 -65px;border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.1)}
 html body.joyfix.joyR #tbtns{bottom:calc(max(14px,env(safe-area-inset-bottom)) + 178px)}
 html body.joyfix.joyL1 #tbtns{left:max(12px,env(safe-area-inset-left));right:auto;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 178px)}
+/* 固定・右下：固定・左下を左右反対に（スティックが右下、ボタンが左下） */
+html body.joyfix.joyRR #joy{left:auto;right:max(10px,env(safe-area-inset-right))}
+html body.joyfix.joyRR #tbtns{right:auto;left:max(12px,env(safe-area-inset-left))}
+html body.joyfix.joyRR #bAct{right:auto;left:0}html body.joyfix.joyRR #bPunch{right:auto;left:100px}html body.joyfix.joyRR #bGuard{right:auto;left:14px}html body.joyfix.joyRR #bSleep{right:auto;left:100px}html body.joyfix.joyRR #bTurn{right:auto;left:104px}
+/* 片手スティック：点線の輪の内側＝視点、外側＝移動（profile.joyFix = 'O'・profile.ohR） */
+#joyRing{position:absolute;left:50%;top:50%;border:2px dashed rgba(255,255,255,.55);border-radius:50%;display:none;pointer-events:none}
+body.joyO #joyRing{display:block}body.joyO #joyKnob.look{background:rgba(127,209,255,.65)}body.joyO #joyKnob.move{background:rgba(255,212,71,.75)}
+html body.joyfix.joyO #joy{width:190px;height:190px}html body.joyfix.joyO #joyBase{width:150px;height:150px;margin:-75px 0 0 -75px}
+/* ボタンの位置を自分で決めたとき（profile.lay）：#tbtns を画面いっぱいにして、ボタンを % で置く */
+body.customlay #tbtns{left:0!important;top:0!important;right:0!important;bottom:0!important;width:auto!important;height:auto!important}
+#layEdit{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.35);touch-action:none}#layEdit.hidden{display:none}
+.leBar{position:absolute;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;background:rgba(12,14,20,.92);border:1px solid var(--line);border-radius:12px;padding:8px 10px;width:min(560px,calc(100% - 20px));box-sizing:border-box}
+.leBar b{flex:1 1 100%;text-align:center;font-size:14px}.leBar button{font:inherit;font-size:13px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.1);color:#fff}
+#leSave{background:#e01010!important;border-color:#fff!important;font-weight:800}
+.leH{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px dashed #ffd447;background:rgba(255,212,71,.18);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:700;touch-action:none;cursor:grab;text-align:center}
+.leH span{font-size:22px}
+.leH.sel{border-style:solid;border-color:#ff4d4d;background:rgba(255,77,77,.25);z-index:2}.leS{flex-wrap:wrap}.leS.leChk{flex-wrap:nowrap}.leS.leChk>span{flex:1 1 auto}.leS.leChk input{flex:none;width:20px;height:20px}.leNote{flex:1 1 100%;font-size:11.5px;line-height:1.5;color:#cfd6e2;background:rgba(127,209,255,.08);border:1px solid rgba(127,209,255,.35);border-radius:8px;padding:5px 8px;text-align:left}.leNote b{color:#7fd1ff;font-size:11.5px;flex:none;text-align:left}.leNote.hidden{display:none}.leNote summary{cursor:pointer;color:#7fd1ff;font-weight:700}.leBar{z-index:3}.leS>span{flex:1 1 100%}
+.leS{flex:1 1 100%;display:flex;align-items:center;gap:6px;font-size:12px;color:#e8ecf4}.leS input{flex:1;min-width:0;accent-color:var(--toku)}.leS em{font-style:normal;min-width:38px;text-align:right;color:var(--toku)}.leS.hidden{display:none}.leBar{position:absolute}.leBar .leXTop{position:absolute;top:6px;right:6px;width:34px;height:34px;padding:0!important;font-size:18px!important;line-height:1;border-radius:50%!important;display:flex;align-items:center;justify-content:center}.leBar b#leTitle{padding:0 36px}.leTabs{flex:1 1 100%;display:flex;gap:6px}.leTabs button{flex:1;font-size:13px!important;padding:8px 6px!important}.leTabs button.on{background:var(--toku)!important;color:#1a1a1a!important;font-weight:800;border-color:var(--toku)!important}.lePane{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px;max-height:52vh;overflow-y:auto}.lePane.hidden{display:none}.leHint{flex:1 1 100%;font-size:12.5px;line-height:1.5;color:#e8ecf4;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.4);border-radius:8px;padding:6px 8px;text-align:left}.leHint b{display:inline;flex:none;font-size:12.5px;color:var(--toku)}
+.leRing{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:2px dashed #7fd1ff;border-radius:50%;pointer-events:none}
+#ohPrev{flex:none;position:relative;overflow:visible;width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,.45);background:rgba(255,255,255,.06)}#ohPrev i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:2px dashed #7fd1ff;border-radius:50%;box-sizing:border-box}
 #joyHint{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));width:96px;height:96px;border-radius:50%;border:2px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,.5)}
 #tbtns{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:190px;height:190px;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(20,24,32,.6);font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;line-height:1.15;text-align:center;padding:0}
@@ -179,7 +199,8 @@ html body.joyfix.joyL1 #tbtns{left:max(12px,env(safe-area-inset-left));right:aut
 #bPunch{right:100px;bottom:4px;width:70px;height:70px}
 #bGuard{right:14px;bottom:100px;width:70px;height:70px}
 #bSleep{right:100px;bottom:84px;width:60px;height:60px;font-size:10px}
-body:not(.touch) .touchonly{display:none!important}.sensrow select{flex:1;min-width:0;font:inherit;font-size:13px;padding:4px;border-radius:8px;background:#1b1f29;color:#fff;border:1px solid var(--line)}
+#bTurn{right:104px;bottom:152px;width:54px;height:54px;font-size:10px}
+body:not(.touch) .touchonly{display:none!important}body.touch .pconly{display:none!important}.sensrow select{flex:1;min-width:0;font:inherit;font-size:13px;padding:4px;border-radius:8px;background:#1b1f29;color:#fff;border:1px solid var(--line)}
 .sensrow{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;font-weight:700}.sensrow input{flex:1;min-width:0;accent-color:var(--toku)}.sensrow b{min-width:44px;text-align:right}
 body.touch #skills{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 134px);left:50%}
 @media (orientation: portrait){body.touch.hasbuff #skills{top:calc(max(8px,env(safe-area-inset-top)) + 160px)}body.touch.hasbuff #toasts{top:calc(max(8px,env(safe-area-inset-top)) + 214px)}} /* 効果中の表示（🦵 30秒など）と重ならないように */
@@ -294,6 +315,7 @@ html.pland body.touch #tut{top:max(6px,env(safe-area-inset-top));left:calc(50% +
 .rpMark{font-size:10px;color:var(--sub);text-align:right;margin-top:3px}
 .fbx{margin:6px 0;color:var(--sub);text-align:center}.fbx a{color:#7fd1ff;font-weight:700}
 .rk.hof{background:linear-gradient(90deg,rgba(255,212,71,.18),rgba(255,212,71,.04));border:1px solid rgba(255,212,71,.5);border-radius:10px}.rk.hof .sc{color:#ffd447}.rk.hof .nm{white-space:normal}.rk.hof .ttl{white-space:normal;line-height:1.35;margin-top:1px}
+#loadOrder{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}#loadOrder .lo{display:flex;align-items:center;gap:1px;border:1px solid var(--toku);border-radius:10px;background:rgba(255,212,71,.1);font-size:13px;padding:1px}#loadOrder .lo b{color:var(--toku);font-size:11px;margin:0 2px}#loadOrder button{font:inherit;font-size:11px;width:22px;height:26px;padding:0;border:0;border-radius:7px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer}#loadOrder button:disabled{opacity:.25}
 #loadList{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}#loadList button{font:inherit;font-size:12px;padding:5px 7px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--sub);cursor:pointer}#loadList button.on{border-color:var(--toku);color:#fff;background:rgba(255,212,71,.14)}#loadList button b{color:var(--toku);margin-right:3px}
 #shareMenu{position:fixed;inset:0;z-index:58;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}#shareMenu.hidden{display:none}#shareMenu .card{max-width:380px;width:calc(100% - 28px)}#shareMenu .btn{display:block;margin:6px 0;width:100%;text-align:center}#shareMenu .btn:disabled{opacity:.45}
 #vidBox{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}#vidBox.hidden{display:none}#vidBox .card{max-width:420px;width:calc(100% - 28px);max-height:calc(100% - 24px);overflow:auto}#vidBox video{width:100%;max-height:50vh;border-radius:10px;background:#000}#vidBox .btn{display:block;margin:6px 0}
@@ -431,6 +453,7 @@ html.pland #title .nmlbl{display:none}
   #bPunch{right:86px;bottom:2px;width:60px;height:60px}
   #bGuard{right:10px;bottom:86px;width:60px;height:60px}
   #bSleep{right:86px;bottom:70px;width:50px;height:50px}
+  #bTurn{right:88px;bottom:126px;width:46px;height:46px}
   #joy{width:38%;height:78%}
   body.touch.joyfix.joyR #joy{left:max(10px,env(safe-area-inset-left));right:auto}
   body.touch.joyfix.joyR #tbtns,body.touch.joyfix.joyL1 #tbtns{left:auto;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom))}
@@ -508,6 +531,7 @@ html.pland #bAct{width:78px;height:78px}
 html.pland #bPunch{right:86px;bottom:2px;width:60px;height:60px}
 html.pland #bGuard{right:10px;bottom:86px;width:60px;height:60px}
 html.pland #bSleep{right:86px;bottom:70px;width:50px;height:50px}
+html.pland #bTurn{right:88px;bottom:126px;width:46px;height:46px}
 html.pland #joy{width:38%;height:78%}
 html.pland body.touch.joyfix.joyR #joy{left:max(10px,env(safe-area-inset-left));right:auto}
 html.pland body.touch.joyfix.joyR #tbtns, html.pland body.touch.joyfix.joyL1 #tbtns{left:auto;right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom))}
@@ -616,12 +640,13 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 </div>
 
 <div id="touch" class="hidden">
-  <div id="joy"><div id="joyHint">移動</div><div id="joyBase"><div id="joyKnob"></div></div></div>
+  <div id="joy"><div id="joyHint">移動</div><div id="joyBase"><i id="joyRing"></i><div id="joyKnob"></div></div></div>
   <div id="tbtns">
     <button class="tb" id="bAct"><span>✋</span><em id="bActL" style="font-style:normal">アクション</em></button>
     <button class="tb" id="bPunch"><span>👊</span>パンチ</button>
     <button class="tb" id="bGuard"><span>🛡</span>踏ん張る</button>
     <button class="tb hidden" id="bSleep"><span style="font-size:18px">😪</span>狸寝入り</button>
+    <button class="tb" id="bTurn"><span style="font-size:18px">🔄</span>振り向く</button>
   </div>
 </div>
 
@@ -647,7 +672,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 
 <div id="modes" class="screen hidden">
   <div class="card">
-    <h2>そのほかの路線</h2>
+    <h2>路線・練習・感度調整</h2>
     <div id="modeList"></div>
     <button class="btn sub2" data-back>もどる</button>
   </div>
@@ -692,7 +717,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <ul>
       <li><b>👀 見極め線</b>：様子のカードなし。しぐさだけで降りる人を読む。座ると一気に回復して、お年寄りに席を譲ったらまた読む。読みが当たり続けるとコンボ</li>
       <li><b>📅 今日のダイヤ</b>：今日はみんな同じ電車。毎日ちがう「今日のルール」つき（目利きの日・大揺れの日・スキル半額の日 など）</li>
-      <li><b>🔰 練習乗車</b>（路線・練習）：体力が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ）</li>
+      <li><b>🔰 練習乗車</b>（路線・練習）：体力・精神が減らない。連行されても続く。操作やボタンの位置を試すのにも。まずは慣れたい人に（最終ボス駅は本番だけ）</li>
       <li><b>⚠ ボス駅ラッシュ</b>（路線・練習）：毎駅がボス駅。倒れるまでにいくつクリアできるか</li>
     </ul>
     <h3>カルマに注意</h3>
@@ -735,10 +760,12 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <kbd>F / 右クリック</kbd><span>パンチ</span>
       <kbd>Space</kbd><span>踏ん張る（揺れ対策）・ガード</span>
       <kbd>Q</kbd><span>狸寝入り（座っている時）</span>
+      <kbd>R</kbd><span>振り向く（真後ろを向く）</span>
       <kbd>1〜7</kbd><span>スキル</span>
       <kbd>Esc / P</kbd><span>一時停止（全画面のままなら P）</span>
     </div>
-    <p class="small">📱 スマホは、人や空いた席を<b>軽くタップ</b>するとそっちを向きます。一時停止（Ⅱ）で<b>視点の感度</b>を変えられます。</p>
+    <p class="small">📱 スマホは、人や空いた席を<b>軽くタップ</b>するとそっちを向きます。一時停止（Ⅱ）の「🎛 感度・ボタン調整」で<b>視点の感度</b>・ボタンの位置と大きさを変えられます。</p>
+    <p class="small">👆 <b>タップで移動</b>（スマホ・どの操作方法でも。「🎛 感度・ボタン調整」で切りかえ）：<b>👉 画面をタップ</b>：タップした床（黄色い輪）まで自動で歩く。人をタップするとその人の正面まで。座る・注意するはアクション（スティックのトントン・どこでも 2 回タップでも）／<b>🕹 スティック</b>：歩く（タップで歩いているあいだは、行き先へ向かいながらスティックの向きに寄り道できる）／<b>👀 画面をなぞる</b>：視点を回す（自動の歩きも止まる）／<b>✋ スティックをトントン</b>：アクション</p>
     <p class="small">🎬 遊び終わったら、結果画面で<b>自分のリプレイ</b>が見られます（前回の分はランキングの画面からも）。「📹 おまかせ」でいちばん大きな出来事の<b>動画</b>、「✂ 選ぶ」で好きな場面（最大 1 分）を動画にして、X などにシェアできます。</p>
     <p class="small">スコア ＝ 集めた徳 ＋ 駅ごとのボーナス ＋ 完走ボーナス − カルマ</p>
     <p class="small">作者：ROBIT（<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">𝕏 @ROBITdesuyo</a>）　アップデート情報も X で<br>作者のほかのゲーム：<a class="dg-link" data-from="遊び方" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--accent)">🎮 デストロイ碁（石を壊す囲碁バトル）</a></p>
@@ -791,6 +818,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   </div>
 </div>
 
+<div id="layEdit" class="hidden"><div class="leBar"><b id="leTitle">🎛 感度・ボタン調整</b><button id="leXTop" class="leXTop" aria-label="とじる">✕</button><div class="leTabs"><button id="leTabB" class="on">🖐 ボタンの位置・大きさ</button><button id="leTabS">👀 感度・操作</button></div><div id="lePaneB" class="lePane"><div class="leHint">👇 下の丸を<b>指で引っぱる</b>と位置が変わります。丸を<b>タップして選ぶ</b>と、その大きさを下のつまみで変えられます</div><label class="leS"><span>選んだもの：<span id="leSel" style="color:#ff8a8a;font-weight:800"></span> の大きさ</span><input type="range" id="leB" min="0.6" max="1.6" step="0.05"> <em id="leBv"></em></label></div><div id="lePaneS" class="lePane hidden"><label class="leS"><span>👀 視点の感度</span><input type="range" id="leSens" min="0.5" max="5" step="0.1"> <em id="leSensV"></em></label><label class="leS leChk"><input type="checkbox" id="leTap"> <span>👆 タップで移動（床をタップすると黄色い輪のところまで、人をタップするとその人の正面まで歩く／スティックをトントンでアクション）</span></label><label class="leS leChk"><input type="checkbox" id="leDbl"> <span>✌ 画面のどこでも 2 回タップでアクション（1 回タップの歩き出しだけ少し遅れる）</span></label><label class="leS leChk"><input type="checkbox" id="leAccel"> <span>🚀 速くなぞるほど大きく回る（ゆっくりなぞると細かく狙える）</span></label><label class="leS" id="leAKrow"><span>🚀 加速の強さ（右ほど、速くなぞったときに大きく回る・ゆっくりはより細かく）</span><input type="range" id="leAK" min="0.3" max="3" step="0.1"> <em id="leAKV"></em></label><label class="leS"><span>🔄 振り向く速さ（左ほど速い）</span><input type="range" id="leTurn" min="0.2" max="1" step="0.05"> <em id="leTurnV"></em></label><label class="leS" id="leRrow">👆 視点だけの範囲（点線の輪） <input type="range" id="leR" min="0.2" max="2" step="0.05"> <em id="leRv"></em></label><details class="leNote" id="leNote"><summary>❓ タップで移動の使い方</summary><b>👉 画面をタップ</b>：タップした床（黄色い輪）まで自動で歩く。人をタップするとその人の正面まで。座る・注意するはアクション（スティックのトントン・どこでも 2 回タップでも）<br><b>🕹 スティック</b>：歩く（タップで歩いているあいだは、行き先へ向かいながらスティックの向きに寄り道できる）<br><b>👀 画面をなぞる</b>：視点を回す（自動の歩きも止まる）<br><b>✋ スティックをトントン</b>：アクション</details></div><button id="leSave">✓ 保存</button><button id="leReset">↺ 元にもどす</button><button id="leX">✕ やめる</button></div><div id="leBox"></div></div>
 <div id="oneHand" class="hidden"><div class="card">
   <h3>🕹 片手で遊べるようになりました！</h3>
   <p class="small" style="margin:4px 0 10px">移動スティックを親指の下に固定して、ボタンもすぐ上に。電車でつり革を持ちながらでも遊びやすい</p>
@@ -831,7 +859,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <p class="small" id="stFree" style="margin:2px 0;color:var(--toku)"></p>
     <h3 style="margin:10px 0 2px;font-size:15px">🎒 スキルのセット</h3>
     <p class="small" style="margin:0 0 4px;color:var(--sub)">遊ぶときに使うスキルを <b>7 つまで</b>選べます（押すとつけはずし）</p>
-    <div id="loadList"></div>
+    <div id="loadList"></div><p class="small" style="margin:2px 0 3px;color:var(--sub)">並び順（スキルのバーの左から・◀ ▶ で入れかえ）</p><div id="loadOrder"></div>
     <div class="row"><button class="btn sub2" id="stReset">↺ 振り直し</button><button class="btn sub2" data-back>もどる</button></div>
   </div>
 </div>
@@ -843,8 +871,11 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn sub2 hidden" id="bRookieOff">🚃 もう慣れた！本番にする（最初から）</button>
     <button class="btn fs-btn" id="bFs2">⛶ 全画面</button>
     <button class="btn hidden" id="bPort2">📱 縦画面にもどす</button>
-    <label class="sensrow touchonly">🕹 移動スティック <select id="joyMode"><option value="">自由（さわった所に出る）</option><option value="l">固定・左下</option><option value="L">固定・左下（片手用・縦画面）</option><option value="r">固定・右下（片手用・縦画面）</option></select></label>
-    <label class="sensrow">👀 視点の感度 <input type="range" id="sensR" min="0.5" max="3" step="0.1" value="1"> <b id="sensV">1.0倍</b></label>
+    <label class="sensrow touchonly">🕹 移動スティック <select id="joyMode"><option value="">自由（さわった所に出る）</option><option value="l">固定・左下</option><option value="R">固定・右下（ボタンは左）</option><option value="O">片手モード（タップで移動・スティックは左下）</option></select></label>
+    <label class="sensrow hidden" id="ohRow">👆 視点だけの範囲 <input type="range" id="ohR" min="0.2" max="2" step="0.05" value="0.6"> <b id="ohV">60%</b><span id="ohPrev" title="輪の大きさの見本"><i></i></span></label>
+    <button class="btn touchonly" id="bLay">🎛 感度・ボタン調整</button>
+    <label class="sensrow pconly">🔄 振り向く（R）<input type="range" id="turnR" min="0.2" max="1" step="0.05" value="0.45"> <b id="turnV">0.45秒</b></label>
+    <label class="sensrow pconly">👀 視点の感度 <input type="range" id="sensR" min="0.5" max="5" step="0.1" value="1"> <b id="sensV">1.0倍</b></label>
     <button class="btn" id="bHow2">📖 遊び方</button>
     <button class="btn" id="bQuit">タイトルへ（途中でやめる）</button>
     <p class="small">PCは画面をクリックするとマウスで見回せます。全画面のままメニューを開くには <b>P</b> キー（Chrome・Edge は Esc でも OK。全画面をやめるときは Esc を長押し）。</p>
@@ -961,7 +992,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261112232423"</script><script src="logic.js?v=20261112232423"></script>
-<script src="game.js?v=20261112232423"></script>
+<script>window.SW_VER="20261113034222"</script><script src="logic.js?v=20261113034222"></script>
+<script src="game.js?v=20261113034222"></script>
 </body>
 </html>

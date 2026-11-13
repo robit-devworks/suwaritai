@@ -167,7 +167,7 @@
 
   // 座席
   const seatGlow = [], hogBags = [], flyBags = [];
-  let navGlow = null, navTag = null, navArrow = null;
+  let navGlow = null, navTag = null, navArrow = null, awMark = null; // awMark：タップした行き先の床の輪
   let speakerM = null, lastBeat = -1;
   const glowMat = new T3.MeshBasicMaterial({ color: '#7dff9a', transparent: true, opacity: 0.4, depthWrite: false });
   (function buildSeats() {
@@ -207,6 +207,7 @@
     { const sh = new T3.Shape(); sh.moveTo(0, 0.28); sh.lineTo(0.16, 0); sh.lineTo(0.06, 0); sh.lineTo(0.06, -0.22); sh.lineTo(-0.06, -0.22); sh.lineTo(-0.06, 0); sh.lineTo(-0.16, 0); sh.lineTo(0, 0.28);
       const am = new T3.Mesh(new T3.ShapeGeometry(sh), new T3.MeshBasicMaterial({ color: 0x38c8ff, transparent: true, opacity: 0.85, depthWrite: false, side: T3.DoubleSide })); am.rotation.x = Math.PI / 2;
       navArrow = new T3.Group(); navArrow.add(am); navArrow.visible = false; car.add(navArrow); }
+    awMark = new T3.Mesh(new T3.RingGeometry(0.13, 0.2, 28), new T3.MeshBasicMaterial({ color: 0xffd400, transparent: true, opacity: 0.9, depthWrite: false, side: T3.DoubleSide })); awMark.rotation.x = -Math.PI / 2; awMark.visible = false; car.add(awMark);
     for (const s of g0.seats) {
       const m = new T3.Mesh(new T3.PlaneGeometry(0.44, 0.42), glowMat);
       m.rotation.x = -Math.PI / 2; m.position.set(s.x, 0.485, s.z); m.visible = false; car.add(m); seatGlow.push(m);
@@ -1077,7 +1078,9 @@
       ids.add(it.id);
       let m = itemMeshes.get(it.id);
       if (!m) { m = makeItemMesh(it.key); scene.add(m); itemMeshes.set(it.id, m); }
-      m.position.set(it.x, 0.02, it.z); m.rotation.y = it.id;
+      const ft = it.dropT != null ? (g.t - it.dropT) / 0.4 : 1, pl0 = g.player; // 置いたとき：手もとから見ている所へ、ふわっと投げる（0.4 秒）
+      if (ft >= 0 && ft < 1 && it.dropBy === g.pi) { if (!m.userData.from) m.userData.from = [pl0.x, pl0.z]; const [x0, z0] = m.userData.from; m.position.set(x0 + (it.x - x0) * ft, 0.02 + 1.1 * (1 - ft) + 0.5 * Math.sin(Math.PI * ft), z0 + (it.z - z0) * ft); m.rotation.y = it.id + ft * 6; }
+      else { m.userData.from = null; m.position.set(it.x, 0.02, it.z); m.rotation.y = it.id; }
       m.userData.spark.material.opacity = 0.5 + 0.5 * Math.sin(now * 5);
     }
     for (const [id, m] of itemMeshes) if (!ids.has(id)) { scene.remove(m); itemMeshes.delete(id); }
@@ -1274,6 +1277,7 @@
     if (e.code === 'KeyF') inp.punch = true;
     if (e.code === 'Space') { if (!e.repeat) inp.bracePressed = true; e.preventDefault(); }
     if (e.code === 'KeyQ') inp.fakeSleep = true;
+    if (e.code === 'KeyR' && state === 'play') turnBack();
     if (/^Digit[1-7]$/.test(e.code) && SLOT[+e.code.slice(5) - 1] != null) inp.skill = SLOT[+e.code.slice(5) - 1];
     // P・Tab でも一時停止（全画面のまま）。Chrome・Edge の全画面では Esc も横取りしているので、Esc でもメニューが開く
     if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Tab') { if (e.code === 'Tab') e.preventDefault(); pause(); if (document.pointerLockElement) document.exitPointerLock(); }
@@ -1310,11 +1314,12 @@
   // タッチ
   const joyEl = $('joy'), joyBase = $('joyBase'), joyKnob = $('joyKnob');
   let joyId = null, joyO = null, lookId = null, lookP = null, lookMv = 0, lookT0 = 0;
-  // 視点の感度（一時停止の画面で 0.5〜3 倍。指でなぞる・マウスに効く）
+  // 視点の感度（一時停止の画面で 0.5〜5 倍。指でなぞる・マウスに効く）
   const SENS0 = isTouch ? 1.4 : 1; // はじめの感度（2026-11-12：スマホは上げる人が多かったので 1.4 に）
   const sens = () => profile.sens || SENS0;
   // ---- タップした人・空いた席のほうを向く（指で画面を軽くたたく）
-  let FACE = null;
+  const TAP_FLOOR_ONLY = true;
+  let FACE = null, TACT = null; // TACT：目の前の相手をタップした → 向き終わったらアクション
   const _fv = new T3.Vector3();
   function tapFace(q) {
     const g = G; if (!g || g.over || !canvas.clientWidth) return;
@@ -1325,37 +1330,298 @@
       _fv.set(x, y, z).project(camera); if (_fv.z > 1 || _fv.z < -1) return;
       const sx = (_fv.x + 1) / 2 * W, sy = (1 - _fv.y) / 2 * Hh, d = (sx - q.x) ** 2 + (sy - q.y) ** 2;
       const w = kind === 'seat' ? d * 1.6 : d; // 人を少し優先
-      if (w < bd) { bd = w; best = { x, y, z }; }
+      if (w < bd) { bd = w; best = { x, y, z, seat: kind === 'seat' ? sref : null, person: kind === 'p' ? pref : null }; }
     };
-    for (const p of g.people) { if (p.state === 'gone' || p.state === 'exit') continue; const sit = p.seat >= 0; cand(p.x, sit ? 1.0 : 1.35, p.z, 'p'); if (!sit) cand(p.x, 0.9, p.z, 'p'); else cand(p.x, 0.6, p.z, 'p'); }
-    for (const st of g.seats) if (st.occ < 0) cand(st.x, 0.45, st.z, 'seat');
-    if (!best) return;
-    const c = camera.position, dx = best.x - c.x, dz = best.z - c.z, h = Math.hypot(dx, dz);
-    if (h < 0.15) return;
-    const ty = Math.atan2(-dx, -dz), tpch = Math.max(-1.2, Math.min(1.2, Math.atan2(best.y - c.y, h)));
-    let d = ty - inp.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
-    FACE = { y0: inp.yaw, y1: inp.yaw + d, p0: inp.pitch, p1: tpch, t: 0 };
-    track('タップで向いた');
+    let pref = null, sref = null;
+    // 人：その人の体（足もと〜頭）の上をタップしたときだけ（2026-11-13・本人：人の近くの床をタップしても、その人の所へ行ってしまい、タップした所を通りすぎていた）
+    { let bz = 1e9; const cp = camera.position;
+      for (const p of g.people) {
+        if (p.state === 'gone' || p.state === 'exit') continue;
+        const sit = p.seat >= 0; _fv.set(p.x, 0, p.z).project(camera); if (_fv.z > 1 || _fv.z < -1) continue;
+        const fx0 = (_fv.x + 1) / 2 * W, fy0 = (1 - _fv.y) / 2 * Hh; _fv.set(p.x, sit ? 1.3 : 1.7, p.z).project(camera); if (_fv.z > 1 || _fv.z < -1) continue;
+        const hx0 = (_fv.x + 1) / 2 * W, hy0 = (1 - _fv.y) / 2 * Hh, hgt = Math.abs(fy0 - hy0);
+        if (q.y < hy0 - 8 || q.y > fy0 + 4) continue;
+        const k = (q.y - hy0) / (fy0 - hy0 || 1), cx = hx0 + (fx0 - hx0) * Math.max(0, Math.min(1, k));
+        if (Math.abs(q.x - cx) > hgt * 0.2 + 6) continue;
+        const dz = Math.hypot(p.x - cp.x, p.z - cp.z); if (dz < bz) { bz = dz; best = { x: p.x, y: 1, z: p.z, seat: null, person: p }; bd = 0; } // 重なっていたら手前の人
+      }
+    }
+    for (const st of g.seats) if (st.occ < 0) { sref = st; cand(st.x, 0.45, st.z, 'seat'); }
+    // ② 片手スティックのとき：タップした所まで自動で歩く（空いた席＝席の前・人＝その人の目の前・床＝その場所）。座る・話しかけるのは自分でアクション（オンラインの取り合いで有利にならないように）
+    const oneHand = profile.tapWalk !== 0 && g.player.seat < 0 && !g.mikiwame; // 2026-11-13・本人：片手モードだけでなく、どの操作方法でも（「🎛 感度・ボタン調整」の「👆 タップで移動」・はじめはオン）
+    // 床：タップした所から、床（高さ 0）までのばした線のぶつかる所
+    _fv.set(q.x / W * 2 - 1, -(q.y / Hh * 2 - 1), 0.5).unproject(camera);
+    const c0 = camera.position, vx = _fv.x - c0.x, vy = _fv.y - c0.y, vz = _fv.z - c0.z;
+    const fl = vy < -0.01 ? (() => { const t = -c0.y / vy; return { x: c0.x + vx * t, z: c0.z + vz * t }; })() : null;
+    // 人・席の近くの床をタップしたとき：床の点がその人・席より手前なら、床をタップしたことにする（2026-11-13・本人：タップした所を過ぎても歩き続けた＝奥の人の所まで行っていた）
+    if (TAP_FLOOR_ONLY && best && !best.person) best = null; // 2026-11-13・本人：タップは「その床まで歩く」（席は選ばない：席をタップすると、床の点が通路に収まって席の前になる）。人の体をタップしたときだけ、その人の正面まで行く（本人：やっぱり残して）
+    if (best && best.seat && fl && Math.hypot(best.seat.x - c0.x, best.seat.fz - c0.z) > Math.hypot(fl.x - c0.x, fl.z - c0.z) + 0.3) best = null; // 席の手前の床をタップしたら床
+    if (!best) {
+      if (!oneHand || !fl) return;
+      const [fx, fz] = SW._internal.aisleClamp(fl.x, fl.z);
+      AW = { kind: 'floor', tx: fx, tz: fz, stopD: 0.25, t: 0, best: 1e9, stuck: 0 }; track('タップで移動：床まで自動で歩く');
+      // 2026-11-13・本人：タップしても向きは変えない（向きはスライドで自分で）
+      return;
+    }
+    // 着いたあと（すでに目の前）に同じ相手をもう一度タップ＝アクション（2026-11-13・本人）。歩いている途中のタップでは、着いても勝手に座らない
+    const pl0 = g.player, near = !TAP_FLOOR_ONLY && oneHand && (best.seat ? Math.hypot(best.seat.x - pl0.x, best.seat.fz - pl0.z) < 0.55 : best.person ? Math.hypot(best.person.x - pl0.x, best.person.z - pl0.z) < 1.25 : false);
+    if (near) { AW = null; TACT = { t: performance.now(), seat: best.seat, p: best.person }; }
+    else if (oneHand && best.seat) { AW = { kind: 'seat', s: best.seat, stopD: 0.35, t: 0, best: 1e9, stuck: 0 }; addToast('🚶 席の前まで歩きます（着いたら、もう一度タップで座る）', 'info'); track('タップで移動：席まで自動で歩く'); }
+    else if (oneHand && best.person) { AW = { kind: 'person', p: best.person, stopD: 0.25, t: 0, best: 1e9, stuck: 0 }; track('タップで移動：人の正面まで自動で歩く'); }
+    // タップした方を向く動きは 2026-11-13 にやめた（本人：いらない。タップ＝移動、スライド＝視点）
   }
+  // 片手スティック：輪の内側にあるあいだは、毎コマ視点を回す（JO = { lx, ly }：-1〜1）
+  let JO = null, AW = null; // AW：タップした所まで自動で歩いている（{ kind: seat/person/floor, s・p・tx/tz, stopD: 止まる距離, t, best, stuck }）
+  // ② 席の前まで、手でいっぱいに倒したのと同じ速さで歩く。着いた・取られた・進めない・スティックにさわったら止まる
+  function autoWalk(dt) {
+    if (!AW) return;
+    const g = G, pl = g && g.player, s = AW.s;
+    const stop = () => { const sk = AW && AW.stk; AW = null; if (joyId == null) inp.joyX = inp.joyY = 0; else if (sk) { inp.joyX = sk[0]; inp.joyY = sk[1]; } };
+    if (!g || g.over || state !== 'play' || pl.seat >= 0) { AW = null; return; }
+    // スティックにさわっても止めない（2026-11-13・本人）：タップした所へ向かいながら、スティックの分を足して動く（止めたいときはスライド）
+    //   スティックの値は inp.joyX/joyY に書かれるので、自分が前のコマに書いた値と違えばスティックが動いたとみなして覚える
+    if (joyId == null) AW.stk = null;
+    else if (!AW.out || inp.joyX !== AW.out[0] || inp.joyY !== AW.out[1]) AW.stk = [inp.joyX, inp.joyY];
+    let tx, tz;
+    if (AW.kind === 'seat') { if (s.occ >= 0) { stop(); addToast('先に座られた…', 'warn'); return; } tx = s.x; tz = s.fz; }
+    else if (AW.kind === 'person') { // 人：その人の正面まで行って止まる（2026-11-13・本人）。座っている人は席の前、立っている人は顔の向いている先 0.75m（相手が動けば追いかける）
+      const p = AW.p; if (!p || p.state === 'gone' || p.state === 'exit') { stop(); return; }
+      if (p.seat >= 0) { tx = g.seats[p.seat].x; tz = g.seats[p.seat].fz; }
+      else { const H = humans.get(p.id), ry = H ? H.ry : (p.ry || 0); tx = p.x + Math.sin(ry) * 0.75; tz = p.z + Math.cos(ry) * 0.75; }
+      [tx, tz] = SW._internal.aisleClamp(tx, tz);
+    }
+    else { tx = AW.tx; tz = AW.tz; }
+    const dx = tx - pl.x, dz = tz - pl.z, d = Math.hypot(dx, dz);
+    if (AW.kind === 'floor' && AW.pd != null && d < 0.7 && d > AW.pd + 0.005 && !AW.stk) { stop(); return; } // 行き先のすぐそばで遠ざかり始めた＝通りすぎた → 止まる
+    AW.pd = d;
+    if (AW.kind === 'floor' && !AW.stk && d > 0.4) { // 場所をタップしたとき：進む先（行き先の正面）を見続ける（2026-11-13・本人。スライドで視点を回すと歩きごと止まる）
+      const k = Math.min(1, dt * 7); inp.yaw += angDiff(inp.yaw, Math.atan2(-dx, -dz)) * k; // 上下の向きは変えない（変えると、タップした所が画面の下へ流れて、通りすぎたように見えた）
+    }
+    if (d < AW.stopD) { const wasSeat = AW.kind === 'seat', wp = AW.kind === 'person' && AW.p; stop(); if (wasSeat) addToast('🪑 着いた！ アクションで座る', 'good');
+      if (false && wp) { const ddx = wp.x - pl.x, ddz = wp.z - pl.z; if (Math.hypot(ddx, ddz) > 0.2) { const dy = angDiff(inp.yaw, Math.atan2(-ddx, -ddz)), tp = Math.max(-1.2, Math.min(1.2, Math.atan2((wp.seat >= 0 ? 1.0 : 1.4) - 1.55, Math.hypot(ddx, ddz)))); FACE = { y0: inp.yaw, y1: inp.yaw + dy, p0: inp.pitch, p1: tp, t: 0, dur: 0.3 }; } } // 着いたらその人のほうを向く
+      return; }
+    if (AW.kind === 'person') { if (AW.lt && Math.hypot(tx - AW.lt[0], tz - AW.lt[1]) > 0.005) { AW.best = d; AW.stuck = 0; } AW.lt = [tx, tz]; } // 相手が動いたら、進めていないことにしない（追いかける）
+    AW.t += dt; if (d < AW.best - 0.05 || AW.stk) { AW.best = Math.min(AW.best, d); AW.stuck = 0; } else AW.stuck += dt; // スティックで寄り道しているあいだは「進めない」にしない
+    if (AW.stuck > 1.2 || AW.t > 10) { const k = AW.kind; stop(); if (k !== 'person') addToast('人にふさがれて進めない…', 'warn'); return; } // 人のときは、そばまで来て止まっただけ
+    let ax = dx, az = dz;
+    if (AW.kind === 'person' && AW.p.seat < 0) { // 背中側から来たときは、相手をよけて横から回りこむ
+      const q = AW.p, qx = q.x - pl.x, qz = q.z - pl.z, t = (qx * dx + qz * dz) / (d * d), perp = Math.abs(qx * dz - qz * dx) / d;
+      if (t > 0 && t < 1 && perp < 0.55) {
+        let sz = pl.z >= q.z ? 1 : -1; const [, cz1] = SW._internal.aisleClamp(q.x, q.z + sz * 0.65); if (Math.abs(cz1 - q.z) < 0.5) sz = -sz; // 回りこむ側に通路の幅がなければ反対側
+        const [wx, wz] = SW._internal.aisleClamp(q.x, q.z + sz * 0.65); ax = wx - pl.x; az = wz - pl.z;
+      }
+    }
+    { // 途中に立っている人がいたら、よけて進む（2026-11-13・本人）：進む先 1.8m 以内で、進む線から 0.6m 以内の人を横へよける。よける側に通路の幅がなければ反対側
+      const al = Math.hypot(ax, az) || 1, ux = ax / al, uz = az / al, nx = -uz, nz = ux; let sx = 0, sz = 0;
+      for (const q of g.people) {
+        if (q === AW.p || q.state === 'seated' || q.state === 'gone' || q.state === 'exit') continue;
+        const rx = q.x - pl.x, rz = q.z - pl.z, t = rx * ux + rz * uz; if (t <= 0.05 || t > Math.min(1.8, d + 0.3)) continue;
+        const cr = rx * nx + rz * nz; if (Math.abs(cr) > 0.6) continue; // cr：その人が進む線の左右どちらにどれだけずれているか
+        let sg = cr > 0 ? -1 : 1; const room = (k) => { const wz = q.z + k * 0.6 * nz, [, cz] = SW._internal.aisleClamp(q.x + k * 0.6 * nx, wz); return Math.abs(cz - wz) < 0.05; }; // その側へよけた所が通路の中か
+        if (Math.abs(nz) > 0.3 && !room(sg)) sg = -sg; // 通路のはしに寄りすぎるなら反対側から
+        const w = (0.6 - Math.abs(cr)) / 0.6 * (1 - t / 1.8) * 1.8 + 0.25;
+        sx += nx * sg * w; sz += nz * sg * w;
+      }
+      ax = ux + sx; az = uz + sz;
+    }
+    const y = inp.yaw, f = ax * -Math.sin(y) + az * -Math.cos(y), r = ax * Math.cos(y) - az * Math.sin(y), n = Math.hypot(f, r) || 1;
+    let jx = r / n, jy = -f / n;
+    if (AW.stk) { jx += AW.stk[0]; jy += AW.stk[1]; const m = Math.hypot(jx, jy); if (m > 1) { jx /= m; jy /= m; } } // スティックの分を足す
+    inp.joyX = jx; inp.joyY = jy; AW.out = [jx, jy];
+  }
+  const AIM_ASSIST = false; // ねらいの吸いつき：2026-11-13 にやめた（本人：いらない）。true で戻る
+  // ① ねらいの吸いつき（片手スティックのときだけ）：照準が人・空いた席の近く（画面のまん中から 55px 以内）に来たら、少しずつ寄せる
+  //    すばやく回しているとき・歩いているときは寄せない（通りすぎたい・まっすぐ歩きたいので）
+  function aimAssist(dt) {
+    if (inp.joyX || inp.joyY || (JO && Math.hypot(JO.lx, JO.ly) > 0.6) || FACE || lookId != null) return; // 画面をなぞって見回しているあいだも寄せない
+    const g = G, W = pland ? window.innerHeight : window.innerWidth, Hh = pland ? window.innerWidth : window.innerHeight;
+    camera.updateMatrixWorld();
+    let best = null, bd = 55 * 55;
+    const cand = (x, y, z) => { _fv.set(x, y, z).project(camera); if (_fv.z > 1 || _fv.z < -1) return; const sx = (_fv.x + 1) / 2 * W - W / 2, sy = (1 - _fv.y) / 2 * Hh - Hh / 2, d = sx * sx + sy * sy; if (d < bd) { bd = d; best = { x, y, z }; } };
+    for (const p of g.people) { if (p.state === 'gone' || p.state === 'exit') continue; cand(p.x, p.seat >= 0 ? 1.0 : 1.35, p.z); }
+    if (g.player.seat < 0) for (const st of g.seats) if (st.occ < 0) cand(st.x, 0.45, st.z);
+    if (!best) return;
+    const c = camera.position, dx = best.x - c.x, dz = best.z - c.z, h = Math.hypot(dx, dz); if (h < 0.3) return;
+    const k = Math.min(1, dt * 5);
+    inp.yaw += angDiff(inp.yaw, Math.atan2(-dx, -dz)) * k;
+    inp.pitch += (Math.max(-1.2, Math.min(1.2, Math.atan2(best.y - c.y, h))) - inp.pitch) * k * 0.6;
+  }
+  // 🔄 振り向く：車両の反対の端をまっすぐ向く（faceTick の FACE を使う）
+  const turnT = () => profile.turnT || 0.45; // 振り向くのにかける秒数（0.2〜1。2026-11-13：はじめ 0.22 は速すぎた）
+  function turnBack() { // 2026-11-13・本人：今の向きの 180 度ではなく、電車の進む向き（車両の長い向き＝x）に対して反対の端をまっすぐ向く
+    if (!G || G.over) return;
+    const tgt = -Math.sin(inp.yaw) >= 0 ? Math.PI / 2 : -Math.PI / 2; // いま +x 側を見ていれば -x の端へ、-x 側なら +x の端へ
+    let d = tgt - inp.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) > Math.PI - 1e-3) d = Math.PI;
+    FACE = { y0: inp.yaw, y1: inp.yaw + d, p0: inp.pitch, p1: inp.pitch, t: 0, dur: turnT() }; track('振り向いた'); }
   function faceTick(dt) {
+    autoWalk(dt);
+    if (awMark) { // 行き先に黄色い輪。人をタップしたときは、その人の足もとに大きめの輪（相手が動けばついていく）＝その人が光って見える
+      const on = !!(AW && (AW.kind === 'floor' || (AW.kind === 'person' && AW.p))); awMark.visible = on;
+      if (on) { const pp = AW.kind === 'person', sc = (pp ? 2.3 : 1) * (1 + 0.15 * Math.sin(performance.now() / 120)); awMark.position.set(pp ? AW.p.x : AW.tx, 0.03, pp ? AW.p.z : AW.tz); awMark.scale.set(sc, sc, 1); awMark.material.opacity = pp ? 0.6 : 0.9; }
+    }
+    if (JO && (state === 'play')) { inp.yaw -= JO.lx * 1.7 * sens() * dt; inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch - JO.ly * 0.9 * sens() * dt)); }
+    if (AIM_ASSIST && state === 'play' && G && !G.over && profile.joyFix === 'O') aimAssist(dt);
+    if (TACT && !FACE) { // 向き終わって、ねらいがその相手に合ったらアクション（0.8 秒で合わなければやめる）
+      const g = G, pr = g && g.prompt, ok = pr && (TACT.seat ? pr.act === 'sit' : pr.id === TACT.p.id && !['sit', 'ask', 'throw', 'pick'].includes(pr.act)); // 人をタップしたのに近くの席に座る、などにならないように（その相手へのアクションのときだけ）
+      if (ok && state === 'play') { inp.action = true; track('タップで移動：もう一度タップでアクション'); TACT = null; } else if (performance.now() - TACT.t > 800) TACT = null;
+    }
     if (!FACE) return;
-    FACE.t = Math.min(1, FACE.t + dt / 0.22);
+    FACE.t = Math.min(1, FACE.t + dt / (FACE.dur || 0.22));
     const e = 1 - (1 - FACE.t) ** 3;
     inp.yaw = FACE.y0 + (FACE.y1 - FACE.y0) * e; inp.pitch = FACE.p0 + (FACE.p1 - FACE.p0) * e;
     if (FACE.t >= 1) FACE = null;
   }
   // 移動スティックの場所：自由（さわった所に出る）／固定・左下／固定・左下（片手用：ボタンも左へ）／固定・右下（片手用）
+  // 片手用（右下 r・左下 L）は 2026-11-13 に一旦やめた（本人：使いにくすぎる）。選んでいた人は「自由」に戻す
+  if (profile.joyFix === 'r' || profile.joyFix === 'L') { profile.joyFix = null; saveProfile(); }
   const joyFix = () => profile.joyFix || '';
-  function applyJoy() { const f = joyFix(); document.body.classList.toggle('joyfix', !!f); document.body.classList.toggle('joyR', f === 'r'); document.body.classList.toggle('joyL1', f === 'L'); joyKnob.style.transform = ''; if ($('joyMode')) $('joyMode').value = f; }
-  applyJoy();
-  $('joyMode').addEventListener('change', () => { profile.joyFix = $('joyMode').value || null; saveProfile(); applyJoy(); track('移動スティック：' + ({ l: '固定・左下', L: '固定・左下（片手）', r: '固定・右下' }[profile.joyFix] || '自由')); });
+  const OH_TURN = 0.4; // 片手スティックの外側（歩いている）ときの、向きの回り方（内側の 4 割くらい）
+  const OH_RING = false; // 片手モードのスティックで視点も回す（点線の輪）か。2026-11-13 に一旦やめた（本人：スティックは移動だけ・視点は画面をなぞる・タップで移動）。true で前の形に戻る
+  const OH_M = 60; // 片手スティックの、いちばん大きく動かしたときのずれ（px）
+  const ohR = () => profile.ohR || 0.6; // 視点だけの範囲（スティックの半径に対する割合）
+  const ringD = (r) => Math.round((r || ohR()) * OH_M * 2 + 48); // 輪の直径（スティックの台の中で。台は 150px）
+  let joyS = () => 1; // スティックの大きさ（あとで、操作方法ごとの設定を読むものに入れかえる）
+  function applyJoy() { const f = joyFix(); document.body.classList.toggle('joyfix', !!f); document.body.classList.toggle('joyR', f === 'r' || (f === 'O' && OH_RING)); document.body.classList.toggle('joyO', f === 'O' && OH_RING);
+    const rg = $('joyRing'), d = ringD(); rg.style.width = rg.style.height = d + 'px'; rg.style.margin = (-d / 2) + 'px 0 0 ' + (-d / 2) + 'px';
+    if ($('ohRow')) { /* 一時停止の「視点だけの範囲」は 2026-11-13 にやめた（感度・ボタン調整の画面で輪を見ながら） */ $('ohR').value = ohR(); $('ohV').textContent = Math.round(ohR() * 100) + '%'; const pv = $('ohPrev').firstChild; pv.style.width = pv.style.height = (d / 150 * 100) + '%'; }
+    JO = null; applyLay(); document.body.classList.toggle('joyL1', f === 'L'); document.body.classList.toggle('joyRR', f === 'R'); joyKnob.style.transform = ''; if ($('joyMode')) $('joyMode').value = f; }
+  $('joyMode').addEventListener('change', () => { profile.joyFix = $('joyMode').value || null; saveProfile(); applyJoy(); track('移動スティック：' + ({ l: '固定・左下', R: '固定・右下（ボタンは左）', O: '片手モード', L: '固定・左下（片手）', r: '固定・右下（片手）' }[profile.joyFix] || '自由')); });
+  // 画面のタップ：「どこでも 2 回タップでアクション」（profile.dblTap）のとき（2026-11-13・本人と決めた形）
+  //   1 回目：向きだけすぐ変える（遅れなし）。歩き出すのは 2 回目が来なかったとき（0.33 秒後）
+  //   2 回目：向きを 1 回目の前に戻してからアクション（位置は動いていないので、ねらっていた相手にそのまま当たる）
+  let STAP = null; // { t, q, tid, y0, p0, aw }：待っている 1 回目のタップ
+  function screenTap(q) {
+    if (!profile.dblTap) { tapFace(q); return; }
+    const now = performance.now();
+    if (STAP && now - STAP.t < 330 && Math.hypot(q.x - STAP.q.x, q.y - STAP.q.y) < 60) {
+      clearTimeout(STAP.tid); inp.yaw = STAP.y0; inp.pitch = STAP.p0; FACE = null; AW = null; TACT = null; STAP = null;
+      inp.action = true; track('画面を 2 回タップでアクション'); return;
+    }
+    if (STAP) clearTimeout(STAP.tid);
+    const y0 = inp.yaw, p0 = inp.pitch;
+    tapFace(q); TACT = null; // 2 回タップがアクションなので、「目の前の相手をタップでアクション」はしない
+    const st = { t: now, q, y0, p0, aw: AW }; AW = null;
+    st.tid = setTimeout(() => { if (STAP === st) { STAP = null; if (state === 'play' && st.aw && joyId == null) AW = st.aw; } }, 330); STAP = st;
+  }
+  let JT = null, lastTap = 0, lookPT = 0, lookV = 0; // lookPT・lookV：なぞる速さ（加速のとき） // トントン（2 回タップ）を見分ける
+  // 片手スティック：輪の内側＝視点（ずらした分だけ回り続ける）、輪の外＝その向きへ歩く
+  function joyOne(dx, dy) {
+    // 輪（視点だけの範囲）はスティックの台より大きくもできる（最大 200%）：指のずれそのもので内側・外側を決め、ノブの見た目だけ台の中に収める
+    const sc = joyS(), m = OH_M * sc, l = Math.hypot(dx, dy), k = l > m ? m / l : 1, R = ohR() * m;
+    joyKnob.style.transform = `translate(${dx * k / sc}px,${dy * k / sc}px)`;
+    if (l <= R) { inp.joyX = inp.joyY = 0; const dz = 4 * sc, c = Math.pow(l / R, 2) * 1.2; JO = l < dz ? null : { lx: dx / l * c, ly: dy / l * c }; joyKnob.classList.add('look'); joyKnob.classList.remove('move'); } // まん中はゆっくり、ふちほど速く（2 乗）
+    else { const mag = 0.55 + 0.45 * Math.min(1, (l - R) / Math.max(m * 0.4, m - R)); inp.joyX = dx / l * mag; inp.joyY = dy / l * mag; JO = { lx: dx / l * Math.min(1, l / m) * OH_TURN, ly: 0 }; joyKnob.classList.add('move'); joyKnob.classList.remove('look'); } // 外側：歩きながら、左右にずらした分だけ控えめに向きも回る
+  }
+
+  $('ohR').addEventListener('input', () => { profile.ohR = Math.round(+$('ohR').value * 100) / 100; applyJoy(); });
+  $('ohR').addEventListener('change', () => { saveProfile(); track('片手スティックの視点の範囲：' + Math.round(ohR() * 100) + '%'); });
+  // ---- ボタンの位置と大きさを自分で決める
+  //   操作方法（自由・固定・左下・固定・右下・片手スティック）ごと、縦向き・横向きごとに別々に覚える
+  //   profile.lay3 = { 'O:p': { pos: { act: [x, y], ... }（画面に対する割合）, size: { act: 1.2, joy: 1.1, ... } }, ... }
+  const LAY_KEYS = [['act', 'bAct', '✋', 'アクション'], ['punch', 'bPunch', '👊', 'パンチ'], ['guard', 'bGuard', '🛡', '踏ん張る'], ['turn', 'bTurn', '🔄', '振り向く'], ['joy', 'joy', '🕹', '移動']];
+  const JOY_JA = { '': '自由', l: '固定・左下', R: '固定・右下', O: '片手モード' };
+  const layO = () => (pland || window.innerWidth > window.innerHeight ? 'l' : 'p');
+  const layKey = () => (joyFix() || 'free') + ':' + layO();
+  const curLay = () => (profile.lay3 || {})[layKey()] || null;
+  const scrWH = () => (pland ? [window.innerHeight, window.innerWidth] : [window.innerWidth, window.innerHeight]);
+  const sizeOf = (k) => { const L = curLay(); return (L && L.size && L.size[k]) || 1; };
+  joyS = () => sizeOf('joy');
+  // 前の形（profile.lay・btnS・joyS：操作方法で共通）を、いまの操作方法のほうに引きつぐ
+  if (!profile.lay3 && (profile.lay || profile.btnS || profile.joyS)) {
+    profile.lay3 = {}; const m = joyFix() || 'free', b = profile.btnS || 1, j = profile.joyS || 1;
+    for (const o of ['p', 'l']) { const pos = (profile.lay || {})[o] || {}; if (Object.keys(pos).length || b !== 1 || j !== 1) profile.lay3[m + ':' + o] = { pos, size: { act: b, punch: b, guard: b, joy: j } }; }
+    delete profile.lay; delete profile.btnS; delete profile.joyS; saveProfile();
+  }
+  function applyLay() {
+    const L = curLay(), P = (L && L.pos) || {};
+    document.body.classList.toggle('customlay', !!(P.act || P.punch || P.guard || P.turn));
+    const put = (el, v) => { if (v) { Object.assign(el.style, { left: v[0] * 100 + '%', top: v[1] * 100 + '%', right: 'auto', bottom: 'auto' }); } else { for (const k of ['left', 'top', 'right', 'bottom']) el.style[k] = ''; } };
+    for (const [k, id] of LAY_KEYS) put($(id), P[k] && (k !== 'joy' || joyFix()) ? P[k] : null);
+    put($('bSleep'), P.punch ? [P.punch[0], Math.max(0.05, P.punch[1] - 0.1)] : null); // 狸寝入りはパンチの上
+    // 大きさ：ボタンは transform の scale（置いた場所が真ん中のまま）、スティックは台を scale して、さわれる範囲も広げる
+    for (const [k, id] of [['act', 'bAct'], ['punch', 'bPunch'], ['guard', 'bGuard'], ['turn', 'bTurn'], ['punch', 'bSleep']]) { const el = $(id), s = sizeOf(k); el.style.transform = (el.style.left ? 'translate(-50%,-50%) ' : '') + (s !== 1 ? `scale(${s})` : ''); }
+    const jz = $('joy'); jz.style.transform = jz.style.left ? 'translate(-50%,-50%)' : '';
+    const js = joyS(); joyBase.style.transform = js !== 1 ? `scale(${js})` : '';
+    if (joyFix() && js !== 1) { const w = Math.round((profile.joyFix === 'O' ? 190 : 170) * js) + 'px'; jz.style.width = jz.style.height = w; } else { jz.style.width = jz.style.height = ''; }
+  }
+  window.addEventListener('resize', () => setTimeout(applyLay, 50));
+  applyJoy(); // ここで最初に一回（LAY_KEYS などができてから）
+  let LE = null, LS = null, SEL = 'act'; // LE：置き場所　LS：大きさと輪（保存するまでの仮）　SEL：選んでいる丸
+  function layPlace(h, v) { h.style.left = v[0] * 100 + '%'; h.style.top = v[1] * 100 + '%'; }
+  // 編集の画面：丸をタップして選ぶと、その丸だけ大きさが変わる。輪のスライダーは片手スティックの点線の輪
+  function laySizes() {
+    for (const h of $('leBox').children) { const k = h.dataset.k, sz = Math.round(+h.dataset.base * (LS.sz[k] || 1)); h.style.width = h.style.height = sz + 'px'; h.classList.toggle('sel', k === SEL); }
+    const rg = $('leBox').querySelector('.leRing'); if (rg) rg.style.width = rg.style.height = (ringD(LS.r) / 150 * 100) + '%';
+    const nm = (LAY_KEYS.find((x) => x[0] === SEL) || [])[3] || '';
+    $('leSel').textContent = (SEL === 'joy' && joyFix() === 'O' && OH_RING ? '片手スティック（視点・移動）' : nm); $('leB').value = LS.sz[SEL] || 1;
+    $('leBv').textContent = Math.round((LS.sz[SEL] || 1) * 100) + '%'; $('leRv').textContent = Math.round(LS.r * 100) + '%';
+  }
+  $('leB').addEventListener('input', () => { LS.sz[SEL] = +$('leB').value; laySizes(); });
+  $('leR').addEventListener('input', () => { LS.r = +$('leR').value; laySizes(); });
+  $('leSens').addEventListener('input', () => { profile.sens = Math.round(+$('leSens').value * 10) / 10; $('leSensV').textContent = profile.sens.toFixed(1) + '倍'; showSens(); });
+  for (const id of ['leTurn', 'turnR']) {
+    $(id).addEventListener('input', () => { profile.turnT = Math.round(+$(id).value * 100) / 100; for (const [i2, v2] of [['leTurn', 'leTurnV'], ['turnR', 'turnV']]) { $(i2).value = turnT(); $(v2).textContent = turnT().toFixed(2) + '秒'; } });
+    $(id).addEventListener('change', () => { saveProfile(); track('振り向く速さ：' + turnT().toFixed(2) + '秒'); turnBack(); }); // 離したら一回振り向いて見せる
+  }
+  const accK = () => profile.accelK || 1;
+  const accUI = () => { $('leAKrow').classList.toggle('hidden', !profile.lookAccel); $('leAK').value = accK(); $('leAKV').textContent = accK().toFixed(1) + '倍'; };
+  // タブ：🖐 ボタンの位置・大きさ ／ 👀 感度・操作（2026-11-13：設定がふえてパネルが画面をおおい、ボタンを動かす所が分からなかったため）
+  function leTab(k) { for (const [t, id] of [['B', 'lePaneB'], ['S', 'lePaneS']]) { $(id).classList.toggle('hidden', t !== k); $('leTab' + t).classList.toggle('on', t === k); } }
+  $('leTabB').addEventListener('click', () => leTab('B')); $('leTabS').addEventListener('click', () => leTab('S'));
+  $('leAK').addEventListener('input', () => { profile.accelK = Math.round(+$('leAK').value * 10) / 10; accUI(); });
+  $('leAK').addEventListener('change', () => { saveProfile(); track('視点の加速の強さ：' + accK().toFixed(1)); });
+  $('leDbl').addEventListener('change', () => { profile.dblTap = $('leDbl').checked ? 1 : 0; saveProfile(); track('どこでも 2 回タップ：' + (profile.dblTap ? 'オン' : 'オフ')); });
+  $('leTap').addEventListener('change', () => { profile.tapWalk = $('leTap').checked ? 1 : 0; if (!profile.tapWalk) AW = null; $('leNote').classList.toggle('hidden', !profile.tapWalk); saveProfile(); track('タップで移動：' + (profile.tapWalk ? 'オン' : 'オフ')); });
+  $('leAccel').addEventListener('change', () => { profile.lookAccel = $('leAccel').checked ? 1 : 0; accUI(); saveProfile(); track('視点の加速：' + (profile.lookAccel ? 'オン' : 'オフ')); });
+  $('turnR').value = turnT(); $('turnV').textContent = turnT().toFixed(2) + '秒';
+  $('leSens').addEventListener('change', () => { saveProfile(); track('感度を変えた：' + (profile.sens || 1).toFixed(1)); });
+  function layOpen() {
+    const box = $('leBox'), [W, H] = scrWH(), L = curLay(); box.innerHTML = ''; LE = {};
+    LS = { sz: Object.assign({}, (L && L.size) || {}), r: ohR() }; $('leR').value = LS.r;
+    $('leRrow').classList.toggle('hidden', !(joyFix() === 'O' && OH_RING));
+    $('leNote').classList.toggle('hidden', profile.tapWalk === 0); $('leTap').checked = profile.tapWalk !== 0; $('leDbl').checked = !!profile.dblTap;
+    $('leTitle').textContent = '🎛 感度・ボタン調整（' + JOY_JA[joyFix()] + '・' + (layO() === 'l' ? '横' : '縦') + '）'; leTab('B');
+    $('leSens').value = profile.sens || SENS0; $('leSensV').textContent = (profile.sens || SENS0).toFixed(1) + '倍';
+    $('leAccel').checked = !!profile.lookAccel; accUI();
+    $('leTurn').value = turnT(); $('leTurnV').textContent = turnT().toFixed(2) + '秒';
+    $('touch').classList.remove('hidden');
+    for (const [k, id, ic, nm] of LAY_KEYS) {
+      if (k === 'joy' && !joyFix()) continue;
+      const el = k === 'joy' ? $('joyBase') : $(id); if (!el || el.offsetParent === null) continue;
+      const r = el.getBoundingClientRect(), c = tp({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }), sz = Math.max(56, Math.round(Math.max(r.width, r.height)));
+      LE[k] = [c.x / W, c.y / H];
+      const h = document.createElement('div'); h.className = 'leH'; h.dataset.k = k; h.dataset.base = sz / sizeOf(k); h.innerHTML = (k === 'joy' && joyFix() === 'O' && OH_RING ? '<i class="leRing"></i>' : '') + `<span>${ic}</span>${nm}`; layPlace(h, LE[k]); box.appendChild(h);
+    }
+    if (!LE[SEL]) SEL = Object.keys(LE)[0] || 'act';
+    laySizes();
+    $('pause').classList.add('hidden'); $('layEdit').classList.remove('hidden');
+  }
+  (function layDrag() {
+    const box = $('layEdit'); let cur = null;
+    box.addEventListener('pointerdown', (e) => { const h = e.target.closest('.leH'); if (!h) return; cur = h; SEL = h.dataset.k; laySizes(); h.setPointerCapture(e.pointerId); e.preventDefault(); });
+    box.addEventListener('pointermove', (e) => { if (!cur) return; const q = tp(e), [W, H] = scrWH(), v = [Math.max(0.06, Math.min(0.94, q.x / W)), Math.max(0.1, Math.min(0.96, q.y / H))]; LE[cur.dataset.k] = v; layPlace(cur, v); });
+    const up = () => { cur = null; }; box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+  })();
+  const layClose = () => { $('layEdit').classList.add('hidden'); if (state === 'pause') show('pause'); };
+  $('bLay').addEventListener('click', () => { if (!G) { titleToast('遊んでいるときに、一時停止の画面から動かせます'); return; } layOpen(); track('ボタンの位置を動かすを開いた'); });
+  $('leSave').addEventListener('click', () => { profile.lay3 = profile.lay3 || {}; profile.lay3[layKey()] = { pos: LE, size: LS.sz }; profile.ohR = LS.r; saveProfile(); applyJoy(); layClose(); track('ボタンの位置を保存した（' + JOY_JA[joyFix()] + '・' + (layO() === 'l' ? '横' : '縦') + '）'); });
+  $('leReset').addEventListener('click', () => { if (profile.lay3) delete profile.lay3[layKey()]; saveProfile(); applyJoy(); layOpen(); });
+  $('leX').addEventListener('click', layClose);
+  // 右上の ✕（2026-11-13・本人：一時停止のボタンと重なっていて、一時停止が優先されていた）：保存せずに閉じて、そのままゲームにもどる
+  //   指を離したときに閉じる。そのあとに来る「クリック」が下の一時停止ボタンに当たらないよう、preventDefault で止める
+  const leXClose = () => { layClose(); if (state === 'pause') $('bResume').click(); track('感度・ボタン調整を ✕ で閉じた'); };
+  $('leXTop').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
+  $('leXTop').addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); leXClose(); }, { passive: false });
+  $('leXTop').addEventListener('click', e => { e.stopPropagation(); leXClose(); });
   joyEl.addEventListener('touchstart', e => {
     initAudio();
     const t = e.changedTouches[0], q = tp(t); joyId = t.identifier; joyO = q;
+    JT = { t: performance.now(), x: q.x, y: q.y, mv: false };
     if (joyFix()) { // 固定：スティックのまん中から、どれだけずらしたかで動く
       const r = joyBase.getBoundingClientRect(); joyO = tp({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
-      const dx0 = q.x - joyO.x, dy0 = q.y - joyO.y, l0 = Math.hypot(dx0, dy0), m0 = 48, k0 = l0 > m0 ? m0 / l0 : 1;
-      joyKnob.style.transform = `translate(${dx0 * k0}px,${dy0 * k0}px)`; inp.joyX = dx0 * k0 / m0; inp.joyY = dy0 * k0 / m0;
+      const dx0 = q.x - joyO.x, dy0 = q.y - joyO.y;
+      if (joyFix() === 'O' && OH_RING) joyOne(dx0, dy0);
+      else { const sc = joyS(), l0 = Math.hypot(dx0, dy0), m0 = 48 * sc, k0 = l0 > m0 ? m0 / l0 : 1; joyKnob.style.transform = `translate(${dx0 * k0 / sc}px,${dy0 * k0 / sc}px)`; inp.joyX = dx0 * k0 / m0; inp.joyY = dy0 * k0 / m0; }
       e.preventDefault(); return;
     }
     const H = pland ? window.innerWidth : window.innerHeight;
@@ -1364,23 +1630,33 @@
   }, { passive: false });
   window.addEventListener('touchmove', e => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) {
-        const q = tp(t); let dx = q.x - joyO.x, dy = q.y - joyO.y; const l = Math.hypot(dx, dy), m = 48;
+      if (t.identifier === joyId && JT && !JT.mv) { const q = tp(t); if (Math.hypot(q.x - JT.x, q.y - JT.y) > 12) JT.mv = true; }
+      if (t.identifier === joyId && joyFix() === 'O' && OH_RING) { const q = tp(t); joyOne(q.x - joyO.x, q.y - joyO.y); }
+      else if (t.identifier === joyId) {
+        const sc = joyS(), q = tp(t); let dx = q.x - joyO.x, dy = q.y - joyO.y; const l = Math.hypot(dx, dy), m = 48 * sc;
         if (l > m) { dx *= m / l; dy *= m / l; }
-        joyKnob.style.transform = `translate(${dx}px,${dy}px)`;
+        joyKnob.style.transform = `translate(${dx / sc}px,${dy / sc}px)`;
         inp.joyX = dx / m; inp.joyY = dy / m;
       } else if (t.identifier === lookId) {
         const q = tp(t), dx = q.x - lookP.x, dy = q.y - lookP.y; lookP = q;
-        lookMv += Math.abs(dx) + Math.abs(dy); if (lookMv > 10) FACE = null;
-        inp.yaw -= dx * 0.0062 * sens(); inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch - dy * 0.0062 * sens()));
+        lookMv += Math.abs(dx) + Math.abs(dy); if (lookMv > 10) { FACE = null; if (AW) { AW = null; inp.joyX = inp.joyY = 0; } if (STAP) { clearTimeout(STAP.tid); STAP = null; } } // スライドしたら自動の歩きは止まる（2026-11-13・本人）
+        // 加速（profile.lookAccel）：なぞる速さ（px/ミリ秒・少しならす）で回る量を 0.5〜3 倍に。ゆっくり＝細かく、速く＝大きく
+        let ac = 1;
+        if (profile.lookAccel) { const now = performance.now(), dtm = Math.max(4, now - (lookPT || now - 16)); lookPT = now; lookV = lookV * 0.6 + (Math.hypot(dx, dy) / dtm) * 0.4; ac = Math.min(3, Math.max(0.5, 0.5 + lookV * 0.9)); ac = Math.min(6, Math.max(0.15, 1 + (ac - 1) * accK())); } // 加速の強さ（profile.accelK・0.3〜3 倍・はじめ 1）：1 倍からのずれを大きく・小さく
+        inp.yaw -= dx * 0.0062 * sens() * ac; inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch - dy * 0.0062 * sens() * ac));
       }
     }
     if (state === 'play') e.preventDefault();
   }, { passive: false });
   const endTouch = e => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) { joyId = null; inp.joyX = inp.joyY = 0; joyKnob.style.transform = ''; joyBase.style.display = 'none'; $('joyHint').style.display = ''; }
-      if (t.identifier === lookId) { lookId = null; if (lookMv < 10 && performance.now() - lookT0 < 350 && state === 'play') tapFace(tp(t)); }
+      if (t.identifier === joyId) {
+        // ③ 片手スティックをトントン（すばやく 2 回タップ）でアクション
+        const now = performance.now();
+        if (profile.tapWalk !== 0 && JT && !JT.mv && now - JT.t < 300) { if (now - lastTap < 500) { if (state === 'play') { inp.action = true; track('スティックをトントンでアクション'); } lastTap = 0; } else lastTap = now; }
+        JT = null;
+        joyId = null; inp.joyX = inp.joyY = 0; JO = null; joyKnob.classList.remove('look', 'move'); joyKnob.style.transform = ''; joyBase.style.display = 'none'; $('joyHint').style.display = ''; }
+      if (t.identifier === lookId) { lookId = null; if (lookMv < 10 && performance.now() - lookT0 < 350 && state === 'play') screenTap(tp(t)); }
     }
   };
   window.addEventListener('touchend', endTouch); window.addEventListener('touchcancel', endTouch);
@@ -1388,7 +1664,7 @@
     initAudio();
     if (state !== 'play') return;
     const t = e.changedTouches[0];
-    if (lookId == null) { lookId = t.identifier; lookP = tp(t); lookMv = 0; lookT0 = performance.now(); }
+    if (lookId == null) { lookId = t.identifier; lookP = tp(t); lookMv = 0; lookT0 = performance.now(); lookPT = 0; lookV = 0; }
     e.preventDefault();
   }, { passive: false });
   function holdBtn(el, down, up) {
@@ -1404,6 +1680,7 @@
   }
   holdBtn($('bAct'), () => { inp.action = true; });
   holdBtn($('bPunch'), () => { inp.punch = true; });
+  holdBtn($('bTurn'), () => turnBack());
   holdBtn($('bGuard'), () => { inp.braceTouch = true; inp.bracePressed = true; }, () => { inp.braceTouch = false; });
   holdBtn($('bSleep'), () => { inp.fakeSleep = true; });
 
@@ -2015,7 +2292,7 @@
     showResume();
     verCheck();
     // 片手で遊べるようになったお知らせ（スマホで、まだ選んでいない人に 1 回だけ。2026-11-13）
-    if (isTouch && profile.plays > 0 && !profile.ohSeen && !profile.joyFix && !(window.claude && window.claude.use)) { profile.ohSeen = 1; saveProfile(); setTimeout(() => { if (state === 'title') { $('oneHand').classList.remove('hidden'); track('片手のお知らせを出した'); } }, 900); }
+    if (OH_ON && isTouch && profile.plays > 0 && !profile.ohSeen && !profile.joyFix && !(window.claude && window.claude.use)) { profile.ohSeen = 1; saveProfile(); setTimeout(() => { if (state === 'title') { $('oneHand').classList.remove('hidden'); track('片手のお知らせを出した'); } }, 900); }
     else if (profile.plays > 0 && profile.newSkill !== 'transfer') { profile.newSkill = 'transfer'; saveProfile(); setTimeout(() => titleToast('🆕 新しいスキル「👴 変装」「🗣 ひとこと注意」「📱 乗換案内」！ Lv の画面の「🎒 スキルのセット」でつけかえられます'), 1200); }
     // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
     const isNew = dk <= NEW_UNTIL;
@@ -2028,7 +2305,7 @@
   const ROOKIE_N = 3; // はじめの何回を見習い乗車にするか
   function renderModes() {
     const n = (profile.unlock.endless ? 1 : 0) + (profile.unlock.hard ? 1 : 0) + (profile.unlock.jiji ? 1 : 0);
-    $('bModes').innerHTML = '<i class="ic">🚇</i>路線・練習'; // NEW の印は中の練習乗車・ボス駅ラッシュに出す（ボタンがせまいので）
+    $('bModes').innerHTML = '<i class="ic">🚇</i>路線・練習・感度調整'; // NEW の印は中の練習乗車・ボス駅ラッシュに出す（ボタンがせまいので）
     const list = [
       ['endless', '♾ 終点なしモード', '終点がない。どこまで立っていられるか。だんだん疲れやすくなる', '開放条件：一度、終点まで行く'],
       ['hard', '🔥 満員地獄モード', '超満員・席取りおばちゃん倍増・絡み屋多め', '開放条件：タイトル画面で伝説のコマンド（スマホはスワイプで）'],
@@ -2037,7 +2314,7 @@
     $('modeList').innerHTML = list.map(([k, name, desc, cond]) => profile.unlock[k]
       ? `<button class="btn" data-mode="${k}">${name}</button><p class="modeinfo">${desc}${profile.bests[k] ? '・ベスト ' + profile.bests[k] : ''}</p>`
       : `<button class="btn" disabled style="opacity:.45">🔒 ？？？</button><p class="modeinfo">${cond}</p>`).join('');
-    $('modeList').innerHTML = `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="rookie">🔰 見習い乗車</button><p class="modeinfo">体力がへりにくい・最初のボス駅はおそめ。はじめの ${ROOKIE_N} 回と同じ（ランキングなし）</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力や精神が 0 になっても倒れない。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
+    $('modeList').innerHTML = `<button class="btn sub2" id="bTune">🎛 感度・ボタン調整</button><p class="modeinfo">練習乗車（体力が減らない）で、視点の感度・移動スティック・ボタンの位置と大きさを試しながら決める</p>` + `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="rookie">🔰 見習い乗車</button><p class="modeinfo">体力がへりにくい・最初のボス駅はおそめ。はじめの ${ROOKIE_N} 回と同じ（ランキングなし）</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力・精神が減らない（操作やボタンの位置を試すのにも）。連行されても続く。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
     // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
     if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
       const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
@@ -2047,6 +2324,7 @@
         + '<h3 style="margin:12px 0 4px">📅 今日のルールのお試し（ランキングなし）</h3><div class="btest">' + SW.DAILY_RULES.map((r) => `<button class="btn sub2" data-mode="ruletest:${r.key}">${r.icon} ${r.name}</button>`).join('') + '</div>';
     }
     $('modeList').querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
+    $('bTune').addEventListener('click', () => { track('路線・練習から感度・ボタン調整'); startGame('practice'); setTimeout(() => { if (state !== 'play') return; pause(); if (document.body.classList.contains('touch')) layOpen(); }, 700); });
   }
   function clearWorld() {
     for (const [, H] of humans) disposeHuman(H); humans.clear();
@@ -2107,7 +2385,7 @@
     if (mikiwame) addToast('👀 見極め線：様子のカードはなし。しぐさだけで降りる人を読もう。座れたら次の駅で席を譲って、また読む', 'good');
     if (bossRush) addToast('⚠ ボス駅ラッシュ：毎駅がボス駅！ 倒れるまで、いくつクリアできるか', 'warn');
     if (rkTrain >= 0) addToast('🏅 ランク線：今週の電車 No.' + (rkTrain + 1) + '。同じ電車を走った、レートの近い人と点数で勝負', 'good');
-    if (practice) addToast('🔰 練習乗車：体力や精神が 0 になっても倒れません（ランキングには載りません）', 'good');
+    if (practice) addToast('🔰 練習乗車：体力・精神は減りません。操作やボタンの位置を試すのにも（ランキングには載りません）', 'good');
     else if (mode !== 'tutorial') addToast(mode === 'daily' ? '📅 今日のダイヤ：今日はみんな同じ乗客・同じ揺れ' : 'たちっぱ線へようこそ。降りそうな人の前に立て！', 'good');
     showAnn(G.ann);
   }
@@ -2569,15 +2847,20 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
-    { d: '2026-11-13', t: '片手で遊べるように！', items: [
-      '🕹 移動スティックを親指の下に固定して、ボタンもすぐ上に。電車でつり革を持ちながらでも遊びやすい',
-      '一時停止の「🕹 移動スティック」→「固定・右下（片手用）」か「固定・左下（片手用）」（縦画面のとき）',
+    { d: '2026-11-13', t: 'タップで移動・感度・ボタン調整 ほか', items: [
+      '👆 床をタップすると、黄色い輪のところまで自動で歩く。人をタップするとその人の正面まで（スマホ）',
+      '🎛 「感度・ボタン調整」：ボタンの位置・大きさを自分で決められる。感度は 5 倍まで（一時停止・「路線・練習・感度調整」から）',
+      '🔄 振り向くボタン：押すと車両の反対の端をまっすぐ向く（PC は R キー）',
+      '🚀 速くなぞるほど大きく回る「視点の加速」・画面のどこでも 2 回タップでアクション（どちらも選べる）',
+      '🚃 練習乗車は体力・精神が減らない。ボタンの設定を試すのにどうぞ',
+      '👜 落とし物は、見ている床の所に投げて置ける（置いてすぐ座れる）',
+      '🎒 スキルの並び順を入れかえられる（「Lv」→「スキルのセット」）',
     ] },
     { d: '2026-11-12', t: '新スキル 3 つ・見習い乗車 3 回 ほか', items: [
       '🆕 新スキル「👴 変装」「🗣 ひとこと注意」「📱 乗換案内」',
       '🎒 スキルは 7 つまで選んで付けかえ（「Lv」→「スキルのセット」）',
       '🔰 見習い乗車がはじめの 3 回に。「路線・練習」からいつでも遊べる',
-      '🕹 移動スティックを固定できる（一時停止の画面・縦画面の片手用は左下・右下）',
+      '🕹 移動スティックを左下・右下に固定できる（一時停止の画面）',
       '🎬 作者の実況プレイ動画を公開（結果画面の「作者の実況」・ホームの「動画で見る」）',
       '🎬 リプレイ：バーで好きな場面へ・動画にする範囲を [ ] で選べる',
       '🤝 オンラインの試合もリプレイで見られる',
@@ -2596,6 +2879,8 @@
     ] },
     { d: '2026-11-08', t: 'スワリタイ！公開', items: ['🚃 公開しました！ その後、ランキング・名前ガチャ・横向きにも対応'] },
   ];
+  // 片手のお知らせのカード：2026-11-13 に一旦やめた（本人）。また出すときは true に
+  var OH_ON = false;
   const ohPick = (v) => { profile.joyFix = v; saveProfile(); applyJoy(); $('oneHand').classList.add('hidden'); if (v) titleToast(v === 'r' ? '✋ 右手で遊ぶ設定にしました' : '🤚 左手で遊ぶ設定にしました'); track('片手のお知らせ：' + (v === 'r' ? '右手' : v === 'L' ? '左手' : 'あとで')); };
   $('ohR').addEventListener('click', () => ohPick('r')); $('ohL').addEventListener('click', () => ohPick('L')); $('ohNo').addEventListener('click', () => ohPick(profile.joyFix || null));
   function newsDot() { $('newsDot').classList.toggle('hidden', !NEWS.length || (profile.newsSeen || '') >= NEWS[0].d); }
@@ -2636,8 +2921,14 @@
   // スキルのセット：押すとつけはずし（7 つまで・1 つは残す）
   function renderLoadout() {
     const cur = loadout();
-    $('loadList').innerHTML = SW.SKILLS.map((sk) => { const n = cur.indexOf(sk.key); return `<button data-lk="${sk.key}" class="${n >= 0 ? 'on' : ''}" title="${esc(sk.desc)}">${n >= 0 ? '<b>' + (n + 1) + '</b>' : ''}${sk.icon} ${sk.name}</button>`; }).join('');
+    $('loadList').innerHTML = SW.SKILLS.map((sk) => { const n = cur.indexOf(sk.key); return `<button data-lk="${sk.key}" class="${n >= 0 ? 'on' : ''}" title="${esc(sk.desc)}">${n >= 0 ? '<b>' + (n + 1) + '</b>' : ''}${sk.icon} ${sk.name}</button>`; }).join('');    $('loadOrder').innerHTML = cur.map((k, i) => { const sk = SW.SKILLS.find((x) => x.key === k); return `<span class="lo"><button data-mv="-1" data-i="${i}" ${i === 0 ? 'disabled' : ''} title="左へ">◀</button><b>${i + 1}</b>${sk.icon}<button data-mv="1" data-i="${i}" ${i === cur.length - 1 ? 'disabled' : ''} title="右へ">▶</button></span>`; }).join('');
   }
+  // スキルの並び順を入れかえる（スキルのバー・1〜7 キーの順）
+  $('loadOrder').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mv]'); if (!b) return;
+    const cur = loadout().slice(), i = +b.dataset.i, j = i + +b.dataset.mv; if (j < 0 || j >= cur.length) return;
+    [cur[i], cur[j]] = [cur[j], cur[i]]; profile.loadout = cur; saveProfile(); buildSkillBar(); renderLoadout(); track('スキルの並び順を変えた');
+  });
   $('loadList').addEventListener('click', (e) => {
     const b = e.target.closest('[data-lk]'); if (!b) return;
     const k = b.dataset.lk; let cur = loadout().slice();
@@ -4729,5 +5020,5 @@
   }
   if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(boot); else boot();
   // テスト用
-  window.__SW = { avatarUrl, makeName, camera, tapFace, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
+  window.__SW = { get AW() { return AW; }, avatarUrl, makeName, camera, tapFace, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
 })();

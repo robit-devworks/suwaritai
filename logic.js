@@ -730,13 +730,13 @@
     if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.0 && ap.state !== 'ko') return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
     { const wp = warnPrompt(g, ap, apd, false); if (wp) return wp; }
     if (ap && ap.type === 'sick' && (ap.state === 'stand' || ap.state === 'walk') && ap.role !== 'faked' && !ap.checked && apd < 1.8) return { act: 'expose', label: '「…仮病じゃない？」と指摘する', id: ap.id };
-    for (const it of g.items) if (!it.taken && dist2(it.x, it.z, pl.x, pl.z) < 1.15 && !pl.carrying) return { act: 'pick', label: it.name + 'を拾う', id: it.id };
+    for (const it of g.items) if (!it.taken && dist2(it.x, it.z, pl.x, pl.z) < 1.15 && !pl.carrying && !(it.dropBy === g.pi && g.t - it.dropT < 4)) return { act: 'pick', label: it.name + 'を拾う', id: it.id };
     for (const s of g.seats) if (s.hog && dist2(s.x, s.fz, pl.x, pl.z) < 0.95) {
       const q = person(g, s.hog); if (!q) continue;
       if (q.hogKind === 'bag' && pl.pitch < -0.45) return { act: 'throw', label: '👜 かばんをぶん投げて座る（カルマ+）', id: s.id };
       if (!q.asked) return { act: 'ask', label: q.hogKind === 'bag' ? '「かばん、どけてもらえますか？」と頼む' : '「詰めてもらえますか？」と頼む', id: s.id };
     }
-    if (pl.carrying && pl.pitch < -0.55 && !(ap && apd < 1.8 && ap.state !== 'ko')) return { act: 'putdown', label: pl.carrying.name + 'を床に置く' };
+    if (pl.carrying && pl.pitch < -0.55 && !(ap && apd < 1.8 && ap.state !== 'ko')) return { act: 'putdown', label: pl.carrying.name + 'をそこに置く' };
     const fs = nearestFreeSeat(g);
     if (fs) return { act: 'sit', label: fs.pri ? '優先席に座る' : '座る', id: fs.id };
     if (pl.carrying && ap && apd < 1.8 && ap.state !== 'ko') return { act: 'deliver', label: pl.carrying.name + 'を渡す', id: ap.id };
@@ -883,8 +883,10 @@
       }
       case 'putdown': {
         const it = pl.carrying; pl.carrying = null;
-        const fx = pl.x - Math.sin(pl.yaw) * 0.45, fz = pl.z - Math.cos(pl.yaw) * 0.45;
-        [it.x, it.z] = aisleClamp(fx, fz); it.taken = false; it.t0 = g.t; it.noticed = true;
+        // 見ている床の所（照準の先）に投げて置く（2026-11-13・本人：その場に置くと、座りたいのにまた拾ってしまう）。近すぎ・遠すぎは 0.6〜2.5m に収める
+        const dd = clamp(C.EYE_STAND / Math.tan(Math.max(0.3, -pl.pitch)), 0.6, 2.5);
+        const fx = pl.x - Math.sin(pl.yaw) * dd, fz = pl.z - Math.cos(pl.yaw) * dd;
+        [it.x, it.z] = aisleClamp(fx, fz); it.taken = false; it.t0 = g.t; it.noticed = true; it.dropT = g.t; it.dropBy = g.pi;
         g.items.push(it);
         toast(g, it.name + 'を床に置いた', 'info');
         break;
@@ -1251,10 +1253,13 @@
     input = input || {};
     dt = Math.min(dt, 0.1);
     g.t += dt;
+    const keepUp = () => { if (g.practice && !g.over) { g.player.stamina = C.MAX_STAMINA; g.player.mind = 100; } }; // 練習乗車：体力・精神は減らない（操作を試しやすいように。2026-11-13）
+    keepUp();
     if (!playerStep(g, dt, input)) return;
     updatePhase(g, dt);
     updatePeople(g, dt);
     updateEvents(g, dt);
+    keepUp();
   }
   // 1 人分の操作と体の更新。脱落・終わりなら false
   function playerStep(g, dt, input) {
