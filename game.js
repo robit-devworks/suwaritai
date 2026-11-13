@@ -1466,7 +1466,8 @@
     { // 🎯 ためているあいだ：照準のまわりのゲージと、落ちる所（当たる人がいればその人の足もと）に赤い輪
       const on = !!TH && canThrow(); $('thGauge').classList.toggle('hidden', !on); if (TH && !canThrow()) TH = null;
       if (thMark) { thMark.visible = on; if (on) { const g = G, pl = g.player, pw = thPow(); $('thGauge').style.setProperty('--p', pw.toFixed(3));
-        const yw = inp.yaw, Rr = SW._internal.throwRange(pw), pl0 = { yaw: pl.yaw }; pl.yaw = yw; const h = SW._internal.throwTarget(g, Rr); pl.yaw = pl0.yaw;
+        const yw = inp.yaw, Rr = SW._internal.throwRange(pw), pl0 = { yaw: pl.yaw, pitch: pl.pitch }; pl.yaw = yw; pl.pitch = inp.pitch; const h = SW._internal.throwTarget(g, Rr); pl.yaw = pl0.yaw; pl.pitch = pl0.pitch;
+        thMark.material.color.setHex(h.head ? 0xffd400 : 0xff5a3c); $('thGauge').classList.toggle('head', !!h.head); // 頭をねらえていたら金色（ヘッドショット）
         const d = h.id >= 0 ? h.t : Rr, [mx, mz] = SW._internal.aisleClamp(pl.x - Math.sin(yw) * d, pl.z - Math.cos(yw) * d); thMark.position.set(mx, 0.035, mz); const sc = h.id >= 0 ? 2.2 : 1; thMark.scale.set(sc, sc, 1); } }
     }
     if (awMark) { // 行き先に黄色い輪。人をタップしたときは、その人の足もとに大きめの輪（相手が動けばついていく）＝その人が光って見える
@@ -2335,7 +2336,8 @@
     $('modeList').innerHTML = list.map(([k, name, desc, cond]) => profile.unlock[k]
       ? `<button class="btn" data-mode="${k}">${name}</button><p class="modeinfo">${desc}${profile.bests[k] ? '・ベスト ' + profile.bests[k] : ''}</p>`
       : `<button class="btn" disabled style="opacity:.45">🔒 ？？？</button><p class="modeinfo">${cond}</p>`).join('');
-    $('modeList').innerHTML = `<button class="btn sub2" id="bTune">🎛 感度・ボタン調整</button><p class="modeinfo">練習乗車（体力が減らない）で、視点の感度・移動スティック・ボタンの位置と大きさを試しながら決める</p>` + `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="rookie">🔰 見習い乗車</button><p class="modeinfo">体力がへりにくい・最初のボス駅はおそめ。はじめの ${ROOKIE_N} 回と同じ（ランキングなし）</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力・精神が減らない（操作やボタンの位置を試すのにも）。連行されても続く。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
+    $('modeList').innerHTML = `<button class="btn sub2" id="bTune">🎛 感度・ボタン調整</button><p class="modeinfo">練習乗車（体力が減らない）で、視点の感度・移動スティック・ボタンの位置と大きさを試しながら決める</p>`
+      + `<h3 style="margin:10px 0 4px">🤖 CPU 戦（生き残り）</h3><div class="cpuRow">${[1, 2, 3].map((l) => `<button class="btn sub2" data-cpu="${l}">${['', '🟢 初級', '🟡 中級', '🔴 上級'][l]}${profile.cpuWin && profile.cpuWin[l] ? ' 🏆' : ''}</button>`).join('')}</div><p class="modeinfo">CPU 3 人と 7 駅。倒れたら即脱落。最後の 1 人になるか、終点で生き残った人の中で徳がいちばん多ければ勝ち。上級の CPU は弱ったライバルにトドメを刺しにくる</p>` + `<button class="btn sub2" data-mode="bossrush">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}⚠ ボス駅ラッシュ</button><p class="modeinfo">毎駅がボス駅。倒れるまでに、いくつクリアできるか${profile.bests.bossrush ? '・ベスト ' + profile.bests.bossrush : ''}</p>` + `<button class="btn sub2" data-mode="rookie">🔰 見習い乗車</button><p class="modeinfo">体力がへりにくい・最初のボス駅はおそめ。はじめの ${ROOKIE_N} 回と同じ（ランキングなし）</p>` + `<button class="btn sub2" data-mode="practice">${todayKey() <= NEW_UNTIL ? '<span class="newb">NEW</span>' : ''}🔰 練習乗車</button><p class="modeinfo">体力・精神が減らない（操作やボタンの位置を試すのにも）。連行されても続く。まずは慣れたい人に（最終ボス駅は本番だけ・ランキングなし・経験値は少なめ）</p>` + $('modeList').innerHTML;
     // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
     if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
       const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
@@ -2345,6 +2347,7 @@
         + '<h3 style="margin:12px 0 4px">📅 今日のルールのお試し（ランキングなし）</h3><div class="btest">' + SW.DAILY_RULES.map((r) => `<button class="btn sub2" data-mode="ruletest:${r.key}">${r.icon} ${r.name}</button>`).join('') + '</div>';
     }
     $('modeList').querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
+    $('modeList').querySelectorAll('[data-cpu]').forEach(b => b.addEventListener('click', () => cpuStart(+b.dataset.cpu)));
     $('bTune').addEventListener('click', () => { track('路線・練習から感度・ボタン調整'); startGame('practice'); setTimeout(() => { if (state !== 'play') return; pause(); if (document.body.classList.contains('touch')) layOpen(); }, 700); });
   }
   function clearWorld() {
@@ -2498,27 +2501,77 @@
   $('mmRate').addEventListener('click', () => mmJoin('rate'));
   $('mmCancel').addEventListener('click', () => mmCancel());
   // 対戦が終わったら、オンライン対戦のレートを動かす（人間どうしのとき。自分の分だけ書く）
+  // 🏅 レート戦の途中で抜けたら負け（2026-11-13・本人）：試合の始めに、自分のレートを「全員に負けた」値で読んでおき、
+  //   通信が切れたら（アプリを閉じた・抜けた）Firebase がその値を書く（onDisconnect）。ふつうに終わったら取り消して、本当の順位で書く。
+  //   「部屋を出る」で抜けたときは、その場で負けの値を書く。ホストがいなくなって試合が止まったときは、何も書かない（その人のせいではないので）
+  //   データベースの決まり（1 回で ±60 まで・g は 1 つずつ）に合わせて、負けの値も ±60 におさめる
+  async function mmRatePre(players) {
+    try {
+      const humans = players.filter((p) => !p.cpu); if (humans.length < 2) return;
+      const N = await net(); const season = rkSeason(), path = 'suwaritai/mm/r/' + season + '/' + N.uid;
+      const meDoc = await N.get(path); const R0 = meDoc ? meDoc.r : RK_START, games = meDoc ? meDoc.g : 0;
+      const opp = {};
+      for (const o of humans) { if (o.uid === N.uid) continue; const od = await N.get('suwaritai/mm/r/' + season + '/' + o.uid).catch(() => null); opp[o.uid] = od ? od.r : RK_START; }
+      const rate = { path, season, R0, games, exists: !!meDoc, opp, done: false };
+      rate.Rloss = mmNewR(rate, Object.keys(opp).map(() => 0));
+      MP.rate = rate;
+      if (N.onDisconnectSet) await N.onDisconnectSet(path, { r: rate.Rloss, n: rankName(), g: games + 1, t: N.TS });
+    } catch (e) { }
+  }
+  function mmNewR(rate, results) { // results：相手ごとの勝ち 1・引き分け 0.5・負け 0（相手の順は opp と同じ）
+    const R0 = rate.R0, us = Object.keys(rate.opp); let sum = 0;
+    us.forEach((u, k) => { sum += results[k] - 1 / (1 + Math.pow(10, (rate.opp[u] - R0) / 400)); });
+    const n = us.length || 1, delta = Math.max(-60, Math.min(60, Math.round((rate.games < 10 ? 40 : 24) * sum / n * Math.min(1, (n + 1) / 3))));
+    return rate.exists ? Math.max(0, R0 + delta) : Math.max(1440, Math.min(1560, R0 + delta));
+  }
+  // 部屋を出る（途中で抜ける）とき：負けの値をその場で書く
+  async function mmRateForfeit() {
+    const rate = MP.rate; if (!rate || rate.done) return '';
+    rate.done = true;
+    try {
+      const N = await net(); if (N.onDisconnectCancel) await N.onDisconnectCancel(rate.path);
+      const cur = await N.get(rate.path);
+      if (!cur || cur.g === rate.games) await N.set(rate.path, { r: rate.Rloss, n: rankName(), g: rate.games + 1, t: N.TS });
+      profile.mmr = { r: rate.Rloss, s: rate.season }; saveProfile(); track('オンライン：レート戦を途中で抜けた');
+      return '🏅 レート戦を途中で抜けたので負けあつかい（' + rate.R0 + ' → ' + rate.Rloss + '）';
+    } catch (e) { return ''; }
+  }
+  async function mmRateCancel() { const rate = MP.rate; if (!rate || rate.done) return; rate.done = true; try { const N = await net(); if (N.onDisconnectCancel) await N.onDisconnectCancel(rate.path); } catch (e) { } }
+  // 結果（相手ごとの勝ち 1・引き分け 0.5・負け 0）でレートを書く。予約（onDisconnect）は取り消す
+  async function mmRateWrite(rate, results) {
+    const N = await net();
+    const R1t = mmNewR(rate, results);
+    if (N.onDisconnectCancel) await N.onDisconnectCancel(rate.path);
+    const cur = await N.get(rate.path);
+    let R1 = R1t;
+    if (cur && cur.g !== rate.games) R1 = Math.max(cur.r - 60, Math.min(cur.r + 60, R1t)); // 通信が切れて負けがもう書かれていたら、そこから直せる分だけ直す
+    await N.set(rate.path, { r: R1, n: rankName(), g: (cur ? cur.g : 0) + 1, t: N.TS });
+    profile.mmr = { r: R1, s: rate.season }; saveProfile();
+    track('オンライン：レート戦の結果（' + rkTier(R1)[2] + '）');
+    rate.msg = `🏅 対戦レート ${rate.R0} → <b>${R1}</b>（${R1 - rate.R0 >= 0 ? '+' : ''}${R1 - rate.R0}）${rkBadge(R1)}`;
+    return rate.msg;
+  }
+  // 生き残り（レート戦）で自分が脱落したとき：その時点で順位が決まる（先に脱落した人には勝ち・まだ生き残っている人には負け）ので、すぐ書く。
+  //   そのあと観戦をやめて部屋を出ても、このレートのまま（2026-11-13・本人）
+  async function mmRateOnOut() {
+    const rate = MP.rate; if (!rate || rate.done || !G) return;
+    rate.done = true;
+    try {
+      const res = Object.keys(rate.opp).map((u) => { const k = MP.players.findIndex((p) => p.uid === u), P = k >= 0 ? G.players[k] : null; return !P || (P.out && !(P.result && P.result.cause === 'clear')) ? 1 : 0; });
+      const t = await mmRateWrite(rate, res);
+      if (t) addToast(t.replace(/<[^>]+>/g, ''), 'info');
+    } catch (e) { }
+  }
   async function mmRateUpdate(res) {
     try {
       const humans = res.filter((r) => !r.cpu); if (humans.length < 2) return '';
-      const N = await net(); const F = { uid: N.uid }; // 通信は net()（?online=local でも試せる）
-      const season = rkSeason(), path = 'suwaritai/mm/r/' + season + '/' + F.uid;
-      const meDoc = await N.get(path);
-      const R0 = meDoc ? meDoc.r : RK_START, games = meDoc ? meDoc.g : 0;
-      const mine = humans.find((r) => r.uid === F.uid); if (!mine) return '';
-      let sum = 0, n = 0;
-      for (const o of humans) {
-        if (o.uid === F.uid) continue;
-        const od = await N.get('suwaritai/mm/r/' + season + '/' + o.uid).catch(() => null);
-        const Ro = od ? od.r : RK_START;
-        sum += (mine.score > o.score ? 1 : mine.score === o.score ? 0.5 : 0) - 1 / (1 + Math.pow(10, (Ro - R0) / 400)); n++;
-      }
-      const delta = Math.max(-60, Math.min(60, Math.round((games < 10 ? 40 : 24) * sum / n * Math.min(1, (n + 1) / 3))));
-      const R1 = meDoc ? Math.max(0, R0 + delta) : Math.max(1440, Math.min(1560, R0 + delta));
-      await N.set(path, { r: R1, n: rankName(), g: games + 1, t: N.TS });
-      profile.mmr = { r: R1, s: season }; saveProfile();
-      track('オンライン：レート戦の結果（' + rkTier(R1)[2] + '）');
-      return `🏅 対戦レート ${R0} → <b>${R1}</b>（${R1 - R0 >= 0 ? '+' : ''}${R1 - R0}）${rkBadge(R1)}`;
+      const N = await net(); const rate = MP.rate;
+      if (!rate) return '';
+      if (rate.done) return rate.msg || ''; // 脱落したときにもう書いた
+      rate.done = true;
+      if (!humans.some((r) => r.uid === N.uid)) return '';
+      const pos = (u) => res.findIndex((r) => r.uid === u), mp = pos(N.uid); // 順位でくらべる（生き残り：生き残った人が上・脱落は遅いほど上）
+      return await mmRateWrite(rate, Object.keys(rate.opp).map((u) => pos(u) < 0 ? 1 : mp < pos(u) ? 1 : mp > pos(u) ? 0 : 0.5));
     } catch (e) { return ''; }
   }
   // ================================================================ 一人プレイの途中保存と、募集中のオンライン部屋のお知らせ
@@ -2868,7 +2921,10 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
-    { d: '2026-11-13', t: 'タップで移動・感度・ボタン調整 ほか', items: [
+    { d: '2026-11-13', t: 'CPU 戦・タップで移動・落とし物を投げる ほか', items: [
+      '🤖 CPU 戦（生き残り）！ 初級・中級・上級の CPU 3 人と勝負。倒れたら即脱落（「路線・練習・感度調整」から）',
+      '🏅 レート戦は生き残りに。倒れたら脱落・脱落した順で順位が決まる（途中で抜けたら負け）',
+      '🎯 落とし物を頭に当てるとヘッドショット（1.5 倍）',
       '👆 床をタップすると、黄色い輪のところまで自動で歩く。人をタップするとその人の正面まで（スマホ）',
       '🎛 「感度・ボタン調整」：ボタンの位置・大きさを自分で決められる。感度は 5 倍まで（一時停止・「路線・練習・感度調整」から）',
       '🔄 振り向くボタン：押すと車両の反対の端をまっすぐ向く（PC は R キー）',
@@ -4321,11 +4377,11 @@
   const CPU_NAMES = ['CPUのたなか', 'CPUのすずき', 'CPUのさとう', 'CPUのやまだ'];
   const roomP = (c) => 'suwaritai/rooms/' + c;
   let NET = null;
-  function localNet() {
-    const ch = new BroadcastChannel('suwaritai-net');
+  function localNet(memOnly) {
+    const ch = memOnly ? { postMessage() { } } : new BroadcastChannel('suwaritai-net');
     let store = {};
     const subs = [], disc = [];
-    let uid = null; try { uid = sessionStorage.getItem('sw-uid'); } catch (e) { }
+    let uid = memOnly ? 'me' : null; if (!memOnly) try { uid = sessionStorage.getItem('sw-uid'); } catch (e) { }
     if (!uid) { uid = 'L' + Math.random().toString(36).slice(2, 8); try { sessionStorage.setItem('sw-uid', uid); } catch (e) { } }
     const segs = (p) => p.split('/').filter(Boolean);
     const clone = (v) => v == null ? null : JSON.parse(JSON.stringify(v));
@@ -4340,7 +4396,8 @@
     const apply = (op, p, v) => { if (op === 'set') setP(p, v); else if (op === 'update') { for (const k in v) setP(p + '/' + k, v[k]); } else setP(p, null); notify(p); };
     ch.onmessage = (e) => { const m = e.data; if (m.t === 'op') apply(m.op, m.p, m.v); else if (m.t === 'hello') ch.postMessage({ t: 'store', s: store }); else if (m.t === 'store' && !Object.keys(store).length && m.s) { store = m.s; notify(''); } };
     ch.postMessage({ t: 'hello' });
-    window.addEventListener('pagehide', () => { for (const p of disc) ch.postMessage({ t: 'op', op: 'remove', p }); });
+    const discSet = {};
+    window.addEventListener('pagehide', () => { for (const p of disc) ch.postMessage({ t: 'op', op: 'remove', p }); for (const p in discSet) ch.postMessage({ t: 'op', op: 'set', p, v: discSet[p] }); });
     const write = (op, p, v) => { v = ts(v); apply(op, p, v); ch.postMessage({ t: 'op', op, p, v }); return Promise.resolve(); };
     return {
       uid, TS: { '.sv': 'timestamp' },
@@ -4348,6 +4405,7 @@
       set: (p, v) => write('set', p, v), update: (p, v) => write('update', p, v), remove: (p) => write('remove', p),
       on: (p, cb) => { const s = { path: p, cb }; subs.push(s); setTimeout(() => cb(clone(getP(p)))); return () => { const i = subs.indexOf(s); if (i >= 0) subs.splice(i, 1); }; },
       onDisconnectRemove: (p) => { disc.push(p); },
+      onDisconnectSet: (p, v) => { discSet[p] = ts(v); return Promise.resolve(); }, onDisconnectCancel: (p) => { delete discSet[p]; return Promise.resolve(); },
     };
   }
   async function fbNet() {
@@ -4359,22 +4417,37 @@
       set: (p, v) => withTimeout(db.ref(p).set(v), 10000), update: (p, v) => withTimeout(db.ref(p).update(v), 10000), remove: (p) => db.ref(p).remove(),
       on: (p, cb) => { const r = db.ref(p); const h = (s) => cb(s.val()); r.on('value', h); return () => r.off('value', h); },
       onDisconnectRemove: (p) => { try { db.ref(p).onDisconnect().remove(); } catch (e) { } },
+      onDisconnectSet: (p, v) => db.ref(p).onDisconnect().set(v), onDisconnectCancel: (p) => db.ref(p).onDisconnect().cancel(),
     };
   }
-  let netWait = null;
+  let netWait = null, MEMNET = null, cpuNet = false; // cpuNet：CPU 戦のあいだ（MP より先に読まれるので、MP.cpuMode ではなくこちらを見る）
   function net() {
+    if (cpuNet) return Promise.resolve(MEMNET || (MEMNET = localNet(true))); // CPU 戦：通信しない（この端末のメモリの中だけで部屋を作る）
     if (!netWait) netWait = NET_LOCAL ? new Promise((res) => { const n = localNet(); setTimeout(() => { NET = n; res(n); }, 250); }) // ほかのタブから中身を受け取るのを少し待つ
       : fbNet().then((n) => (NET = n)).catch((e) => { netWait = null; throw e; });
     return netWait;
   }
   if (NET_LOCAL) net();
   const MP = {};
+  // 🤖 CPU 戦（生き残り・2026-11-13・本人）：オンライン対戦のしくみを、通信なし（メモリの中の部屋）で動かす。CPU 3 人（初級・中級・上級）
+  const CPU_LVJ = ['', '初級', '中級', '上級'];
+  async function cpuStart(lv) {
+    if (MP.active) return;
+    mpReset(); MP.cpuMode = true; MP.cpuLv = lv; cpuNet = true;
+    const N = await net(); MP.isHost = true; MP.code = 'CPU'; MP.uid = N.uid; MP.hostUid = N.uid;
+    MP.offs.push(N.on(roomP('CPU') + '/state', (v) => mpOnState(v)));
+    const st = SW.STATS.map((d) => SW.capStats(profile.st, SW.STAT_CAP_FAIR)[d.key]).join(',');
+    const players = [{ uid: N.uid, name: rankName().slice(0, 12), cpu: false, st }].concat([0, 1, 2].map((k) => ({ uid: 'cpu' + k, name: CPU_NAMES[k] + '（' + CPU_LVJ[lv] + '）', cpu: true, lv, st: '' })));
+    await N.update(roomP('CPU'), { host: N.uid, state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: true, mode: 'vs', survival: 1, lv, rated: false, t: Date.now() } });
+    track('CPU 戦：' + CPU_LVJ[lv] + '：出発');
+  }
   function mpReset() {
+    cpuNet = false;
     for (const off of (MP.offs || [])) { try { off(); } catch (e) { } }
     Object.assign(MP, {
       active: false, code: null, isHost: false, uid: null, hostUid: null, me: -1, offs: [], members: {}, state: null, players: [],
       remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, cnt: { a: 0, p: 0, bp: 0, fs: 0, sk: 0 }, skIdx: -1,
-      seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', mmRated: false, mmExpect: 0, mmT0: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
+      cpuMode: false, cpuLv: 0, seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', mmRated: false, mmExpect: 0, mmT0: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
     });
   }
   mpReset();
@@ -4521,7 +4594,7 @@
     if (players.length < 2) { olNote('2 人そろったら始められます（合言葉を友だちに送ってね）'); return; }
     try {
       await N.remove(roomP(MP.code) + '/snap');
-      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', rated: !!MP.mmRated, t: N.TS } });
+      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', rated: !!MP.mmRated, survival: MP.mmRated && MP.modeSel !== 'coop' ? 1 : 0, t: N.TS } }); // レート戦は生き残り（倒れたら即脱落・2026-11-13・本人）。フレンド戦は今までどおり何度でもやり直し
     } catch (e) { olNote('スタートできませんでした（' + (e && e.message || e) + '）'); }
   }
   function mpBegin(st) {
@@ -4535,7 +4608,7 @@
     initAudio(); clearWorld();
     MP.modeSel = st.mode || 'vs';
     MP.rec = MP.spect ? null : { seed: st.seed, mp: { me: idx, coop: st.mode === 'coop' ? 1 : 0, pl: st.players.map((p) => ({ n: p.name })) }, fr: [] }; MP.recEv = [];
-    G = SW.create({ seed: st.seed, mode: 'online', coop: st.mode === 'coop', players: st.players.map((p) => { const a = String(p.st || '').split(','), o = {}; SW.STATS.forEach((d, k) => { o[d.key] = +a[k] || 0; }); return { name: p.name, cpu: p.cpu, stats: o }; }) });
+    G = SW.create({ seed: st.seed, mode: 'online', coop: st.mode === 'coop', survival: !!st.survival, players: st.players.map((p) => { const a = String(p.st || '').split(','), o = {}; SW.STATS.forEach((d, k) => { o[d.key] = +a[k] || 0; }); return { name: p.name, cpu: p.cpu, lv: p.lv || 0, stats: o }; }) });
     G.modeName = 'online';
     MP.sentMax = G.nextId - 1; MP.base = MP.isHost ? G.nextId - 1 : 0;
     SW.setCtx(G, MP.me);
@@ -4547,12 +4620,14 @@
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (MP.spect) { document.body.classList.add('replay'); $('spBar').classList.remove('hidden'); spName(); addToast('👀 観戦中。「次の人」で見る人を切りかえ', 'good'); track('オンライン：観戦をはじめた'); }
     else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
-    if (!MP.spect) addToast(G.coop ? '🤝 共闘スタート！ みんなの合計で勝負。倒れた仲間はそばで「復活させる」' : '🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
+    if (!MP.spect && G.survival) addToast(MP.cpuMode ? '🤖 CPU 戦（' + CPU_LVJ[st.lv || 0] + '）スタート！ 倒れたら即脱落。最後まで生き残れ' : '🏅 レート戦スタート！ 倒れたら即脱落。最後まで生き残った人の勝ち', 'good');
+    else if (!MP.spect) addToast(G.coop ? '🤝 共闘スタート！ みんなの合計で勝負。倒れた仲間はそばで「復活させる」' : '🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
     net().then((N) => {
       if (MP.isHost) MP.offs.push(N.on(roomP(MP.code) + '/inputs', (v) => { MP.remote = v || {}; }));
       else MP.offs.push(N.on(roomP(MP.code) + '/snap', (v) => { if (v) mpApply(v); }));
     });
-    track('オンライン：' + (G.coop ? '共闘' : '対戦') + '開始（人間' + st.players.filter((p) => !p.cpu).length + '人）');
+    MP.rate = null; if (st.rated && !MP.spect && !MP.cpuMode) mmRatePre(st.players);
+    if (!MP.cpuMode) track('オンライン：' + (G.coop ? '共闘' : '対戦') + '開始（人間' + st.players.filter((p) => !p.cpu).length + '人）');
   }
   // ---- ホスト：ほかの人の操作を受け取る
   function mpRemoteInput(i) {
@@ -4774,6 +4849,7 @@
   function mpOnOut() {
     MP.outShown = true;
     const P = G.players[MP.me], r = P.result || {};
+    if (G.survival && r.cause !== 'clear' && MP.rate) mmRateOnOut(); // レート戦：脱落した時点でレートを書く
     if (r.cause === 'clear') return;
     if (G.coop && r.cause !== 'leave') { // 共闘：倒れて、仲間の復活を待つ
       if (!$('downTag')) { const d = document.createElement('div'); d.id = 'downTag'; d.innerHTML = '🆘 倒れた…<br><small>仲間がそばで「復活させる」を押すのを待とう</small>'; document.body.appendChild(d); }
@@ -4781,7 +4857,8 @@
     }
     const T = { collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', pko: '👊 トドメを刺された', leave: '途中で降りた', broken: '🧠 心が折れた' }[r.cause] || '脱落…';
     $('mpOutT').textContent = T;
-    $('mpOutS').textContent = (r.text || '') + ' ここまでの徳は記録に残ります。';
+    $('mpOutS').textContent = (r.text || '') + (G.survival ? ' レート戦は倒れたら脱落。順位は脱落した順で決まり、レートはもう書きました。部屋を出ても大丈夫です。' : ' ここまでの徳は記録に残ります。');
+    $('mpGhost').classList.toggle('hidden', !!G.survival); $('mpGhost').nextElementSibling.classList.toggle('hidden', !!G.survival); // 生き残り（レート戦）ではニセ乗客なし（勝ち負けに関わるので）
     $('mpOut').classList.remove('hidden');
     if (document.pointerLockElement) document.exitPointerLock();
   }
@@ -4791,7 +4868,7 @@
     $('mpOut').classList.add('hidden'); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden');
     if (document.pointerLockElement) document.exitPointerLock();
     state = 'result'; backTo = 'mpres';
-    const causeJa = { clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', pko: 'トドメ', leave: '途中で降りた', broken: '心が折れた' };
+    const causeJa = { alive: '生き残り', clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', pko: 'トドメ', leave: '途中で降りた', broken: '心が折れた' };
     let myRank = 0;
     $('mpResList').innerHTML = res.map((r, k) => {
       const me = r.uid === MP.uid; if (me) myRank = k + 1;
@@ -4799,7 +4876,14 @@
       return `<div class="mpr ${me ? 'me' : ''}"><span class="n">${k + 1}</span><i style="background:${MPCOL[r.i]}"></i><span class="nm">${nameHtml(r.name)}${r.cpu ? ' 🤖' : tagHtml(r.uid)}${me ? ' <span class="pill">あなた</span>' : ''}<small>${esc(extra)}</small></span><span class="sc">${r.score}</span></div>`;
     }).join('');
     $('mpResNote').textContent = myRank === 1 ? '🎉 あなたの勝ち！' : myRank ? 'あなたは ' + myRank + ' 位' : '';
-    $('mpResT').textContent = v.coop ? '🤝 共闘の結果' : '🏁 オンライン対戦の結果';
+    $('mpResT').textContent = v.coop ? '🤝 共闘の結果' : MP.cpuMode ? '🤖 CPU 戦（' + CPU_LVJ[MP.cpuLv] + '）の結果' : '🏁 オンライン対戦の結果';
+    $('mpAgain').textContent = MP.cpuMode ? 'もう一回（' + CPU_LVJ[MP.cpuLv] + '）' : 'もう一回（同じ部屋で）'; $('mpLeave').textContent = MP.cpuMode ? 'タイトルへ' : '部屋を出る';
+    if (MP.cpuMode) {
+      const meR = res.find((r) => r.uid === MP.uid) || {}, alive = res.filter((r) => r.alive).length;
+      $('mpResNote').textContent = myRank === 1 ? '🎉 生き残って勝利！' + (alive === 1 ? '（最後の 1 人）' : '') : meR.alive ? '終点までは生き残った！ でも徳で負けた… ' + myRank + ' 位' : '💀 脱落… ' + myRank + ' 位';
+      if (myRank === 1) { profile.cpuWin = profile.cpuWin || {}; profile.cpuWin[MP.cpuLv] = (profile.cpuWin[MP.cpuLv] || 0) + 1; saveProfile(); }
+      track('CPU 戦：' + CPU_LVJ[MP.cpuLv] + '：' + myRank + '位');
+    }
     const rec = mpRecKeep(res, v);
     if (v.coop) { // 共闘：チームのスコア。人間だけ（CPU なし）なら人数ごとのランキングに載せる（ホストが送る）
       const humans = MP.players.filter((p) => !p.cpu), ok = humans.length === MP.players.length && humans.length >= 2;
@@ -4812,7 +4896,7 @@
     if (v.rated) mmRateUpdate(res).then((t) => { if (t && state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>' + t); });
     show('mpres');
     sfx(myRank === 1 || v.coop ? 'clear' : 'over');
-    if (!v.coop) track('オンライン：結果 ' + myRank + '位');
+    if (!v.coop && !MP.cpuMode) track('オンライン：結果 ' + myRank + '位');
   }
   // 共闘ランキング：suwaritai/coop/{人数}/{メンバーの uid を並べて _ でつなぐ}。前より高いときだけ書く
   async function submitCoop(humans, score, rv, rec) {
@@ -4840,11 +4924,14 @@
   }
   async function mpAgain() {
     if (!MP.isHost) return;
+    if (MP.cpuMode) { const lv = MP.cpuLv; await mpLeave(false); cpuStart(lv); return; }
     const N = await net();
     await N.update(roomP(MP.code), { state: { s: 'lobby', cpu: $('olCpu').checked, mode: MP.modeSel || 'vs' } }); // 操作の記録は残っていても、次の試合で最初の値を基準にするので問題ない
   }
   async function mpLeave(toMenu) {
     const code = MP.code, host = MP.isHost;
+    const fm = MP.rate && !MP.rate.done && state !== 'result' ? await mmRateForfeit() : ''; // レート戦を途中で抜けたら負け
+    if (MP.rate && !MP.rate.done) await mmRateCancel();
     try {
       const N = await net();
       if (code) {
@@ -4856,9 +4943,11 @@
     mpReset(); { const d = $('downTag'); if (d) d.remove(); }
     $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('spBar').classList.add('hidden'); document.body.classList.remove('replay');
     if (toMenu) openOnline(); else titleScreen();
+    if (fm) titleToast(fm);
   }
   function mpAbort(msg) {
     const wasActive = MP.active;
+    mmRateCancel(); // 試合が止まった（ホストがいなくなった）ときは、負けにしない
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); if (MP.avatars[k].HD) scene.remove(MP.avatars[k].HD.root); }
     mpReset(); { const d = $('downTag'); if (d) d.remove(); }
     $('mpOut').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('spBar').classList.add('hidden'); document.body.classList.remove('replay');

@@ -126,7 +126,7 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 .sk.off{opacity:.55;filter:grayscale(1) brightness(.55)}
 .sk.on{box-shadow:0 0 0 2px var(--toku) inset;background:rgba(255,212,71,.18)}
 .sk .cd{position:absolute;left:0;right:0;bottom:0;background:rgba(255,212,71,.35);border-radius:0 0 11px 11px}
-#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}#thGauge{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;pointer-events:none}#thGauge.hidden{display:none}#thGauge i{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#ffd400 calc(var(--p,0)*360deg),rgba(255,255,255,.18) 0);-webkit-mask:radial-gradient(circle,transparent 24px,#000 25px);mask:radial-gradient(circle,transparent 24px,#000 25px)}#thGauge b{position:absolute;left:50%;top:-22px;transform:translateX(-50%);font-size:16px}
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}#thGauge{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;pointer-events:none}#thGauge.hidden{display:none}#thGauge.head b{font-size:20px;filter:drop-shadow(0 0 6px #ffd400)}#thGauge.head:after{content:"ヘッドショット！";position:absolute;left:50%;top:68px;transform:translateX(-50%);white-space:nowrap;font-size:13px;font-weight:900;color:#ffd400;text-shadow:0 1px 3px #000}#thGauge i{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#ffd400 calc(var(--p,0)*360deg),rgba(255,255,255,.18) 0);-webkit-mask:radial-gradient(circle,transparent 24px,#000 25px);mask:radial-gradient(circle,transparent 24px,#000 25px)}#thGauge b{position:absolute;left:50%;top:-22px;transform:translateX(-50%);font-size:16px}
 #cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85);box-shadow:0 0 2px #000}
 #cross:before{left:10px;top:3px;width:2px;height:16px}
 #cross:after{top:10px;left:3px;height:2px;width:16px}
@@ -185,7 +185,7 @@ body.customlay #tbtns{left:0!important;top:0!important;right:0!important;bottom:
 .leH{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px dashed #ffd447;background:rgba(255,212,71,.18);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:700;touch-action:none;cursor:grab;text-align:center}
 .leH span{font-size:22px}
 .leH.sel{border-style:solid;border-color:#ff4d4d;background:rgba(255,77,77,.25);z-index:2}.leS{flex-wrap:wrap}.leS.leChk{flex-wrap:nowrap}.leS.leChk>span{flex:1 1 auto}.leS.leChk input{flex:none;width:20px;height:20px}.leNote{flex:1 1 100%;font-size:11.5px;line-height:1.5;color:#cfd6e2;background:rgba(127,209,255,.08);border:1px solid rgba(127,209,255,.35);border-radius:8px;padding:5px 8px;text-align:left}.leNote b{color:#7fd1ff;font-size:11.5px;flex:none;text-align:left}.leNote.hidden{display:none}.leNote summary{cursor:pointer;color:#7fd1ff;font-weight:700}.leBar{z-index:3}.leS>span{flex:1 1 100%}
-.leS{flex:1 1 100%;display:flex;align-items:center;gap:6px;font-size:12px;color:#e8ecf4}.leS input{flex:1;min-width:0;accent-color:var(--toku)}.leS em{font-style:normal;min-width:38px;text-align:right;color:var(--toku)}.leS.hidden{display:none}.cardXw{position:sticky;top:0;height:0;z-index:5}.cardX{position:absolute;right:-8px;top:-8px;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(40,46,60,.95);color:#fff;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)}.leS.leJoy{flex-wrap:nowrap}.leS.leJoy>span{flex:none}.leS.leJoy select{flex:1;min-width:0;font:inherit;font-size:13px;padding:6px 8px;border-radius:9px;background:#1d2230;color:#fff;border:1px solid var(--line)}.leBar{position:absolute}.leBar .leXTop{position:absolute;top:6px;right:6px;width:34px;height:34px;padding:0!important;font-size:18px!important;line-height:1;border-radius:50%!important;display:flex;align-items:center;justify-content:center}.leBar b#leTitle{padding:0 36px}.leTabs{flex:1 1 100%;display:flex;gap:6px}.leTabs button{flex:1;font-size:13px!important;padding:8px 6px!important}.leTabs button.on{background:var(--toku)!important;color:#1a1a1a!important;font-weight:800;border-color:var(--toku)!important}.lePane{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px;max-height:52vh;overflow-y:auto}.lePane.hidden{display:none}.leHint{flex:1 1 100%;font-size:12.5px;line-height:1.5;color:#e8ecf4;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.4);border-radius:8px;padding:6px 8px;text-align:left}.leHint b{display:inline;flex:none;font-size:12.5px;color:var(--toku)}
+.leS{flex:1 1 100%;display:flex;align-items:center;gap:6px;font-size:12px;color:#e8ecf4}.leS input{flex:1;min-width:0;accent-color:var(--toku)}.leS em{font-style:normal;min-width:38px;text-align:right;color:var(--toku)}.leS.hidden{display:none}.cpuRow{display:flex;gap:6px}.cpuRow .btn{flex:1;margin:0;padding:10px 4px}.cardXw{position:sticky;top:0;height:0;z-index:5}.cardX{position:absolute;right:-8px;top:-8px;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(40,46,60,.95);color:#fff;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)}.leS.leJoy{flex-wrap:nowrap}.leS.leJoy>span{flex:none}.leS.leJoy select{flex:1;min-width:0;font:inherit;font-size:13px;padding:6px 8px;border-radius:9px;background:#1d2230;color:#fff;border:1px solid var(--line)}.leBar{position:absolute}.leBar .leXTop{position:absolute;top:6px;right:6px;width:34px;height:34px;padding:0!important;font-size:18px!important;line-height:1;border-radius:50%!important;display:flex;align-items:center;justify-content:center}.leBar b#leTitle{padding:0 36px}.leTabs{flex:1 1 100%;display:flex;gap:6px}.leTabs button{flex:1;font-size:13px!important;padding:8px 6px!important}.leTabs button.on{background:var(--toku)!important;color:#1a1a1a!important;font-weight:800;border-color:var(--toku)!important}.lePane{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px;max-height:52vh;overflow-y:auto}.lePane.hidden{display:none}.leHint{flex:1 1 100%;font-size:12.5px;line-height:1.5;color:#e8ecf4;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.4);border-radius:8px;padding:6px 8px;text-align:left}.leHint b{display:inline;flex:none;font-size:12.5px;color:var(--toku)}
 .leRing{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:2px dashed #7fd1ff;border-radius:50%;pointer-events:none}
 #ohPrev{flex:none;position:relative;overflow:visible;width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,.45);background:rgba(255,255,255,.06)}#ohPrev i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:2px dashed #7fd1ff;border-radius:50%;box-sizing:border-box}
 #joyHint{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));width:96px;height:96px;border-radius:50%;border:2px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,.5)}
@@ -702,7 +702,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <li>🪑 お年寄り・妊婦さん・ケガ人・子連れに<b>席を譲る</b>（また立つことになる）</li>
       <li>👛 <b>落とし物</b>を拾って持ち主へ（拾うと腰にくる）。持ち主のヒントを頼りに。持ち主が降りたら、停車中に開いたドアの近くで駅員に届けられる。足もとを見てアクションで床に置ける</li>
       <li>👊 <b>絡み屋をパンチで撃退</b>（ほかの乗客にしつこく絡む人。大きな徳。でも反撃される）。相手が構えた瞬間に殴るとカウンター！ 非常通報ボタンなら安全だが徳は少なめ</li>
-      <li>🎯 落とし物を持っているときのパンチは<b>投げる</b>：長押しでためるほど遠くへ（赤い輪が落ちる所）。悪者にはパンチ 1 発分（まれに出る<b>入れ歯は 3 発分・謎の巻物は 5 発分</b>）、関係ない人に当てるとカルマ。座っている人には、パンチも投げた物も効かない</li>
+      <li>🎯 落とし物を持っているときのパンチは<b>投げる</b>：長押しでためるほど遠くへ（赤い輪が落ちる所）。悪者にはパンチ 1 発分（まれに出る<b>入れ歯は 3 発分・謎の巻物は 5 発分</b>）。<b>頭に当てると 1.5 倍</b>（照準の高さを頭に合わせる・金色の輪になったら頭）、関係ない人に当てるとカルマ。座っている人には、パンチも投げた物も効かない</li>
       <li>🕵 床の落とし物や寝ている人の財布を盗む<b>泥棒</b>もいる。殴ると逃げるので、追いかけてもう一発で撃退</li>
       <li>📢 <b>迷惑客に注意</b>：音もれヘッドホン・においのきつい弁当・説教おじさん・リュック背負いっぱなし・ドア前から動かない人。近くにいると精神が減る。注意すると徳（こわい人は逆ギレ。人まちがいにも注意）</li>
       <li>善行を続けると<b>コンボ</b>で徳が増える</li>
@@ -724,7 +724,9 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h3>カルマに注意</h3>
     <ul>
       <li>関係ない人を殴る・無理やりどかす・洗脳する・譲るべき人を無視すると<b>カルマ</b>がたまる</li>
-      <li>カルマが100になると<b>駅員に連行</b>されて終わり。まわりの目が多いほどたまりやすい（寝ている人は見ていない）</li>
+      <li>カルマが100になると<b>駅員に連行</b>されて終わり</li>
+      <li>👀 <b>まわりの目</b>：悪いことをしたとき、5m 以内で起きている人 1 人につきカルマが 4% 増える（最大 18 人で 1.72 倍）。寝ている人・倒れている人は見ていない。混んでいるときほど目立つ</li>
+      <li>🕵 乗客の中には<b>変装した駅員</b>がまざっていることも。近く（6m 以内）にいると「変装した駅員に見られていた！」で、カルマがさらに <b>2 倍</b></li>
     </ul>
     <h3>スキル（徳で買う）</h3>
     <div id="skillHelp"></div>
@@ -993,7 +995,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261113045504"</script><script src="logic.js?v=20261113045504"></script>
-<script src="game.js?v=20261113045504"></script>
+<script>window.SW_VER="20261113062540"</script><script src="logic.js?v=20261113062540"></script>
+<script src="game.js?v=20261113062540"></script>
 </body>
 </html>

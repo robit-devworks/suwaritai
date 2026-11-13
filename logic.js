@@ -287,7 +287,7 @@
       g.multi = true; g.pi = -1;
       const spots = [[0.4, 0.6], [-0.6, -0.55], [1.5, -0.5], [-1.4, 0.55]];
       g.players = opts.players.map((o, i) => ({
-        i, name: o.name || ('プレイヤー' + (i + 1)), cpu: !!o.cpu, pl: Object.assign(makePlayer(spots[i % 4][0], spots[i % 4][1]), { toku: MP_TOKU, st: capStats(o.cpu ? { hp: 3, spd: 3, atk: 4, def: 4, guts: 3, eye: 3 } : o.stats, STAT_CAP_FAIR) }), stats: makeStats(),
+        i, name: o.name || ('プレイヤー' + (i + 1)), cpu: !!o.cpu, lv: o.cpu ? (o.lv || 0) : 0, pl: Object.assign(makePlayer(spots[i % 4][0], spots[i % 4][1]), { toku: MP_TOKU, st: capStats(o.cpu ? (CPU_LV[o.lv] || CPU_LV[0]).st : o.stats, STAT_CAP_FAIR) }), stats: makeStats(),
         aim: -1, prompt: null, events: [], out: false, result: null, ghost: false, tricks: 0, pko: 0,
       }));
       g.worldPlayer = makePlayer(999, 0); g.worldStats = makeStats(); g.worldEvents = [];
@@ -303,6 +303,7 @@
     // ボス駅テスト：毎駅がボス駅（1 つをくり返す／全部を順番に）。ほかの悪者は出ない。倒れない
     g.rules = (opts.rules || []).filter((k) => DAILY_RULES.some((r) => r.key === k)); // 今日のダイヤの特別ルール（DAILY_RULES）
     if (opts.mikiwame) { g.mikiwame = true; g.villainKinds = []; g.noBoss = true; g.nextChikanCheck = 1e9; g.nextItemCheck = 1e9; g.mkFree = []; Object.assign(g.stats, { mkSits: 0, mkHits: 0, mkCombo: 0, mkBest: 0, mkGive: 0 }); } // 見極め線（MIKIWAME の項）
+    if (opts.survival && g.multi) g.survival = true; // 生き残り（CPU 戦）：倒れたら即脱落。最後の 1 人か、終点で生き残った人の中で点の高い人が勝ち
     if (opts.coop && g.multi) { g.coop = true; g.coopRev = 0; g.coopPen = 0; } // 共闘モード（COOP の項）
     if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
     if (opts.bossRush) { g.bossRush = true; g.endless = true; g.villainKinds = []; g.noBoss = false; } // ボス駅ラッシュ（倒れるまで、毎駅がボス駅）
@@ -655,7 +656,7 @@
   }
   function gameOver(g, cause, extra) {
     if (g.practice && !g.multi && cause !== 'clear') { practiceSave(g, cause); return; }
-    if (g.multi && !g.coop && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out && !P.down) mpRespawn(g, cause); return; }
+    if (g.multi && !g.coop && !g.survival && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out && !P.down) mpRespawn(g, cause); return; }
     if (g.multi) {
       const P = g.players[g.pi]; if (!P || P.out) return;
       P.out = true; P.outT = g.t; P.outStation = g.station; g.outCount = (g.outCount || 0) + 1; P.outOrder = g.outCount;
@@ -1175,11 +1176,13 @@
   function throwRange(pow) { return THROW_MIN + (THROW_MAX - THROW_MIN) * clamp(pow || 0, 0, 1); }
   function throwTarget(g, R) { // 照準の向き（横から見た線）に沿って、いちばん手前の人
     const pl = g.player, fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw);
-    let best = -1, bt = 1e9;
-    const chk = (id, x, z) => { const dx = x - pl.x, dz = z - pl.z, t = dx * fx + dz * fz; if (t < 0.3 || t > R + 0.2) return; if (Math.abs(dx * fz - dz * fx) > 0.38) return; if (t < bt) { bt = t; best = id; } };
-    for (const p of g.people) { if (p.state === 'gone' || p.state === 'exit' || p.state === 'ko') continue; chk(p.id, p.x, p.z); }
-    if (g.multi) g.players.forEach((P, j) => { if (j !== g.pi && !P.out && !P.down) chk(PID + j, P.pl.x, P.pl.z); });
-    return { id: best, t: bt };
+    let best = -1, bt = 1e9, bh = 0;
+    const ey = eyeY(g), tp = Math.tan(clamp(pl.pitch, -1.2, 1.2));
+    // hy：頭の高さ。照準の上下の向きの線が、その人のところで頭のあたり（±0.17m）を通ったらヘッドショット（2026-11-13・本人）
+    const chk = (id, x, z, hy) => { const dx = x - pl.x, dz = z - pl.z, t = dx * fx + dz * fz; if (t < 0.3 || t > R + 0.2) return; if (Math.abs(dx * fz - dz * fx) > 0.38) return; if (t < bt) { bt = t; best = id; bh = Math.abs(ey + tp * t - hy) < 0.17 ? 1 : 0; } };
+    for (const p of g.people) { if (p.state === 'gone' || p.state === 'exit' || p.state === 'ko') continue; chk(p.id, p.x, p.z, headY(p) - 0.08); }
+    if (g.multi) g.players.forEach((P, j) => { if (j !== g.pi && !P.out && !P.down) chk(PID + j, P.pl.x, P.pl.z, (P.pl.seat >= 0 ? C.EYE_SIT : C.EYE_STAND) + 0.02); });
+    return { id: best, t: bt, head: !!bh };
   }
   function doThrow(g, pow) {
     const pl = g.player, it = pl.carrying;
@@ -1192,13 +1195,18 @@
     it.taken = false; it.t0 = g.t; it.noticed = true; it.dropT = g.t; it.dropBy = g.pi; it.fly = 0.12 + d * 0.06; // fly：見た目で飛んでいる秒数
     g.items.push(it);
     g.stats.throws = (g.stats.throws || 0) + 1;
-    const pw = THROW_POW[it.key] || 1; // 何発分か：ふつうは 1、まれな入れ歯 3・とてもまれな謎の巻物 5（2026-11-13・本人と決めた）
-    if (hit.id >= 0) { punchHit(g, hit.id, pw, true); if (pw > 1) emit(g, { type: 'toast', text: (it.key === 'teeth' ? '🦷 入れ歯アタック！' : '📜 謎の巻物アタック！') + '（' + pw + ' 発分）', kind: 'good' }); }
+    const pw0 = THROW_POW[it.key] || 1; // 何発分か：ふつうは 1、まれな入れ歯 3・とてもまれな謎の巻物 5（2026-11-13・本人と決めた）
+    const pw = hit.head ? Math.ceil(pw0 * 1.5) : pw0; // 頭に当てたら 1.5 倍（切り上げ：1→2・3→5・5→8）
+    if (hit.id >= 0) {
+      punchHit(g, hit.id, pw, hit.head ? 'head' : true, pw0 * (hit.head ? 1.5 : 1));
+      if (hit.head) { emit(g, { type: 'crit' }); g.stats.headshots = (g.stats.headshots || 0) + 1; }
+      if (pw > 1 || hit.head) emit(g, { type: 'toast', text: (hit.head ? '🎯 ヘッドショット！ ' : '') + (it.key === 'teeth' ? '🦷 入れ歯アタック！' : it.key === 'scroll' ? '📜 謎の巻物アタック！' : '') + '（' + pw + ' 発分）', kind: 'good' });
+    }
   }
   // パンチ・投げた落とし物が当たったとき（base：何発分か。投げた入れ歯は 2。thrown：投げてぶつけた）
-  function punchHit(g, id, base, thrown) {
+  function punchHit(g, id, base, thrown, raw) {
     const pl = g.player;
-    if (g.multi && id >= PID) { punchPlayer(g, id - PID, base, thrown); return; }
+    if (g.multi && id >= PID) { punchPlayer(g, id - PID, raw || base, thrown); return; } // プレイヤーには切り上げない倍率（頭なら 1.5 倍）
     const p = id >= 0 ? person(g, id) : null;
     if (!p) return;
     const ch = g.chikan;
@@ -1263,7 +1271,7 @@
     p.expr = 'angry'; p.exprT = 5; p.angry = 8; bubble(g, p, p.type === 'alien' ? 'ピギャッ!?' : thrown ? '痛っ！なに投げてるんですか！' : '痛っ！なにするんですか！', 2);
     if (p.sleep) { p.sleep = 0; p.oversleep = false; }
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
-    addKarma(g, 20, thrown ? '無関係の人に物をぶつけた' : '無関係の人を殴った');
+    addKarma(g, thrown === 'head' ? 30 : 20, thrown === 'head' ? '無関係の人の頭に物をぶつけた' : thrown ? '無関係の人に物をぶつけた' : '無関係の人を殴った');
     if (p.tough) { hurt(g, 18, 'ko'); bubble(g, p, 'やんのかコラァ！', 2); emit(g, { type: 'shake', amount: 1 }); }
   }
 
@@ -1283,8 +1291,8 @@
       setCtx(g, j); gameOver(g, 'pko', { by: g.players[me].name, text: g.players[me].name + ' のパンチで床に沈んだ…' }); setCtx(g, me);
     } else {
       addKarma(g, 15, T.name + (thrown ? 'に物をぶつけた' : 'を殴った'));
-      tp.stamina = Math.max(1, tp.stamina - 8 * mul); tp.stagger = 0.5; tp.hitFlash = 0.4;
-      T.events.push({ type: 'toast', text: g.players[me].name + (thrown ? ' に物をぶつけられた！ 体力-' : ' に殴られた！ 体力-') + 8 * mul, kind: 'bad' });
+      tp.stamina = Math.max(1, tp.stamina - Math.round(8 * mul)); tp.stagger = 0.5; tp.hitFlash = 0.4;
+      T.events.push({ type: 'toast', text: g.players[me].name + (thrown === 'head' ? ' に頭へ物をぶつけられた！ 体力-' : thrown ? ' に物をぶつけられた！ 体力-' : ' に殴られた！ 体力-') + Math.round(8 * mul), kind: 'bad' });
       T.events.push({ type: 'shake', amount: 1 }); T.events.push({ type: 'sfx', name: 'hit' });
     }
   }
@@ -1453,6 +1461,13 @@
     if (g.worldEvents.length) { for (const P of g.players) for (const e of g.worldEvents) P.events.push(e); g.worldEvents.length = 0; }
     for (const P of g.players) if (P.events.length > 300) P.events.splice(0, P.events.length - 300);
     if (!g.over && g.players.every(P => P.out && !P.ghost) || !g.over && g.players.every(P => P.out)) { g.over = true; g.result = { cause: 'end' }; }
+    if (!g.over && g.survival) { // 生き残り：残りが 1 人になったら、その人の勝ち（終点まで行かなくても）。人間がみんな脱落したら、そこで終わり
+      const alive = g.players.filter((P) => !P.out);
+      if (alive.length <= 1 || g.players.filter((P) => !P.cpu).every((P) => P.out)) {
+        if (alive.length === 1) { const W = alive[0]; setCtx(g, W.i); gameOver(g, 'clear', { last: true }); setCtx(g, -1); }
+        g.over = true; g.result = { cause: 'end' };
+      }
+    }
   }
   // 脱落したあとの「ニセ乗客」：座っている人にウソの降りるサインを出させる
   const FAKE_KINDS = [['board', '掲示板をチラ見'], ['watch', '時計を見る'], ['pack', '荷物をまとめる']];
@@ -1505,10 +1520,18 @@
     }
   }
   // CPU のプレイヤー（様子を見て、降りそうな人の前で待つ）
+  // CPU の強さ（CPU 戦：初級 1・中級 2・上級 3。0 は前からの CPU）
+  //   react：座れると分かってから座るまで（秒）・miss：席の読みの外れやすさ・brace：揺れで踏ん張る確率・hunt：弱った人にトドメを刺しに行く体力の線（0 はしない）・steal：スる
+  const CPU_LV = [
+    { st: { hp: 3, spd: 3, atk: 4, def: 4, guts: 3, eye: 3 }, react: [0.35, 0.85], miss: 0, brace: 1, hunt: 0, steal: 0 },
+    { name: '初級', st: { hp: 0, spd: 0, atk: 0, def: 0, guts: 0, eye: 0 }, react: [1.4, 2.2], miss: 8, brace: 0.35, hunt: 0, steal: 0 },
+    { name: '中級', st: { hp: 3, spd: 3, atk: 3, def: 3, guts: 2, eye: 2 }, react: [0.4, 0.65], miss: 2, brace: 0.85, hunt: 28, steal: 0.5 },
+    { name: '上級', st: { hp: 4, spd: 4, atk: 3, def: 3, guts: 3, eye: 3 }, react: [0.3, 0.5], miss: 0, brace: 1, hunt: 26, steal: 1 },
+  ];
   function botInput(g, i) {
-    const P = g.players[i], pl = P.pl, mem = P.bot || (P.bot = { react: 0.35 + (i * 0.17) % 0.5 });
+    const P = g.players[i], pl = P.pl, L = CPU_LV[P.lv] || CPU_LV[0], mem = P.bot || (P.bot = { react: L.react[0] + ((i * 0.37) % 1) * (L.react[1] - L.react[0]) });
     const inp = { yaw: pl.yaw, pitch: 0 };
-    if (g.phase === 'travel' && g.lurchPlan) for (const L of g.lurchPlan) if (L.warned && !L.done && g.phaseT > L.t - 0.55) inp.bracePressed = true;
+    if (g.phase === 'travel' && g.lurchPlan) for (const Lu of g.lurchPlan) if (Lu.warned && !Lu.done && g.phaseT > Lu.t - 0.55) { if (mem.br !== Lu) { mem.br = Lu; mem.brOk = g.r() < L.brace; } if (mem.brOk) inp.bracePressed = true; }
     const pr = g.prompt;
     if (pl.seat >= 0) { if (pr && pr.act === 'give' && pl.stamina > 70) inp.action = true; return inp; }
     if (pr && pr.act === 'sit') { if (!mem.sitSeen) mem.sitSeen = g.t; if (g.t - mem.sitSeen > mem.react) { inp.action = true; mem.sitSeen = 0; } return inp; }
@@ -1517,12 +1540,24 @@
     if (pr && pr.act === 'revive') { inp.action = true; return inp; }
     if (g.coop && pl.seat < 0) { const D = g.players.find((Q) => Q.down); if (D) { const dx = D.pl.x - pl.x, dz = D.pl.z - pl.z; inp.yaw = Math.atan2(-dx, -dz); inp.mz = 1; return inp; } } // 共闘の CPU：倒れた仲間のところへ
     if (pl.stamina < 30 && pl.toku >= skillCost(g, 1)) inp.skill = 1;
+    if (pr && pr.act === 'steal' && L.steal && g.r() < L.steal * 0.05) { inp.action = true; return inp; } // スる（ときどき）
+    if (L.hunt && !g.coop && pl.karma < 45 && pl.stamina > 25) { // カルマがたまってきたら・自分が弱っているときはやめる（連行されないように） // 弱ったライバル（体力が hunt 以下・立っている）を見つけたら、近づいてパンチ（トドメ）
+      let T = null, td = 3.2;
+      g.players.forEach((Q, j) => { if (j === i || Q.out || Q.down || Q.pl.seat >= 0 || Q.pl.stamina > L.hunt) return; const d = dist2(Q.pl.x, Q.pl.z, pl.x, pl.z); if (d < td) { td = d; T = Q; } });
+      if (T) {
+        const dx = T.pl.x - pl.x, dz = T.pl.z - pl.z;
+        inp.yaw = Math.atan2(-dx, -dz); inp.pitch = Math.atan2((T.pl.seat >= 0 ? C.EYE_SIT : C.EYE_STAND) - 0.3 - eyeY(g), td);
+        if (td > 1.1) inp.mz = 1; else if (pl.punchCD <= 0) inp.punch = true;
+        return inp;
+      }
+    }
     let best = null, bs = -1e9;
     for (const p of g.people) {
       if (p.state !== 'seated') continue;
       const seat = g.seats[p.seat];
       let sc = p.looks.filter(t => g.t - t < 30).length * 2 + p.watches.filter(t => g.t - t < 30).length * 2 + (p.packing ? 6 : 0) - (p.sleep ? 5 : 0);
       if (p.type === 'tourist') sc -= 6;
+      if (L.miss) sc += (((p.id * 7919 + i * 104729 + Math.floor(g.t / 6)) % 1000) / 1000 - 0.5) * L.miss * 2; // 初級・中級は読みがぶれる（6 秒ごとに考えが変わる）
       sc -= dist2(seat.x, seat.fz, pl.x, pl.z) * 0.3;
       // ほかのプレイヤーがもう前にいる席は避ける
       if (g.players.some((Q, j) => j !== i && !Q.out && dist2(Q.pl.x, Q.pl.z, seat.x, seat.fz) < 0.5)) sc -= 4;
@@ -1534,6 +1569,7 @@
     }
     return inp;
   }
+  // （CPU_LV は botInput の上）
   // i 人目の最終スコア
   function finalScoreOf(g, i) { const prev = g.pi; setCtx(g, i); const r = finalScore(g); setCtx(g, prev); return r; }
   // ---------------------------------------------------------------- 共闘（COOP）
@@ -1574,8 +1610,9 @@
   function teamScore(g) { if (!g.multi) return 0; let t = 0; g.players.forEach((P, i) => { t += finalScoreOf(g, i).total; }); return Math.max(0, t - (g.coopPen || 0)); }
   // 順位（スコアの高い順。同点なら長く残った人が上）
   function standings(g) {
-    return g.players.map((P, i) => ({ i, name: P.name, cpu: P.cpu, score: finalScoreOf(g, i).total, cause: P.result ? P.result.cause : 'clear', outOrder: P.outOrder || 99, tricks: P.tricks, pko: P.pko }))
-      .sort((a, b) => b.score - a.score || b.outOrder - a.outOrder);
+    const rows = g.players.map((P, i) => ({ i, name: P.name, cpu: P.cpu, lv: P.lv, score: finalScoreOf(g, i).total, cause: P.result ? P.result.cause : (g.survival ? 'alive' : 'clear'), outOrder: P.outOrder || 99, tricks: P.tricks, pko: P.pko, alive: !P.out || (P.result && P.result.cause === 'clear') }));
+    if (g.survival) return rows.sort((a, b) => (b.alive - a.alive) || (a.alive ? b.score - a.score : b.outOrder - a.outOrder) || b.score - a.score); // 生き残り：生き残った人が上（その中は点）、脱落した人は遅く脱落した人が上
+    return rows.sort((a, b) => b.score - a.score || b.outOrder - a.outOrder);
   }
 
   function updatePhase(g, dt) {
@@ -2916,7 +2953,7 @@
     C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     DAILY_RULES, dailyRule, hasRule, saveGame, loadGame,
     teamScore, reviveCost,
-    create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
+    CPU_LV, create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
     _internal: { addKarma, bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, doThrow, throwRange, throwTarget, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });
