@@ -1157,12 +1157,41 @@
     pl.stamina = Math.max(0.1, pl.stamina - 1);
     emit(g, { type: 'sfx', name: 'whoosh' });
     if (speakerNear(g)) { hitSpeaker(g, pl.buffs.protein > 0 ? 2 : 1); return; }
-    const id = aimTarget(g, 1.6);
-    if (g.multi && id >= PID) { punchPlayer(g, id - PID); return; }
+    punchHit(g, aimTarget(g, 1.6), 1, false);
+  }
+  // 🎯 落とし物を投げる（2026-11-13・本人）：パンチ長押しのため具合（pow 0〜1）で飛ぶ距離が 2〜7m。照準の向きへ飛んで、途中の人（悪者・乗客・ほかのプレイヤー）に当たる
+  //   悪者はパンチ 1 発分（入れ歯は 2 発分）、ふつうの乗客はカルマ（殴ったときと同じ）、座っているプレイヤーには効かない。当たった・落ちた所に落とし物が残る（また拾って届けられる）
+  const THROW_MIN = 2, THROW_MAX = 7;
+  function throwRange(pow) { return THROW_MIN + (THROW_MAX - THROW_MIN) * clamp(pow || 0, 0, 1); }
+  function throwTarget(g, R) { // 照準の向き（横から見た線）に沿って、いちばん手前の人
+    const pl = g.player, fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw);
+    let best = -1, bt = 1e9;
+    const chk = (id, x, z) => { const dx = x - pl.x, dz = z - pl.z, t = dx * fx + dz * fz; if (t < 0.3 || t > R + 0.2) return; if (Math.abs(dx * fz - dz * fx) > 0.38) return; if (t < bt) { bt = t; best = id; } };
+    for (const p of g.people) { if (p.state === 'gone' || p.state === 'exit' || p.state === 'ko') continue; chk(p.id, p.x, p.z); }
+    if (g.multi) g.players.forEach((P, j) => { if (j !== g.pi && !P.out && !P.down) chk(PID + j, P.pl.x, P.pl.z); });
+    return { id: best, t: bt };
+  }
+  function doThrow(g, pow) {
+    const pl = g.player, it = pl.carrying;
+    if (!it || pl.punchCD > 0 || pl.seat >= 0) return;
+    pl.punchCD = 0.6; pl.punchAnim = 0.3; pl.carrying = null;
+    emit(g, { type: 'sfx', name: 'whoosh' });
+    const R = throwRange(pow), hit = throwTarget(g, R), fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw);
+    const d = hit.id >= 0 ? Math.max(0.3, hit.t - 0.25) : R;
+    [it.x, it.z] = aisleClamp(pl.x + fx * d, pl.z + fz * d);
+    it.taken = false; it.t0 = g.t; it.noticed = true; it.dropT = g.t; it.dropBy = g.pi; it.fly = 0.12 + d * 0.06; // fly：見た目で飛んでいる秒数
+    g.items.push(it);
+    g.stats.throws = (g.stats.throws || 0) + 1;
+    if (hit.id >= 0) { punchHit(g, hit.id, it.key === 'teeth' ? 2 : 1, true); if (it.key === 'teeth') emit(g, { type: 'toast', text: '🦷 入れ歯アタック！（2 倍）', kind: 'good' }); }
+  }
+  // パンチ・投げた落とし物が当たったとき（base：何発分か。投げた入れ歯は 2。thrown：投げてぶつけた）
+  function punchHit(g, id, base, thrown) {
+    const pl = g.player;
+    if (g.multi && id >= PID) { punchPlayer(g, id - PID, base, thrown); return; }
     const p = id >= 0 ? person(g, id) : null;
     if (!p) return;
     const ch = g.chikan;
-    let dmgMul = pl.buffs.protein > 0 ? 2 : 1;
+    let dmgMul = base * (pl.buffs.protein > 0 ? 2 : 1);
     const foe = ch && p.id === ch.chikanId && ch.stage !== 'done' || p.role === 'thief' || p.role === 'suri' && p.loot || p.brute && !(p.role === 'emperor' && gangOf(g, p.id).some(q => q.role === 'hench'));
     if (foe && p.state !== 'ko' && ST(g, 'atk') > 0 && g.r() < 0.04 * ST(g, 'atk')) { dmgMul++; emit(g, { type: 'crit' }); }
     if (ch && p.id === ch.chikanId && (ch.stage === 'active' || ch.stage === 'fight' || ch.stage === 'reported')) {
@@ -1220,19 +1249,21 @@
     if (g.rookie && !g.rookieWarned) { g.rookieWarned = true; toast(g, '🔰 その人は悪者じゃないかも？ 関係ない人を殴るとカルマがたまって連行されます', 'warn'); return; }
     if (p.type === 'alien') g.stats.alienPunch++;
     g.stats.wrongPunch++;
-    p.expr = 'angry'; p.exprT = 5; p.angry = 8; bubble(g, p, p.type === 'alien' ? 'ピギャッ!?' : '痛っ！なにするんですか！', 2);
+    p.expr = 'angry'; p.exprT = 5; p.angry = 8; bubble(g, p, p.type === 'alien' ? 'ピギャッ!?' : thrown ? '痛っ！なに投げてるんですか！' : '痛っ！なにするんですか！', 2);
     if (p.sleep) { p.sleep = 0; p.oversleep = false; }
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
-    addKarma(g, 20, '無関係の人を殴った');
+    addKarma(g, 20, thrown ? '無関係の人に物をぶつけた' : '無関係の人を殴った');
     if (p.tough) { hurt(g, 18, 'ko'); bubble(g, p, 'やんのかコラァ！', 2); emit(g, { type: 'shake', amount: 1 }); }
   }
 
   // プレイヤー同士のパンチ：元気な相手はよろけるだけ。具合が悪そう（体力 20 以下）ならトドメで脱落
-  function punchPlayer(g, j) {
+  function punchPlayer(g, j, base, thrown) {
     const me = g.pi, T = g.players[j];
     if (!T || T.out || T.down) return;
     if (g.coop) return; // 共闘：仲間はなぐれない
     const tp = T.pl;
+    if (tp.seat >= 0) { toast(g, '座っている人には効かない…', 'info'); return; } // 座っているプレイヤーはパンチ・投げた物でダメージを受けない（2026-11-13・本人）
+    const mul = (base || 1) * (g.player.buffs.protein > 0 ? 2 : 1);
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hitPlayer', i: j });
     if (tp.stamina <= 20) {
       g.players[me].pko++;
@@ -1240,9 +1271,9 @@
       toast(g, T.name + ' にトドメを刺した！', 'warn');
       setCtx(g, j); gameOver(g, 'pko', { by: g.players[me].name, text: g.players[me].name + ' のパンチで床に沈んだ…' }); setCtx(g, me);
     } else {
-      addKarma(g, 15, T.name + 'を殴った');
-      tp.stamina = Math.max(1, tp.stamina - 8); tp.stagger = 0.5; tp.hitFlash = 0.4;
-      T.events.push({ type: 'toast', text: g.players[me].name + ' に殴られた！ 体力-8', kind: 'bad' });
+      addKarma(g, 15, T.name + (thrown ? 'に物をぶつけた' : 'を殴った'));
+      tp.stamina = Math.max(1, tp.stamina - 8 * mul); tp.stagger = 0.5; tp.hitFlash = 0.4;
+      T.events.push({ type: 'toast', text: g.players[me].name + (thrown ? ' に物をぶつけられた！ 体力-' : ' に殴られた！ 体力-') + 8 * mul, kind: 'bad' });
       T.events.push({ type: 'shake', amount: 1 }); T.events.push({ type: 'sfx', name: 'hit' });
     }
   }
@@ -1328,7 +1359,8 @@
     // 行動
     g.prompt = pl.fakeSleep ? { act: 'wake', label: '目を開ける' } : computePrompt(g);
     if (input.action && g.prompt) { doAction(g); g.prompt = pl.fakeSleep ? { act: 'wake', label: '目を開ける' } : computePrompt(g); }
-    if (input.punch && !pl.fakeSleep) doPunch(g);
+    if (input.throwPow != null && pl.carrying && !pl.fakeSleep) doThrow(g, input.throwPow);
+    else if (input.punch && !pl.fakeSleep && !pl.carrying) doPunch(g); // 落とし物を持っているときのパンチは「投げる」（長押しで飛距離）
     if (isOver()) return false;
 
     // 優先が必要な人を無視
@@ -2865,6 +2897,6 @@
     DAILY_RULES, dailyRule, hasRule, saveGame, loadGame,
     teamScore, reviveCost,
     create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
-    _internal: { addKarma, bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
+    _internal: { addKarma, bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, doThrow, throwRange, throwTarget, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });

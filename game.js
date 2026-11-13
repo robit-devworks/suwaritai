@@ -167,7 +167,7 @@
 
   // 座席
   const seatGlow = [], hogBags = [], flyBags = [];
-  let navGlow = null, navTag = null, navArrow = null, awMark = null; // awMark：タップした行き先の床の輪
+  let navGlow = null, navTag = null, navArrow = null, awMark = null, thMark = null; // thMark：投げる落とし物の落ちる所 // awMark：タップした行き先の床の輪
   let speakerM = null, lastBeat = -1;
   const glowMat = new T3.MeshBasicMaterial({ color: '#7dff9a', transparent: true, opacity: 0.4, depthWrite: false });
   (function buildSeats() {
@@ -208,6 +208,7 @@
       const am = new T3.Mesh(new T3.ShapeGeometry(sh), new T3.MeshBasicMaterial({ color: 0x38c8ff, transparent: true, opacity: 0.85, depthWrite: false, side: T3.DoubleSide })); am.rotation.x = Math.PI / 2;
       navArrow = new T3.Group(); navArrow.add(am); navArrow.visible = false; car.add(navArrow); }
     awMark = new T3.Mesh(new T3.RingGeometry(0.13, 0.2, 28), new T3.MeshBasicMaterial({ color: 0xffd400, transparent: true, opacity: 0.9, depthWrite: false, side: T3.DoubleSide })); awMark.rotation.x = -Math.PI / 2; awMark.visible = false; car.add(awMark);
+    thMark = new T3.Mesh(new T3.RingGeometry(0.1, 0.17, 24), new T3.MeshBasicMaterial({ color: 0xff5a3c, transparent: true, opacity: 0.9, depthWrite: false, side: T3.DoubleSide })); thMark.rotation.x = -Math.PI / 2; thMark.visible = false; car.add(thMark);
     for (const s of g0.seats) {
       const m = new T3.Mesh(new T3.PlaneGeometry(0.44, 0.42), glowMat);
       m.rotation.x = -Math.PI / 2; m.position.set(s.x, 0.485, s.z); m.visible = false; car.add(m); seatGlow.push(m);
@@ -1078,8 +1079,8 @@
       ids.add(it.id);
       let m = itemMeshes.get(it.id);
       if (!m) { m = makeItemMesh(it.key); scene.add(m); itemMeshes.set(it.id, m); }
-      const ft = it.dropT != null ? (g.t - it.dropT) / 0.4 : 1, pl0 = g.player; // 置いたとき：手もとから見ている所へ、ふわっと投げる（0.4 秒）
-      if (ft >= 0 && ft < 1 && it.dropBy === g.pi) { if (!m.userData.from) m.userData.from = [pl0.x, pl0.z]; const [x0, z0] = m.userData.from; m.position.set(x0 + (it.x - x0) * ft, 0.02 + 1.1 * (1 - ft) + 0.5 * Math.sin(Math.PI * ft), z0 + (it.z - z0) * ft); m.rotation.y = it.id + ft * 6; }
+      const ft = it.dropT != null ? (g.t - it.dropT) / (it.fly || 0.4) : 1, pl0 = g.player; // 置いたとき：手もとから見ている所へ、ふわっと投げる（0.4 秒）
+      if (ft >= 0 && ft < 1 && it.dropBy === g.pi) { if (!m.userData.from) m.userData.from = [pl0.x, pl0.z]; const [x0, z0] = m.userData.from; m.position.set(x0 + (it.x - x0) * ft, 0.02 + 1.1 * (1 - ft) + (it.fly ? 0.25 + it.fly * 1.2 : 0.5) * Math.sin(Math.PI * ft), z0 + (it.z - z0) * ft); m.rotation.y = it.id + ft * 6; }
       else { m.userData.from = null; m.position.set(it.x, 0.02, it.z); m.rotation.y = it.id; }
       m.userData.spark.material.opacity = 0.5 + 0.5 * Math.sin(now * 5);
     }
@@ -1266,7 +1267,13 @@
 
   // ================================================================ 入力
   const keys = {};
-  const inp = { yaw: Math.PI / 2, pitch: 0, action: false, punch: false, bracePressed: false, braceTouch: false, fakeSleep: false, skill: -1, joyX: 0, joyY: 0 };
+  const inp = { yaw: Math.PI / 2, pitch: 0, action: false, punch: false, bracePressed: false, braceTouch: false, fakeSleep: false, skill: -1, joyX: 0, joyY: 0, throwPow: null };
+  // 🎯 落とし物を持っているときのパンチ＝投げる：押しているあいだためて（最大 1 秒）、離したときのため具合で飛距離（2026-11-13・本人）
+  let TH = null; // { t0 }：ためている
+  const canThrow = () => state === 'play' && G && !G.over && G.player && G.player.carrying && G.player.seat < 0;
+  const thPow = () => TH ? Math.min(1, (performance.now() - TH.t0) / 1000) : 0;
+  function punchDown() { if (canThrow()) { if (!TH) TH = { t0: performance.now() }; } else inp.punch = true; }
+  function punchUp() { if (!TH) return; const pw = thPow(); TH = null; if (canThrow()) { inp.throwPow = pw; track('落とし物を投げた'); } }
   let state = 'loading', G = null, demo = null, locked = false, noLock = false, endT = 0, pendingResult = false;
   window.addEventListener('keydown', e => {
     if (e.target && e.target.tagName === 'INPUT') return;
@@ -1274,7 +1281,7 @@
     konami(e.code);
     if (state !== 'play') return;
     if (e.code === 'KeyE' || e.code === 'Enter') inp.action = true;
-    if (e.code === 'KeyF') inp.punch = true;
+    if (e.code === 'KeyF' && !e.repeat) punchDown();
     if (e.code === 'Space') { if (!e.repeat) inp.bracePressed = true; e.preventDefault(); }
     if (e.code === 'KeyQ') inp.fakeSleep = true;
     if (e.code === 'KeyR' && state === 'play') turnBack();
@@ -1283,7 +1290,7 @@
     if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Tab') { if (e.code === 'Tab') e.preventDefault(); pause(); if (document.pointerLockElement) document.exitPointerLock(); }
     if (e.code.startsWith('Arrow')) e.preventDefault();
   });
-  window.addEventListener('keyup', e => { keys[e.code] = false; });
+  window.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'KeyF') punchUp(); });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play') pause(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pause(); });
   // マウス
@@ -1297,7 +1304,7 @@
     if (isTouch || state !== 'play') return;
     initAudio();
     if (!locked && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { noLock = true; }); } catch (err) { noLock = true; } drag = { x: e.clientX, y: e.clientY, moved: 0, btn: e.button }; return; }
-    if (locked) { if (e.button === 0) inp.action = true; else if (e.button === 2) inp.punch = true; return; }
+    if (locked) { if (e.button === 0) inp.action = true; else if (e.button === 2) punchDown(); return; }
     drag = { x: e.clientX, y: e.clientY, moved: 0, btn: e.button };
   });
   window.addEventListener('mousemove', e => {
@@ -1307,7 +1314,8 @@
     inp.pitch = Math.max(-1.2, Math.min(1.2, inp.pitch));
   });
   window.addEventListener('mouseup', e => {
-    if (drag && state === 'play' && !locked && drag.moved < 6) { if (drag.btn === 2) inp.punch = true; else if (noLock) inp.action = true; }
+    if (e.button === 2 && TH) { punchUp(); drag = null; return; }
+    if (drag && state === 'play' && !locked && drag.moved < 6) { if (drag.btn === 2) { if (canThrow()) inp.throwPow = 0.5; else inp.punch = true; } else if (noLock) inp.action = true; }
     drag = null;
   });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -1455,6 +1463,12 @@
     FACE = { y0: inp.yaw, y1: inp.yaw + d, p0: inp.pitch, p1: inp.pitch, t: 0, dur: turnT() }; track('振り向いた'); }
   function faceTick(dt) {
     autoWalk(dt);
+    { // 🎯 ためているあいだ：照準のまわりのゲージと、落ちる所（当たる人がいればその人の足もと）に赤い輪
+      const on = !!TH && canThrow(); $('thGauge').classList.toggle('hidden', !on); if (TH && !canThrow()) TH = null;
+      if (thMark) { thMark.visible = on; if (on) { const g = G, pl = g.player, pw = thPow(); $('thGauge').style.setProperty('--p', pw.toFixed(3));
+        const yw = inp.yaw, Rr = SW._internal.throwRange(pw), pl0 = { yaw: pl.yaw }; pl.yaw = yw; const h = SW._internal.throwTarget(g, Rr); pl.yaw = pl0.yaw;
+        const d = h.id >= 0 ? h.t : Rr, [mx, mz] = SW._internal.aisleClamp(pl.x - Math.sin(yw) * d, pl.z - Math.cos(yw) * d); thMark.position.set(mx, 0.035, mz); const sc = h.id >= 0 ? 2.2 : 1; thMark.scale.set(sc, sc, 1); } }
+    }
     if (awMark) { // 行き先に黄色い輪。人をタップしたときは、その人の足もとに大きめの輪（相手が動けばついていく）＝その人が光って見える
       const on = !!(AW && (AW.kind === 'floor' || (AW.kind === 'person' && AW.p))); awMark.visible = on;
       if (on) { const pp = AW.kind === 'person', sc = (pp ? 2.3 : 1) * (1 + 0.15 * Math.sin(performance.now() / 120)); awMark.position.set(pp ? AW.p.x : AW.tx, 0.03, pp ? AW.p.z : AW.tz); awMark.scale.set(sc, sc, 1); awMark.material.opacity = pp ? 0.6 : 0.9; }
@@ -1679,7 +1693,7 @@
     el.addEventListener('mousedown', e => { down(); e.stopPropagation(); }); el.addEventListener('mouseup', () => { up && up(); });
   }
   holdBtn($('bAct'), () => { inp.action = true; });
-  holdBtn($('bPunch'), () => { inp.punch = true; });
+  holdBtn($('bPunch'), punchDown, punchUp);
   holdBtn($('bTurn'), () => turnBack());
   holdBtn($('bGuard'), () => { inp.braceTouch = true; inp.bracePressed = true; }, () => { inp.braceTouch = false; });
   holdBtn($('bSleep'), () => { inp.fakeSleep = true; });
@@ -1794,6 +1808,8 @@
     el.style.top = Math.round(y) + 'px';
   }
   function updateHUD(g, dt) {
+    { const c = !!(g.player && g.player.carrying && g.player.seat < 0); if (c !== hud.thr) { hud.thr = c; $('bPunch').innerHTML = c ? '<span>🎯</span>投げる' : '<span>👊</span>パンチ'; $('bPunch').classList.toggle('thr', c);
+      if (c && !profile.thTip) { profile.thTip = 1; saveProfile(); addToast('🎯 落とし物は投げつけられる！ パンチを長押し（ためるほど遠くへ）。悪者にはパンチ 1 発分・入れ歯は 2 発分', 'info'); } } }
     const pl = g.player;
     const st = Math.ceil(pl.stamina);
     if (st !== hud.stam) { hud.stam = st; $('stamF').style.width = st + '%'; $('stamV').textContent = st; $('stamBar').classList.toggle('danger', st < 30); $('stamF').style.background = st < 30 ? 'linear-gradient(90deg,#b8261d,#ff5a4f)' : st < 50 ? 'linear-gradient(90deg,#c9971c,#f2c23a)' : ''; }
@@ -2853,7 +2869,8 @@
       '🔄 振り向くボタン：押すと車両の反対の端をまっすぐ向く（PC は R キー）',
       '🚀 速くなぞるほど大きく回る「視点の加速」・画面のどこでも 2 回タップでアクション（どちらも選べる）',
       '🚃 練習乗車は体力・精神が減らない。ボタンの設定を試すのにどうぞ',
-      '👜 落とし物は、見ている床の所に投げて置ける（置いてすぐ座れる）',
+      '🎯 落とし物を投げつけられる！ パンチ長押しでためるほど遠くへ。悪者にはパンチ 1 発分・入れ歯は 2 発分',
+      '🪑 オンライン：座っている人には、パンチも投げた物も効かない',
       '🎒 スキルの並び順を入れかえられる（「Lv」→「スキルのセット」）',
     ] },
     { d: '2026-11-12', t: '新スキル 3 つ・見習い乗車 3 回 ほか', items: [
@@ -4536,13 +4553,14 @@
     const p = MP.players[i], v = MP.remote[p.uid], P = G.players[i];
     if (!v) return {};
     let L = MP.last[p.uid];
-    if (!L) L = MP.last[p.uid] = { a: v.a || 0, p: v.p || 0, bp: v.bp || 0, fs: v.fs || 0, sk: v.sk ? v.sk[0] : 0 };
+    if (!L) L = MP.last[p.uid] = { a: v.a || 0, p: v.p || 0, bp: v.bp || 0, fs: v.fs || 0, sk: v.sk ? v.sk[0] : 0, th: v.th ? v.th[0] : 0 };
     const r = { yaw: v.yaw, pitch: v.pitch, brace: !!v.b, pos: v.pos, mv: !!v.mv };
     if ((v.a || 0) > L.a) { r.action = true; L.a = v.a; }
     if ((v.p || 0) > L.p) { r.punch = true; L.p = v.p; }
     if ((v.bp || 0) > L.bp) { r.bracePressed = true; L.bp = v.bp; }
     if ((v.fs || 0) > L.fs) { r.fakeSleep = true; L.fs = v.fs; }
     if (v.sk && v.sk[0] > L.sk) { r.skill = v.sk[1]; L.sk = v.sk[0]; }
+    if (v.th && v.th[0] > (L.th || 0)) { r.throwPow = Math.max(0, Math.min(1, +v.th[1] || 0)); L.th = v.th[0]; }
     if (v.gh && P.out) P.ghost = true;
     return r;
   }
@@ -4716,13 +4734,13 @@
       else if (meP.out) { if (MP.ghost || MP.watching) SW.ghostMove(b, li, dt); }
       else if (meP.down) { /* 倒れているあいだは動かない */ }
       else if (b.seat < 0) { b.braceHeld = !!li.brace; mv = SW.movePlayer(g, b, li, dt); }
-      if (li.action) MP.cnt.a++; if (li.punch) MP.cnt.p++; if (li.bracePressed) MP.cnt.bp++; if (li.fakeSleep) MP.cnt.fs++;
+      if (li.throwPow != null) { MP.cnt.th = (MP.cnt.th || 0) + 1; MP.thPow = li.throwPow; } if (li.action) MP.cnt.a++; if (li.punch) MP.cnt.p++; if (li.bracePressed) MP.cnt.bp++; if (li.fakeSleep) MP.cnt.fs++;
       if (li.skill != null && li.skill >= 0) { MP.cnt.sk++; MP.skIdx = li.skill; }
-      const edge = li.action || li.punch || li.bracePressed || li.fakeSleep || (li.skill != null && li.skill >= 0);
+      const edge = li.throwPow != null || li.action || li.punch || li.bracePressed || li.fakeSleep || (li.skill != null && li.skill >= 0);
       MP.sendT -= dt;
       if (!MP.spect && (MP.sendT <= 0 || edge)) {
         MP.sendT = 0.1;
-        const v = { pos: [r2(b.x) / 100, r2(b.z) / 100], mv: mv ? 1 : 0, yaw: r2(b.yaw) / 100, pitch: r2(b.pitch) / 100, b: li.brace ? 1 : 0, a: MP.cnt.a, p: MP.cnt.p, bp: MP.cnt.bp, fs: MP.cnt.fs, sk: [MP.cnt.sk, MP.skIdx], gh: MP.ghost ? 1 : 0 };
+        const v = { pos: [r2(b.x) / 100, r2(b.z) / 100], mv: mv ? 1 : 0, yaw: r2(b.yaw) / 100, pitch: r2(b.pitch) / 100, b: li.brace ? 1 : 0, a: MP.cnt.a, p: MP.cnt.p, bp: MP.cnt.bp, fs: MP.cnt.fs, sk: [MP.cnt.sk, MP.skIdx], th: [MP.cnt.th || 0, Math.round((MP.thPow || 0) * 100) / 100], gh: MP.ghost ? 1 : 0 };
         net().then((N) => N.set(roomP(MP.code) + '/inputs/' + MP.uid, v)).catch(() => { });
       }
       // ほかの人・乗客をなめらかに動かす
@@ -4956,8 +4974,8 @@
       faceTick(dt);
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
-      const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
-      inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1;
+      const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill, throwPow: inp.throwPow };
+      inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1; inp.throwPow = null;
       mpFrame(dt, t, li);
       if (MP.active && G) {
         if (MP.rec) for (const e of G.events) MP.recEv.push(e);
@@ -4973,8 +4991,8 @@
       faceTick(dt);
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
-      const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill };
-      inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1;
+      const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill, throwPow: inp.throwPow };
+      inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1; inp.throwPow = null;
       if (!G.over) SW.update(G, dt, li);
       if (REC) recTick(G, dt);
       if (G.tutorial) tutTick(G, dt);

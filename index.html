@@ -126,7 +126,7 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 .sk.off{opacity:.55;filter:grayscale(1) brightness(.55)}
 .sk.on{box-shadow:0 0 0 2px var(--toku) inset;background:rgba(255,212,71,.18)}
 .sk .cd{position:absolute;left:0;right:0;bottom:0;background:rgba(255,212,71,.35);border-radius:0 0 11px 11px}
-#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}#thGauge{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;pointer-events:none}#thGauge.hidden{display:none}#thGauge i{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#ffd400 calc(var(--p,0)*360deg),rgba(255,255,255,.18) 0);-webkit-mask:radial-gradient(circle,transparent 24px,#000 25px);mask:radial-gradient(circle,transparent 24px,#000 25px)}#thGauge b{position:absolute;left:50%;top:-22px;transform:translateX(-50%);font-size:16px}
 #cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85);box-shadow:0 0 2px #000}
 #cross:before{left:10px;top:3px;width:2px;height:16px}
 #cross:after{top:10px;left:3px;height:2px;width:16px}
@@ -627,7 +627,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button id="fsBtn" class="fs-btn" aria-label="全画面">⛶</button>
     <button id="pauseBtn" aria-label="一時停止">Ⅱ</button>
   </div>
-  <div id="cross"></div>
+  <div id="cross"></div><div id="thGauge" class="hidden"><i></i><b>🎯</b></div>
   <div id="target" class="hidden"><h4 id="tName"></h4><div id="tNotes"></div></div>
   <div id="prompt" class="hidden"></div>
   <div id="tut" class="hidden"><div class="tt"><b id="tutT"></b><button id="tutSkip">スキップ ›</button></div><div id="tutD"></div><div id="tutBtns" class="hidden"><button class="btn main" id="tutGo">🚃 出発する（たちっぱ線）</button><button class="btn sub2" id="tutEnd">タイトルへ</button></div></div>
@@ -702,6 +702,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <li>🪑 お年寄り・妊婦さん・ケガ人・子連れに<b>席を譲る</b>（また立つことになる）</li>
       <li>👛 <b>落とし物</b>を拾って持ち主へ（拾うと腰にくる）。持ち主のヒントを頼りに。持ち主が降りたら、停車中に開いたドアの近くで駅員に届けられる。足もとを見てアクションで床に置ける</li>
       <li>👊 <b>絡み屋をパンチで撃退</b>（ほかの乗客にしつこく絡む人。大きな徳。でも反撃される）。相手が構えた瞬間に殴るとカウンター！ 非常通報ボタンなら安全だが徳は少なめ</li>
+      <li>🎯 落とし物を持っているときのパンチは<b>投げる</b>：長押しでためるほど遠くへ（赤い輪が落ちる所）。悪者にはパンチ 1 発分（<b>入れ歯は 2 発分</b>）、関係ない人に当てるとカルマ。座っている人には、パンチも投げた物も効かない</li>
       <li>🕵 床の落とし物や寝ている人の財布を盗む<b>泥棒</b>もいる。殴ると逃げるので、追いかけてもう一発で撃退</li>
       <li>📢 <b>迷惑客に注意</b>：音もれヘッドホン・においのきつい弁当・説教おじさん・リュック背負いっぱなし・ドア前から動かない人。近くにいると精神が減る。注意すると徳（こわい人は逆ギレ。人まちがいにも注意）</li>
       <li>善行を続けると<b>コンボ</b>で徳が増える</li>
@@ -992,7 +993,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261113034222"</script><script src="logic.js?v=20261113034222"></script>
-<script src="game.js?v=20261113034222"></script>
+<script>window.SW_VER="20261113040756"</script><script src="logic.js?v=20261113040756"></script>
+<script src="game.js?v=20261113040756"></script>
 </body>
 </html>
