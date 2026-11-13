@@ -2041,6 +2041,8 @@
   function show(id) {
     for (const s of screens) $(s).classList.toggle('hidden', s !== id);
   }
+  // 「もどる」がある画面（ランキング・実績・お知らせなど）は、カードの右上にも ✕（スクロールしても上に残る）（2026-11-13・本人：下までスクロールしてもどるを押すしかなかった）
+  for (const c of new Set([...document.querySelectorAll('.card [data-back]')].map((b) => b.closest('.card')))) { const w = document.createElement('div'); w.className = 'cardXw'; w.innerHTML = '<button class="cardX" data-back aria-label="とじる">✕</button>'; c.prepend(w); }
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { show(backTo); }));
   // ---- 名前ガチャ（デストロイ碁と同じしくみ）：「〇〇の」＋「△△」＋2けたの数字。名前はゲームが組み合わせて作る
   // たまにレアな言葉が出て、片方なら金色（レア・およそ 4%）、両方なら虹色（伝説・およそ 0.04%）。色は言葉で決まるので、ほかの人の画面でも同じ
