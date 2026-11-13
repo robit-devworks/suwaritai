@@ -730,6 +730,7 @@
     if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.0 && ap.state !== 'ko') return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
     { const wp = warnPrompt(g, ap, apd, false); if (wp) return wp; }
     if (ap && ap.type === 'sick' && (ap.state === 'stand' || ap.state === 'walk') && ap.role !== 'faked' && !ap.checked && apd < 1.8) return { act: 'expose', label: '「…仮病じゃない？」と指摘する', id: ap.id };
+    { const sp = stealPrompt(g, aimId); if (sp) return sp; }
     for (const it of g.items) if (!it.taken && dist2(it.x, it.z, pl.x, pl.z) < 1.15 && !pl.carrying && !(it.dropBy === g.pi && g.t - it.dropT < 4)) return { act: 'pick', label: it.name + 'を拾う', id: it.id };
     for (const s of g.seats) if (s.hog && dist2(s.x, s.fz, pl.x, pl.z) < 0.95) {
       const q = person(g, s.hog); if (!q) continue;
@@ -856,6 +857,15 @@
         const owner = person(g, it.owner);
         toast(g, it.name + 'を拾った。' + (owner && owner.state !== 'gone' ? '持ち主は「' + it.hint + '」らしい' : '持ち主はもう降りたかも…'), 'info');
         emit(g, { type: 'sfx', name: 'pick' });
+        if (g.multi) toOthers(g, { type: 'toast', text: '👜 だれかが' + it.name + 'を拾った！（スれるかも…）', kind: 'info' }); // オンライン：だれが拾ったかは言わない（2026-11-13・本人）
+        break;
+      }
+      case 'steal': { // オンライン：落とし物を持っているプレイヤーからスる（2026-11-13・本人）
+        const T = g.players[pr.id]; if (!T || T.out || T.down || !T.pl.carrying || pl.carrying) return;
+        const it = T.pl.carrying; T.pl.carrying = null; pl.carrying = it;
+        addKarma(g, 10, 'プレイヤーからスった');
+        toast(g, '🫳 ' + it.name + 'をスった！', 'good'); emit(g, { type: 'sfx', name: 'pick' });
+        T.events.push({ type: 'toast', text: '😱 だれかに' + it.name + 'をスられた！', kind: 'bad' }); T.events.push({ type: 'sfx', name: 'hit' });
         break;
       }
       case 'deliver': {
@@ -1160,8 +1170,8 @@
     punchHit(g, aimTarget(g, 1.6), 1, false);
   }
   // 🎯 落とし物を投げる（2026-11-13・本人）：パンチ長押しのため具合（pow 0〜1）で飛ぶ距離が 2〜7m。照準の向きへ飛んで、途中の人（悪者・乗客・ほかのプレイヤー）に当たる
-  //   悪者はパンチ 1 発分（入れ歯は 2 発分）、ふつうの乗客はカルマ（殴ったときと同じ）、座っているプレイヤーには効かない。当たった・落ちた所に落とし物が残る（また拾って届けられる）
-  const THROW_MIN = 2, THROW_MAX = 7;
+  //   悪者はパンチ 1 発分（入れ歯は 3 発分・謎の巻物は 5 発分）、ふつうの乗客はカルマ（殴ったときと同じ）、座っているプレイヤーには効かない。当たった・落ちた所に落とし物が残る（また拾って届けられる）
+  const THROW_MIN = 2, THROW_MAX = 7, THROW_POW = { teeth: 3, scroll: 5 };
   function throwRange(pow) { return THROW_MIN + (THROW_MAX - THROW_MIN) * clamp(pow || 0, 0, 1); }
   function throwTarget(g, R) { // 照準の向き（横から見た線）に沿って、いちばん手前の人
     const pl = g.player, fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw);
@@ -1182,7 +1192,8 @@
     it.taken = false; it.t0 = g.t; it.noticed = true; it.dropT = g.t; it.dropBy = g.pi; it.fly = 0.12 + d * 0.06; // fly：見た目で飛んでいる秒数
     g.items.push(it);
     g.stats.throws = (g.stats.throws || 0) + 1;
-    if (hit.id >= 0) { punchHit(g, hit.id, it.key === 'teeth' ? 2 : 1, true); if (it.key === 'teeth') emit(g, { type: 'toast', text: '🦷 入れ歯アタック！（2 倍）', kind: 'good' }); }
+    const pw = THROW_POW[it.key] || 1; // 何発分か：ふつうは 1、まれな入れ歯 3・とてもまれな謎の巻物 5（2026-11-13・本人と決めた）
+    if (hit.id >= 0) { punchHit(g, hit.id, pw, true); if (pw > 1) emit(g, { type: 'toast', text: (it.key === 'teeth' ? '🦷 入れ歯アタック！' : '📜 謎の巻物アタック！') + '（' + pw + ' 発分）', kind: 'good' }); }
   }
   // パンチ・投げた落とし物が当たったとき（base：何発分か。投げた入れ歯は 2。thrown：投げてぶつけた）
   function punchHit(g, id, base, thrown) {
@@ -1529,6 +1540,15 @@
   // みんなのスコアの合計がチームのスコア。仲間はなぐれない。倒れた仲間はそばで「復活させる」：
   // 徳で払う（50 → 80 → 110…）。徳が足りなければ、チームのスコアから 2 倍（100 → 160 → 220…）を引く
   const reviveCost = (g) => 50 + 30 * (g.coopRev || 0);
+  // オンライン（対戦）：落とし物を持っている、立っているプレイヤーをねらってそばに行くと「〇〇をスる」（共闘の仲間・座っている人からはスれない）
+  function stealPrompt(g, aimId) {
+    if (!g.multi || g.coop || g.pi < 0 || aimId < PID) return null;
+    const pl = g.player; if (pl.carrying || pl.seat >= 0) return null;
+    const j = aimId - PID, T = g.players[j];
+    if (!T || j === g.pi || T.out || T.down || !T.pl.carrying || T.pl.seat >= 0) return null;
+    if (dist2(T.pl.x, T.pl.z, pl.x, pl.z) > 1.3) return null;
+    return { act: 'steal', label: '🫳 ' + T.pl.carrying.name + 'をスる（カルマ+）', id: j };
+  }
   function revivePrompt(g) {
     if (!g.coop || g.pi < 0) return null;
     const pl = g.player; if (pl.seat >= 0) return null;

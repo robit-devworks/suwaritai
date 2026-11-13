@@ -1812,7 +1812,7 @@
   }
   function updateHUD(g, dt) {
     { const c = !!(g.player && g.player.carrying && g.player.seat < 0); if (c !== hud.thr) { hud.thr = c; $('bPunch').innerHTML = c ? '<span>🎯</span>投げる' : '<span>👊</span>パンチ'; $('bPunch').classList.toggle('thr', c);
-      if (c && !profile.thTip) { profile.thTip = 1; saveProfile(); addToast('🎯 落とし物は投げつけられる！ パンチを長押し（ためるほど遠くへ）。悪者にはパンチ 1 発分・入れ歯は 2 発分', 'info'); } } }
+      if (c && !profile.thTip) { profile.thTip = 1; saveProfile(); addToast('🎯 落とし物は投げつけられる！ パンチを長押し（ためるほど遠くへ）。悪者にはパンチ 1 発分・入れ歯は 3 発分・謎の巻物は 5 発分', 'info'); } } }
     const pl = g.player;
     const st = Math.ceil(pl.stamina);
     if (st !== hud.stam) { hud.stam = st; $('stamF').style.width = st + '%'; $('stamV').textContent = st; $('stamBar').classList.toggle('danger', st < 30); $('stamF').style.background = st < 30 ? 'linear-gradient(90deg,#b8261d,#ff5a4f)' : st < 50 ? 'linear-gradient(90deg,#c9971c,#f2c23a)' : ''; }
@@ -2874,8 +2874,9 @@
       '🔄 振り向くボタン：押すと車両の反対の端をまっすぐ向く（PC は R キー）',
       '🚀 速くなぞるほど大きく回る「視点の加速」・画面のどこでも 2 回タップでアクション（どちらも選べる）',
       '🚃 練習乗車は体力・精神が減らない。ボタンの設定を試すのにどうぞ',
-      '🎯 落とし物を投げつけられる！ パンチ長押しでためるほど遠くへ。悪者にはパンチ 1 発分・入れ歯は 2 発分',
+      '🎯 落とし物を投げつけられる！ パンチ長押しでためるほど遠くへ。悪者にはパンチ 1 発分・入れ歯は 3 発分・謎の巻物は 5 発分',
       '🪑 オンライン：座っている人には、パンチも投げた物も効かない',
+      '🫳 オンライン（対戦）：落とし物を持っているプレイヤーからスれる。だれかが拾うとみんなに知らされる',
       '🎒 スキルの並び順を入れかえられる（「Lv」→「スキルのセット」）',
     ] },
     { d: '2026-11-12', t: '新スキル 3 つ・見習い乗車 3 回 ほか', items: [
