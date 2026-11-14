@@ -1584,6 +1584,9 @@
   const accUI = () => { $('leAKrow').classList.toggle('hidden', !profile.lookAccel); $('leAK').value = accK(); $('leAKV').textContent = accK().toFixed(1) + '倍'; };
   // タブ：🖐 ボタンの位置・大きさ ／ 👀 感度・操作（2026-11-13：設定がふえてパネルが画面をおおい、ボタンを動かす所が分からなかったため）
   function leTab(k) { for (const [t, id] of [['B', 'lePaneB'], ['S', 'lePaneS']]) { $(id).classList.toggle('hidden', t !== k); $('leTab' + t).classList.toggle('on', t === k); } }
+  // ▾ 小さく：パネルをたたんで、タイトルと保存だけにする（横向きでパネルがボタンにかかるとき用・2026-11-14）
+  const leMini = (on) => { $('layEdit').classList.toggle('mini', on); $('leMin').textContent = on ? '▴ ひらく' : '▾ 小さく'; };
+  $('leMin').addEventListener('click', () => leMini(!$('layEdit').classList.contains('mini')));
   $('leTabB').addEventListener('click', () => leTab('B')); $('leTabS').addEventListener('click', () => leTab('S'));
   $('leAK').addEventListener('input', () => { profile.accelK = Math.round(+$('leAK').value * 10) / 10; accUI(); });
   $('leAK').addEventListener('change', () => { saveProfile(); track('視点の加速の強さ：' + accK().toFixed(1)); });
@@ -1616,11 +1619,11 @@
   }
   (function layDrag() {
     const box = $('layEdit'); let cur = null;
-    box.addEventListener('pointerdown', (e) => { const h = e.target.closest('.leH'); if (!h) return; cur = h; SEL = h.dataset.k; laySizes(); h.setPointerCapture(e.pointerId); e.preventDefault(); });
+    box.addEventListener('pointerdown', (e) => { const h = e.target.closest('.leH'); if (!h) return; cur = h; $('layEdit').classList.add('drag'); SEL = h.dataset.k; laySizes(); h.setPointerCapture(e.pointerId); e.preventDefault(); });
     box.addEventListener('pointermove', (e) => { if (!cur) return; const q = tp(e), [W, H] = scrWH(), v = [Math.max(0.06, Math.min(0.94, q.x / W)), Math.max(0.1, Math.min(0.96, q.y / H))]; LE[cur.dataset.k] = v; layPlace(cur, v); });
-    const up = () => { cur = null; }; box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+    const up = () => { cur = null; $('layEdit').classList.remove('drag'); }; box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
   })();
-  const layClose = () => { $('layEdit').classList.add('hidden'); if (state === 'pause') show('pause'); };
+  const layClose = () => { $('layEdit').classList.add('hidden'); leMini(false); if (state === 'pause') show('pause'); };
   $('bLay').addEventListener('click', () => { if (!G) { titleToast('遊んでいるときに、一時停止の画面から動かせます'); return; } layOpen(); track('ボタンの位置を動かすを開いた'); });
   $('leSave').addEventListener('click', () => { profile.lay3 = profile.lay3 || {}; profile.lay3[layKey()] = { pos: LE, size: LS.sz }; profile.ohR = LS.r; saveProfile(); applyJoy(); layClose(); track('ボタンの位置を保存した（' + JOY_JA[joyFix()] + '・' + (layO() === 'l' ? '横' : '縦') + '）'); });
   $('leReset').addEventListener('click', () => { if (profile.lay3) delete profile.lay3[layKey()]; saveProfile(); applyJoy(); layOpen(); });
@@ -1722,7 +1725,7 @@
     if (!profile.unlock[k]) { profile.unlock[k] = true; saveProfile(); }
     titleToast(msg); sfx('clear'); renderModes();
   }
-  function titleToast(msg) { const el = document.createElement('div'); el.className = 'toast good'; el.textContent = msg; el.style.cssText = 'position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:60'; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
+  function titleToast(msg) { const el = document.createElement('div'); el.className = 'toast good'; el.textContent = msg; el.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 16px);transform:translateX(-50%);z-index:60'; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
   // スマホ：タイトルでスワイプ上上下下左右左右→ロゴ2回タップ
   (function swipeKonami() {
     let sx = 0, sy = 0; const seq = [];
@@ -2373,7 +2376,7 @@
     const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'hard' || mode === 'jiji' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
     G.rkTrain = rkTrain; G.rkWeek = resume ? resume.meta.rkWeek : weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
@@ -2921,6 +2924,10 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
+    { d: '2026-11-14', t: '隠しモードのランキング ほか', items: [
+      '🔥 隠しモード（満員地獄・敬老の日）にもランキングとリプレイ。開けた人だけに見える秘密のランキング。開け方は…今週のランキングで上位 30 位に入ると、こっそり教えてもらえるかも？',
+      '🎛 「感度・ボタン調整」が横向きでも使いやすく（パネルが小さくなって、「▾ 小さく」でたためる）',
+    ] },
     { d: '2026-11-13', t: 'CPU 戦・タップで移動・落とし物を投げる ほか', items: [
       '🏆 1 回目からランキングに載るように（見習い乗車は「路線・練習」からいつでも遊べる）',
       '🤖 CPU 戦（生き残り）！ 初級・中級・上級の CPU 3 人と勝負。倒れたら即脱落（「路線・練習・感度調整」から）',
@@ -3398,7 +3405,9 @@
     }
     if (R.mode === 'mikiwame') { const rec = REC && REC.done ? REC : null; REC = null; if (!DB && fbAllowed) submitMk(R, rec); return; }
     if (R.mode === 'ranked') { const rec = REC && REC.done ? REC : null; REC = null; if (!DB && fbAllowed) submitRanked(R, rec); return; } // 見極め線は自分のランキング（今週・歴代）
-    if (R.mode !== 'normal' && R.mode !== 'daily') return;
+    const hid = R.mode === 'hard' || R.mode === 'jiji'; // 隠しモード（🔥 満員地獄・👴 敬老の日）：歴代だけのランキング
+    if (hid && DB) return; // 隠しモードのランキングは遊ぶサイトだけ
+    if (R.mode !== 'normal' && R.mode !== 'daily' && !hid) return;
     if (!DB && !fbAllowed) return;
     if (DB && !myId) return;
     $('rRank').textContent = 'ランキングに記録中…';
@@ -3408,12 +3417,15 @@
         const res = DB ? await submitClaude(R) : await submitFirebase(R);
         if (!DB) recUpload(R, res, rec);
         const rk = (x) => x ? (x.rank ? x.rank + '位' : '100位より下') : '-';
+        const hk = res && (res.hard ? 'hard' : res.jiji ? 'jiji' : null);
+        if (hk) { const h = res[hk]; if (state === 'result') { $('rRank').textContent = (hk === 'hard' ? '🔥 満員地獄' : '👴 敬老の日') + 'ランキング（歴代） ' + rankTxt(h) + (h.improved ? '（自己ベスト更新！）' : ''); showMiniBoard(hk); } claimGifts(); return; }
         const main = res && (R.mode === 'daily' ? res.daily : res.day);
         if (main && R === lastResult) { R.rk = { rank: main.rank, total: main.total }; setShareHref(); }
         if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${rankTxt(main)}・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
         else if (state === 'result') $('rRank').textContent = '';
         if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : 'day');
         if (!DB) claimGifts();
+        if (!DB && res) hardTip(res.week);
       } catch (e) {
         if (state === 'result') $('rRank').textContent = 'ランキングに記録できませんでした（記録はこの端末に残っています）';
       }
@@ -3464,6 +3476,7 @@
       const rt = await rankOf(F, parent, myS);
       return { rank: rt.rank, total: rt.total, improved: better && !!old, mine: better };
     };
+    if (R.mode === 'hard' || R.mode === 'jiji') return { [R.mode]: await put('suwaritai/' + R.mode + '/' + F.uid) }; // 隠しモード（🔥 満員地獄・👴 敬老の日）：歴代だけ（2026-11-14）
     const best = await put('suwaritai/best/' + F.uid);
     const day = await put('suwaritai/day/' + dk + '/' + F.uid);
     const week = await put('suwaritai/week/' + weekKey() + '/' + F.uid);
@@ -3657,6 +3670,23 @@
     $('giftX').addEventListener('click', () => bn.remove());
     $('giftGo').addEventListener('click', () => { bn.remove(); if (state === 'play') return; backTo = state === 'result' ? 'result' : 'title'; renderNameGacha(); show('namegacha'); });
   }
+  // ---- 今週のランキング 30 位以内の人にだけ、満員地獄の隠しコマンドを教える（2026-11-14・本人。週に 1 回まで・開けた人には出さない）
+  const HARD_TIP_RANK = 30;
+  function hardTip(wk) {
+    if (!wk || !wk.rank || wk.rank > HARD_TIP_RANK || profile.unlock.hard || profile.hardTip === weekKey()) return;
+    profile.hardTip = weekKey(); saveProfile(); track('満員地獄のヒントを出した');
+    let n = 0;
+    const open = () => {
+      if (state !== 'result') return;
+      if (document.getElementById('giftBanner') && n++ < 30) { setTimeout(open, 1000); return; } // ごほうびのお知らせが出ていたら、閉じるのを待つ
+      const bn = document.createElement('div'); bn.id = 'hardTip';
+      bn.innerHTML = `<b>🤫 今週 ${wk.rank} 位のあなたにだけ</b><span>タイトル画面で <b class="cmd">↑↑↓↓←→←→BA</b>（スマホは 上上下下左右左右 の順にスワイプ）。隠しの「🔥 満員地獄モード」が開きます</span><div><button class="btn main" id="hardGo">タイトルへ</button><button class="btn sub2" id="hardX">とじる</button></div>`;
+      document.body.appendChild(bn); sfx('clear');
+      $('hardX').addEventListener('click', () => bn.remove());
+      $('hardGo').addEventListener('click', () => { bn.remove(); track('満員地獄のヒントからタイトルへ'); titleScreen(); });
+    };
+    setTimeout(open, 1500);
+  }
   async function invRedeem() {
     if (!profile.invBy || profile.invDone || DB || !fbAllowed) return;
     try {
@@ -3706,7 +3736,7 @@
   async function fetchBoard(tab) {
     const dk = todayKey();
     if (DB) {
-      if (/^mk/.test(tab)) return { list: [], me: myId, mine: null, total: 0 }; // Claude 版では見極め線のランキングは記録しない
+      if (/^mk/.test(tab) || tab === 'hard' || tab === 'jiji') return { list: [], me: myId, mine: null, total: 0 }; // Claude 版では見極め線・満員地獄のランキングは記録しない
       const all = await fetchClaude();
       const wk = weekKey();
       const arr = (tab === 'daily' ? all.filter(x => x.dailyDate === dk && x.dailyScore > 0).map(x => ({ id: x.id, name: x.name, score: x.dailyScore, title: x.dailyTitle }))
@@ -3719,7 +3749,7 @@
       return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length, near };
     }
     const F = await firebaseReady(); if (!F) return null;
-    const path = tab === 'mkweek' ? 'suwaritai/mk/week/' + weekKey() : tab === 'mkbest' ? 'suwaritai/mk/best' : tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
+    const path = tab === 'hard' || tab === 'jiji' ? 'suwaritai/' + tab : tab === 'mkweek' ? 'suwaritai/mk/week/' + weekKey() : tab === 'mkbest' ? 'suwaritai/mk/best' : tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
     const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(TOP_N).get(), 10000);
     const arr = [];
     snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti, v: v.v || 1 }); });
@@ -3744,6 +3774,8 @@
   }
   document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
   function setRankTab(tab) {
+    $('rtHard').classList.toggle('hidden', !profile.unlock.hard); $('rtJiji').classList.toggle('hidden', !profile.unlock.jiji); // 🔥 満員地獄・👴 敬老の日のタブは、その隠しモードを開けた人だけ
+    if ((tab === 'hard' || tab === 'jiji') && !profile.unlock[tab]) tab = 'day';
     rankTab = tab;
     $('mkTabs').classList.toggle('hidden', !/^mk/.test(tab));
     document.querySelectorAll('[data-mt]').forEach((x) => x.classList.toggle('on', 'mk' + x.dataset.mt === tab));
@@ -3818,7 +3850,7 @@
     const listEl = $('rankList');
     const local = () => {
       const wk0 = new Date(weekKey() + 'T00:00:00').getTime(), today = new Date().toDateString();
-      const h = (profile.history || []).filter(x => tab === 'daily' ? x.m === 'daily' && new Date(x.d).toDateString() === today : (x.m === 'normal' || x.m === 'daily') && (tab === 'day' ? new Date(x.d).toDateString() === today : tab === 'week' ? x.d >= wk0 : true)).slice(0, 10);
+      const h = (profile.history || []).filter(x => tab === 'daily' ? x.m === 'daily' && new Date(x.d).toDateString() === today : tab === 'hard' || tab === 'jiji' ? x.m === tab : (x.m === 'normal' || x.m === 'daily') && (tab === 'day' ? new Date(x.d).toDateString() === today : tab === 'week' ? x.d >= wk0 : true)).slice(0, 10);
       listEl.innerHTML = h.length ? h.map((x, i) => `<div class="rk"><span class="n">${i + 1}</span><span class="nm">${nameHtml(profile.name || 'あなた')}<div class="ttl">${esc(x.t)}・${new Date(x.d).toLocaleDateString()}</div></span><span class="sc">${x.s}</span></div>`).join('') : '<p class="small">まだ記録がありません</p>';
     };
     if (!DB && !fbAllowed) { $('rankNote').textContent = 'この端末の記録'; local(); return; }
@@ -3830,7 +3862,7 @@
       if (!b) throw new Error('none');
       if (rankTab !== tab) return;
       const wk = weekKey().slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/');
-      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット', mkweek: '👀 見極め線・今週（' + wk + '〜）', mkbest: '👀 見極め線・歴代' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
+      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット', mkweek: '👀 見極め線・今週（' + wk + '〜）', mkbest: '👀 見極め線・歴代', hard: '🔥 満員地獄・歴代（隠しモードを開けた人だけ）', jiji: '👴 敬老の日・歴代（隠しモードを開けた人だけ）' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
       listEl.innerHTML = b.list.length ? rankRows(b, TOP_N) : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
       if (/^mk/.test(tab)) mkHof().then((h) => { if (h && rankTab === tab) listEl.insertAdjacentHTML('afterbegin', h); });
       // 自分が下のほうにいるときは「あなたの順位へ」ボタン（押すと自分の行まで動く）
@@ -3851,13 +3883,13 @@
       $('rMiniBox').classList.remove('hidden');
     } catch (e) { /* 出さない */ }
   }
-  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'ranked' ? 'rkon' : lastResult && lastResult.mode === 'mikiwame' ? 'mkweek' : lastResult && lastResult.mode === 'daily' ? 'daily' : 'day'); track('結果からランキングを開いた'); });
+  $('bRankR').addEventListener('click', () => { backTo = 'result'; show('rank'); setRankTab(lastResult && lastResult.mode === 'ranked' ? 'rkon' : lastResult && lastResult.mode === 'mikiwame' ? 'mkweek' : lastResult && (lastResult.mode === 'hard' || lastResult.mode === 'jiji') ? lastResult.mode : lastResult && lastResult.mode === 'daily' ? 'daily' : 'day'); track('結果からランキングを開いた'); });
 
   // ================================================================ リプレイ（ランキング上位 10 位）
   // 遊んでいるあいだ 0.2 秒ごとに様子（オンライン対戦と同じ形）を記録しておき、上位 10 位に入ったら gzip して Firebase に送る
   // suwaritai/rp/{種類}/{uid}：中身　rpi/{種類}/{uid}：目次（点数・日付）　rpv/{uid}：見られた数　rpl/{uid}/{見た人}：いいね
   const RP_TOP = 10, RP_MAXF = 6000; // 6000 コマ＝20 分まで
-  const RP_KIND = { day: 'day', week: 'week', normal: 'best', daily: 'daily', mkweek: 'mkweek', mkbest: 'mkbest' };
+  const RP_KIND = { day: 'day', week: 'week', normal: 'best', daily: 'daily', mkweek: 'mkweek', mkbest: 'mkbest', hard: 'hard', jiji: 'jiji' };
   let REC = null;
   const RP = { active: false };
   function recStart(mode) {
@@ -3892,7 +3924,7 @@
   // 上位 10 位に入ったランキングの種類ぶんだけ送る（res は submitFirebase の結果）
   async function recUpload(R, res, rec) {
     if (!rec || !rec.done || !res) return;
-    const kinds = [['best', res.best, 'all'], ['day', res.day, todayKey()], ['week', res.week, weekKey()], ['daily', res.daily, todayKey()]]
+    const kinds = [['best', res.best, 'all'], ['day', res.day, todayKey()], ['week', res.week, weekKey()], ['daily', res.daily, todayKey()], ['hard', res.hard, 'all'], ['jiji', res.jiji, 'all']]
       .filter(([, r]) => r && r.mine && r.rank != null && r.rank <= RP_TOP);
     if (!kinds.length) return;
     return rpPut(R, rec, kinds.map(([kind, , k]) => [kind, k]));
@@ -3916,7 +3948,7 @@
   // ランキングの表に出す：リプレイがある行（目次と点数・日付が合う）と、見られた数・いいね
   async function fetchRpInfo(F, tab) {
     const kind = RP_KIND[tab]; if (!kind) return null;
-    const key = kind === 'best' || kind === 'mkbest' ? 'all' : kind === 'week' || kind === 'mkweek' ? weekKey() : todayKey();
+    const key = kind === 'best' || kind === 'mkbest' || kind === 'hard' || kind === 'jiji' ? 'all' : kind === 'week' || kind === 'mkweek' ? weekKey() : todayKey();
     const [idx, views, likes] = await Promise.all(['suwaritai/rpi/' + kind, 'suwaritai/rpv', 'suwaritai/rpl'].map((p) => withTimeout(F.db.ref(p).get(), 10000).then((s) => s.val() || {}).catch(() => ({}))));
     const out = { kind, has: {}, v: {}, l: {} };
     for (const uid in idx) if (idx[uid] && idx[uid].k === key) out.has[uid] = idx[uid].s;
@@ -5139,5 +5171,5 @@
   }
   if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(boot); else boot();
   // テスト用
-  window.__SW = { get AW() { return AW; }, avatarUrl, makeName, camera, tapFace, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
+  window.__SW = { get AW() { return AW; }, hardTip, avatarUrl, makeName, camera, tapFace, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
 })();
