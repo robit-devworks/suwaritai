@@ -966,6 +966,7 @@
   }
   function placeHeld(H, seated) {
     if (H.props) for (const k in H.props) H.props[k].visible = false;
+    if (H.peng || H.capy) return; // ペンギン・カピバラはスマホやかばんを持たない（ペンギンの頭の横にスマホが浮いていた）
     if (H.bagUp && seated && !H.bag) { const b = heldMesh(H, 'lapbag'); b.visible = true; b.position.set(0, 0.64, 0.26); b.rotation.set(0, 0, 0); }
     const hd = H.hold; if (!hd) return;
     const m = heldMesh(H, hd.kind);
