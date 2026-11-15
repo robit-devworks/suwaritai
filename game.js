@@ -4021,7 +4021,7 @@
     rankTab = tab;
     const M = rankModeOf(tab), modes = RANK_MODES.filter((m) => !m.need || profile.unlock[m.need]);
     $('rankModes').innerHTML = modes.map((m) => `<button data-rm="${m.k}" class="${m === M ? 'on' : ''}"><i>${m.ic}</i>${m.l}</button>`).join('');
-    $('rankPick').innerHTML = `<i>${M.ic}</i>${M.l}<b>種類をえらぶ ▾</b>`; $('rankModes').classList.add('hidden'); // いま見ているランキング。押すと全部の種類が出る（2026-11-15・本人：横並びは見づらい）
+    $('rankPick').innerHTML = `<i>${M.ic}</i>${M.l}<b>種類をえらぶ ▾</b>`; // リストは開きっぱなし（2026-11-15・本人：切りかえるたびに開くのはめんどう。#rankPick は隠してある）
     $('rankSub').innerHTML = M.subs.length > 1 ? M.subs.map((x) => `<button data-rs="${x[0]}" class="${x[0] === tab ? 'on' : ''}">${x[1]}</button>`).join('') : '';
     loadRanking(tab);
   }
