@@ -3083,6 +3083,7 @@
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
     { d: '2026-11-15', t: '大型アップデート：環状線・だれが人間か分からない席取りバトル', items: [
+      '🏆 環状線のランキング（今日・歴代）！ ランキングの「🔄 環状線」で見られる。上位 10 人はリプレイも',
       '🔄 ホームのいちばん上が「環状線」に！ ホームから来た電車に乗りこんで、ドアが開いた瞬間から席の取り合い。本物のプレイヤーの遊び方をまねた CPU が駅ごとに乗ってくる（たちっぱ線は「一人モード」でそのまま遊べます）',
       '🕵 対戦では、だれが人間か分からない！ プレイヤーも CPU も、ふつうの乗客と同じ見た目。動きで見極めよう（人狼みたいに）',
       '🎭 しぐさ：掲示板チラ見・時計・荷物をまとめる「ふり」。座って降りるふりをすると、ライバルが前で待ちぼうけ',
@@ -3916,7 +3917,7 @@
   async function fetchBoard(tab) {
     const dk = todayKey();
     if (DB) {
-      if (/^mk/.test(tab) || tab === 'hard' || tab === 'jiji') return { list: [], me: myId, mine: null, total: 0 }; // Claude 版では見極め線・満員地獄のランキングは記録しない
+      if (/^mk/.test(tab) || tab === 'hard' || tab === 'jiji' || /^loop/.test(tab)) return { list: [], me: myId, mine: null, total: 0 }; // Claude 版では見極め線・満員地獄のランキングは記録しない
       const all = await fetchClaude();
       const wk = weekKey();
       const arr = (tab === 'daily' ? all.filter(x => x.dailyDate === dk && x.dailyScore > 0).map(x => ({ id: x.id, name: x.name, score: x.dailyScore, title: x.dailyTitle }))
@@ -3929,7 +3930,7 @@
       return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length, near };
     }
     const F = await firebaseReady(); if (!F) return null;
-    const path = tab === 'hard' || tab === 'jiji' ? 'suwaritai/' + tab : tab === 'mkweek' ? 'suwaritai/mk/week/' + weekKey() : tab === 'mkbest' ? 'suwaritai/mk/best' : tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
+    const path = tab === 'hard' || tab === 'jiji' || tab === 'loop' ? 'suwaritai/' + tab : tab === 'loopd' ? 'suwaritai/loopd/' + dk : tab === 'mkweek' ? 'suwaritai/mk/week/' + weekKey() : tab === 'mkbest' ? 'suwaritai/mk/best' : tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
     const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(TOP_N).get(), 10000);
     const arr = [];
     snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti, v: v.v || 1 }); });
@@ -3953,10 +3954,12 @@
     return { list: arr, me: F.uid, mine, total, rp, near, crown };
   }
   document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
+  document.querySelectorAll('[data-lt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.lt)));
   function setRankTab(tab) {
     $('rtHard').classList.toggle('hidden', !profile.unlock.hard); $('rtJiji').classList.toggle('hidden', !profile.unlock.jiji); // 🔥 満員地獄・👴 敬老の日のタブは、その隠しモードを開けた人だけ
     if ((tab === 'hard' || tab === 'jiji') && !profile.unlock[tab]) tab = 'day';
     rankTab = tab;
+    $('loopTabs').classList.toggle('hidden', !/^loop/.test(tab)); document.querySelectorAll('[data-lt]').forEach((x) => x.classList.toggle('on', x.dataset.lt === tab));
     $('mkTabs').classList.toggle('hidden', !/^mk/.test(tab));
     document.querySelectorAll('[data-mt]').forEach((x) => x.classList.toggle('on', 'mk' + x.dataset.mt === tab));
     document.querySelectorAll('[data-kt]').forEach((x) => x.classList.toggle('on', x.dataset.kt === tab));
@@ -3965,6 +3968,7 @@
     $('coopTabs').classList.toggle('hidden', !/^coop/.test(tab));
     document.querySelectorAll('[data-ct]').forEach((x) => x.classList.toggle('on', 'coop' + x.dataset.ct === tab));
     if (/^coop/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'coop2')); loadRanking(tab); return; }
+    if (/^loop/.test(tab)) { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'loopd')); loadRanking(tab); return; }
     if (tab === 'games') { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'games')); loadRanking(tab); return; }
     document.querySelectorAll('[data-rt]').forEach(x => x.classList.toggle('on', x.dataset.rt === tab));
     loadRanking(tab);
@@ -4073,7 +4077,7 @@
   // 遊んでいるあいだ 0.2 秒ごとに様子（オンライン対戦と同じ形）を記録しておき、上位 10 位に入ったら gzip して Firebase に送る
   // suwaritai/rp/{種類}/{uid}：中身　rpi/{種類}/{uid}：目次（点数・日付）　rpv/{uid}：見られた数　rpl/{uid}/{見た人}：いいね
   const RP_TOP = 10, RP_MAXF = 6000; // 6000 コマ＝20 分まで
-  const RP_KIND = { day: 'day', week: 'week', normal: 'best', daily: 'daily', mkweek: 'mkweek', mkbest: 'mkbest', hard: 'hard', jiji: 'jiji' };
+  const RP_KIND = { day: 'day', week: 'week', normal: 'best', daily: 'daily', mkweek: 'mkweek', mkbest: 'mkbest', hard: 'hard', jiji: 'jiji', loop: 'loop', loopd: 'loopd' };
   let REC = null;
   const RP = { active: false };
   function recStart(mode) {
@@ -4132,7 +4136,7 @@
   // ランキングの表に出す：リプレイがある行（目次と点数・日付が合う）と、見られた数・いいね
   async function fetchRpInfo(F, tab) {
     const kind = RP_KIND[tab]; if (!kind) return null;
-    const key = kind === 'best' || kind === 'mkbest' || kind === 'hard' || kind === 'jiji' ? 'all' : kind === 'week' || kind === 'mkweek' ? weekKey() : todayKey();
+    const key = kind === 'best' || kind === 'mkbest' || kind === 'hard' || kind === 'jiji' || kind === 'loop' ? 'all' : kind === 'week' || kind === 'mkweek' ? weekKey() : todayKey();
     const [idx, views, likes] = await Promise.all(['suwaritai/rpi/' + kind, 'suwaritai/rpv', 'suwaritai/rpl'].map((p) => withTimeout(F.db.ref(p).get(), 10000).then((s) => s.val() || {}).catch(() => ({}))));
     const out = { kind, has: {}, v: {}, l: {} };
     for (const uid in idx) if (idx[uid] && idx[uid].k === key) out.has[uid] = idx[uid].s;
@@ -5208,6 +5212,7 @@
     $('mpAgain').textContent = MP.loopRide ? 'もう一回（環状線）' : MP.cpuMode ? 'もう一回（' + CPU_LVJ[MP.cpuLv] + '）' : 'もう一回（同じ部屋で）'; $('mpLeave').textContent = MP.cpuMode ? 'タイトルへ' : '部屋を出る';
     if (MP.loopRide) {
       const meR = res.find((r) => r.uid === MP.uid) || {};
+      loopSubmit(meR, rec);
       $('mpResNote').innerHTML = (meR.cause === 'clear' ? '🏁 1 周した！ ' : '💀 ' + (causeJa[meR.cause] || '脱落') + '… ') + '<b>' + (meR.score || 0) + ' 点</b><br>一緒に乗った 🤖 ' + (res.length - 1) + ' 人の中で ' + myRank + ' 位';
       track('環状線（CPU あり）：' + (meR.cause === 'clear' ? '1 周' : '脱落') + '・' + myRank + '位');
     } else if (MP.cpuMode) {
@@ -5230,6 +5235,42 @@
     show('mpres');
     sfx(myRank === 1 || v.coop ? 'clear' : 'over');
     if (!v.coop && !MP.cpuMode) track('オンライン：結果 ' + myRank + '位');
+  }
+  // 🔄 環状線のランキング（2026-11-15・本人）：今日（suwaritai/loopd/{日付}）と歴代（suwaritai/loop）。上位 10 位に入ったらリプレイも（rp の loop・loopd）
+  //   環状線は駅の並びがその日みんな同じなので「今日」で比べると公平。遊び方のくせ（style）もここで送る
+  async function loopSubmit(meR, rec) {
+    if (DB || !fbAllowed || !G || NET_LOCAL) return;
+    const sc = Math.max(0, Math.min(30000, Math.round(meR.score || 0))), st = G.players[MP.me] ? G.players[MP.me].stats.stations || 0 : 0;
+    try {
+      const F = await firebaseReady(); if (!F) return;
+      SW.setCtx(G, MP.me); const y = SW.styleOf(G).slice(0, 200);
+      if (st >= 2) withTimeout(F.db.ref('suwaritai/style/' + F.uid).set({ n: rankName(), s: sc, y, m: 'loop', t: F.TS }), 10000).catch(() => { });
+      if (st < 1) { $('mpResNote').insertAdjacentHTML('beforeend', '<br>（1 駅も進まなかったので、ランキングには載りません）'); return; }
+      const R = { sc: { total: sc, title: SW.titleFor(sc, G.player.karma) } };
+      const dk = todayKey(), name = rankName();
+      const put = async (path) => {
+        const ref = F.db.ref(path), old = (await withTimeout(ref.get(), 10000)).val(), better = !old || sc > old.s;
+        if (better || old.n !== name) await fbSet(ref, Object.assign({ n: name, s: better ? sc : old.s, ti: better ? R.sc.title : old.ti, t: F.TS }, better ? { v: SCORE_VER } : old.v ? { v: old.v } : {}));
+        const myS = better ? sc : old.s, parent = path.slice(0, path.lastIndexOf('/')), hp = histPath(parent);
+        if (better) { const nb = histB(sc), ob = old ? histB(old.s) : null; if (ob !== nb) { await histAdd(F, hp, nb, 1); if (ob != null) await histAdd(F, hp, ob, -1); } }
+        const rt = await rankOf(F, parent, myS);
+        return { rank: rt.rank, total: rt.total, improved: better && !!old, mine: better };
+      };
+      const day = await put('suwaritai/loopd/' + dk + '/' + F.uid), all = await put('suwaritai/loop/' + F.uid);
+      if (state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>🏆 今日の環状線 ' + rankTxt(day) + '・歴代 ' + (all.rank ? all.rank + '位' : '100位より下') + (all.improved ? '（自己ベスト更新！）' : ''));
+      const kinds = [['loopd', day, dk], ['loop', all, 'all']].filter(([, r]) => r.mine && r.rank != null && r.rank <= RP_TOP);
+      if (kinds.length && rec && rec.fr && typeof CompressionStream !== 'undefined') {
+        const d = await gz(JSON.stringify({ v: 1, seed: rec.seed, mode: 'online', mp: rec.mp, fr: rec.fr }));
+        if (d.length <= 900000) {
+          for (const [kind, , k] of kinds) {
+            await withTimeout(F.db.ref('suwaritai/rp/' + kind + '/' + F.uid).set({ n: name, s: sc, k, d, t: F.TS }), 20000);
+            await withTimeout(F.db.ref('suwaritai/rpi/' + kind + '/' + F.uid).set({ n: name, s: sc, k, t: F.TS }), 10000);
+          }
+          if (state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>🎬 上位 ' + RP_TOP + ' 位に入ったので、リプレイを載せました');
+        }
+      }
+      track('環状線：ランキングに記録');
+    } catch (e) { if (state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>ランキングに記録できませんでした'); }
   }
   // 🎬 みんなの試合（2026-11-15・本人：フレンド戦などがどう遊ばれているか見たい。名前はガチャの名前だけなので最初から公開）
   //   人間 2 人以上・2 駅以上の試合を、ホストが suwaritai/rpf/{0〜29}（いちばん古い枠に上書き）に送る。一覧は rpfi（小さい目次）
