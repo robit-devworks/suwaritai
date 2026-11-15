@@ -25,6 +25,8 @@
 <style>
 #startBox{display:flex;flex-direction:column;gap:5px}
 #startBox .sbw{position:relative;display:flex}
+#startBox.lk .sbw:first-child{order:2}#startBox.lk .sbw:last-child{order:1}
+#startBox .btn.locked{opacity:.75;font-size:.85em!important}
 #startBox .sbw>.btn{flex:1;min-width:0;padding-right:58px!important;padding-left:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #startBox .rq{position:absolute;right:7px;top:50%;transform:translateY(-50%);z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;width:48px;height:calc(100% - 12px);max-height:46px;min-height:30px;border-radius:10px;border:1px solid rgba(255,255,255,.45);background:rgba(10,12,18,.45);color:#fff;font-weight:900;font-size:15px;line-height:1;padding:0;cursor:pointer}
 #startBox .rq small{font-size:9px;font-weight:800;margin-top:2px}
@@ -268,8 +270,13 @@ h3{margin:14px 0 6px;font-size:15px;color:var(--toku)}
 .tabs{display:flex;gap:6px;margin-bottom:10px}
 .tabs button{flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-weight:800;font-size:13px}
 .tabs button.on{background:var(--accent);color:#fff}
-#rankTabs button{padding:8px 2px;font-size:12px;white-space:nowrap;min-width:0}
-#rankTabs2,#coopTabs,#mkTabs,#rkTabs{margin-top:-4px}#rkTabs button{padding:5px 2px;font-size:12px}#rankTabs2 button{padding:8px 2px;font-size:13px}#coopTabs button,#mkTabs button{padding:5px 2px;font-size:12px}
+#rkTabs{margin-top:-4px}#rkTabs button{padding:5px 2px;font-size:12px}
+#rankModes{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;margin:0 -2px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+#rankModes::-webkit-scrollbar{display:none}
+#rankModes button{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#fff;font-size:12px;font-weight:800;white-space:nowrap;line-height:1.15}
+#rankModes button i{font-style:normal;font-size:18px}
+#rankModes button.on{background:#ff8a3d;border-color:#ff8a3d;color:#1a0d00}
+#rankSub{margin-top:0}#rankSub:empty{display:none}#rankSub button{padding:6px 2px;font-size:13px}
 .rk{display:flex;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;align-items:center}
 .rk .n{width:34px;font-variant-numeric:tabular-nums;text-align:right;color:var(--sub);font-weight:800}
 .rk .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -849,11 +856,8 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <div id="rank" class="screen hidden">
   <div class="card">
     <h2>ランキング</h2>
-    <div class="tabs" id="rankTabs"><button data-rt="day" class="on">今日</button><button data-rt="week">今週</button><button data-rt="normal">歴代</button><button data-rt="daily">ダイヤ</button></div>
-    <div class="tabs" id="rankTabs2"><button data-rt="loopd">🔄 環状線</button><button data-rt="rkon">🏅 対戦レート</button><button data-rt="mkweek">👀 見極め</button><button data-rt="coop2">🤝 共闘</button><button data-rt="games">🎬 みんなの試合</button><button data-rt="hard" id="rtHard" class="hidden">🔥 地獄</button><button data-rt="jiji" id="rtJiji" class="hidden">👴 敬老</button></div>
-    <div class="tabs hidden" id="loopTabs"><button data-lt="loopd">今日</button><button data-lt="loop">歴代</button></div>
-    <div class="tabs hidden" id="mkTabs"><button data-mt="week" class="on">今週</button><button data-mt="best">歴代</button></div>
-    <div class="tabs hidden" id="coopTabs"><button data-ct="2" class="on">2人</button><button data-ct="3">3人</button><button data-ct="4">4人</button></div>
+    <div id="rankModes" role="tablist" aria-label="どのランキング"></div>
+    <div class="tabs" id="rankSub"></div>
     <button class="btn sub2" id="bMyRp2" style="margin:2px 0 6px;padding:6px">🎬 前回の自分のリプレイ</button>
     <div id="rankNote" class="small"></div>
     <div id="rankList"></div>
@@ -1069,7 +1073,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261115123232"</script><script src="logic.js?v=20261115123232"></script>
-<script src="game.js?v=20261115123232"></script>
+<script>window.SW_VER="20261115150833"</script><script src="logic.js?v=20261115150833"></script>
+<script src="game.js?v=20261115150833"></script>
 </body>
 </html>

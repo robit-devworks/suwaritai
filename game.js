@@ -2461,7 +2461,7 @@
     if (document.pointerLockElement) document.exitPointerLock();
     if (!demo || demo.over) demo = SW.create({ seed: (Math.random() * 1e9) | 0 });
     G = null; clearWorld();
-    show('title'); showInapp(true);
+    show('title'); showInapp(true); loopLockUI();
     const dk = todayKey();
     const dr = SW.dailyRule(dk); // 今日の特別ルール
     showResume();
@@ -2958,7 +2958,26 @@
     state = 'pause'; backTo = 'pause'; show('pause');
     $('bRookieOff').classList.toggle('hidden', !(G && G.rookie && G.modeName === 'normal'));
   }
-  $('bLoop').addEventListener('click', () => { track('ホーム：環状線'); loopRideStart(); }); // 🔄 環状線（CPU が乗ってくる）がいちばん上・たちっぱ線は一人モード（2026-11-15・本人）
+  // 🔒 環状線はむずかしいので、はじめての人は乗れない（2026-11-15・本人）：たちっぱ線などを LOOP_UNLOCK 回遊ぶと乗れる。それまではたちっぱ線をおすすめ（上に・オレンジ）
+  const LOOP_UNLOCK = 3;
+  const loopLeft = () => (profile.name === DEV_NAME || (typeof inClaude !== 'undefined' && inClaude)) ? 0 : Math.max(0, LOOP_UNLOCK - (profile.plays || 0));
+  function loopLockUI() {
+    const n = loopLeft(), L = n > 0;
+    $('startBox').classList.toggle('lk', L);
+    $('bLoop').classList.toggle('main', !L); $('bLoop').classList.toggle('locked', L); $('bStart').classList.toggle('main', L);
+    $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β</span>（あと ' + n + ' 回で解放）' : '🔄 出発する（環状線<span class="beta">β</span>）';
+    $('bStart').innerHTML = L ? '🚃 出発する（たちっぱ線）<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span>' : '🚃 たちっぱ線（一人モード）';
+  }
+  $('bLoop').addEventListener('click', () => {
+    const n = loopLeft();
+    if (n > 0) { // まだ乗れない：理由とおすすめ
+      ruleMode = 'normal'; $('ruleT').textContent = '🔒 環状線 β は、まだ乗れません';
+      $('ruleL').innerHTML = ['🔄 環状線は、ライバル（ほかのプレイヤー・CPU）と席を取り合う、むずかしめのモード', '🚃 まずは「たちっぱ線（一人モード）」で、降りる人の見分け方と座り方に慣れよう', '🔓 たちっぱ線などを、あと ' + n + ' 回遊ぶと乗れるようになる'].map((t) => '<li>' + esc(t) + '</li>').join('');
+      $('ruleGo').textContent = '🚃 たちっぱ線で出発'; $('ruleBox').classList.remove('hidden'); track('環状線：まだ乗れない（あと' + n + '回）');
+      return;
+    }
+    track('ホーム：環状線'); loopRideStart();
+  }); // 🔄 環状線（CPU が乗ってくる）がいちばん上・たちっぱ線は一人モード（2026-11-15・本人）
   $('bStart').addEventListener('click', () => startGame('normal')); // 最初はまず体験してもらう（チュートリアルは聞かない）
   // ？ルール（2026-11-15・本人）：ホームの環状線・たちっぱ線のボタンの右はしから、そのモードのルールを読める
   const RULES = {
@@ -2985,7 +3004,7 @@
     ]],
   };
   let ruleMode = '';
-  function ruleShow(k) { const R = RULES[k]; if (!R) return; ruleMode = k; $('ruleT').textContent = R[0]; $('ruleL').innerHTML = R[1].map((t) => '<li>' + esc(t) + '</li>').join(''); $('ruleBox').classList.remove('hidden'); track('ルールを見た：' + k); }
+  function ruleShow(k) { const R = RULES[k]; if (!R) return; ruleMode = k; $('ruleGo').textContent = k === 'loop' && loopLeft() > 0 ? '🚃 先にたちっぱ線で練習' : '出発する'; if (k === 'loop' && loopLeft() > 0) ruleMode = 'normal'; $('ruleT').textContent = R[0]; $('ruleL').innerHTML = R[1].map((t) => '<li>' + esc(t) + '</li>').join(''); $('ruleBox').classList.remove('hidden'); track('ルールを見た：' + k); }
   document.querySelectorAll('#startBox .rq').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); ruleShow(b.dataset.rule); }));
   $('ruleBox').addEventListener('click', (e) => { if (e.target === $('ruleBox') || e.target.closest('.rbx')) $('ruleBox').classList.add('hidden'); });
   $('ruleGo').addEventListener('click', () => { $('ruleBox').classList.add('hidden'); if (ruleMode === 'loop') { track('ルールから環状線'); loopRideStart(); } else startGame('normal'); });
@@ -3112,7 +3131,7 @@
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
     { d: '2026-11-15', t: '大型アップデート：環状線・だれがライバルか分からない席取りバトル', items: [
-      '🏆 環状線のランキング（今日・歴代）！ ランキングの「🔄 環状線」で見られる。上位 10 人はリプレイも',
+      '🏆 環状線のランキング（今日・歴代）！ 上位 10 人はリプレイも。ランキングの画面も見やすくしました（上で種類を選ぶ）',
       '🔄 ホームのいちばん上が「環状線 β」に（テスト中）！ ホームから来た電車に乗りこんで、ドアが開いた瞬間から席の取り合い。本物のプレイヤーの遊び方をまねた CPU が駅ごとに乗ってくる（たちっぱ線は「一人モード」でそのまま遊べます）',
       '🕵 対戦では、だれがライバルか分からない！ プレイヤーも CPU も、ふつうの乗客と同じ見た目。動きで見極めよう（人狼みたいに）',
       '🎭 しぐさ：掲示板チラ見・時計・荷物をまとめる「ふり」。座って降りるふりをすると、ライバルが前で待ちぼうけ',
@@ -3982,26 +4001,32 @@
     claimGifts();
     return { list: arr, me: F.uid, mine, total, rp, near, crown };
   }
-  document.querySelectorAll('[data-rt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.rt)));
-  document.querySelectorAll('[data-lt]').forEach(b => b.addEventListener('click', () => setRankTab(b.dataset.lt)));
+  // ランキングの画面（2026-11-15・本人：項目が増えて見づらい）：上に「どのランキング」をアイコンで横に並べ（横にすべる）、下にその中の「今日・今週・歴代」などを出す
+  const RANK_MODES = [
+    { k: 'tachi', ic: '🚃', l: 'たちっぱ線', subs: [['day', '今日'], ['week', '今週'], ['normal', '歴代']] },
+    { k: 'loop', ic: '🔄', l: '環状線', subs: [['loopd', '今日'], ['loop', '歴代']] },
+    { k: 'daily', ic: '📅', l: '今日のダイヤ', subs: [['daily', '']] },
+    { k: 'mk', ic: '👀', l: '見極め線', subs: [['mkweek', '今週'], ['mkbest', '歴代']] },
+    { k: 'rate', ic: '🏅', l: '対戦レート', subs: [['rkon', '']] },
+    { k: 'coop', ic: '🤝', l: '共闘', subs: [['coop2', '2人'], ['coop3', '3人'], ['coop4', '4人']] },
+    { k: 'games', ic: '🎬', l: 'みんなの試合', subs: [['games', '']] },
+    { k: 'hard', ic: '🔥', l: '満員地獄', subs: [['hard', '']], need: 'hard' },
+    { k: 'jiji', ic: '👴', l: '敬老の日', subs: [['jiji', '']], need: 'jiji' },
+  ];
+  const rankModeOf = (tab) => RANK_MODES.find((m) => m.subs.some((x) => x[0] === tab)) || RANK_MODES[0];
   function setRankTab(tab) {
-    $('rtHard').classList.toggle('hidden', !profile.unlock.hard); $('rtJiji').classList.toggle('hidden', !profile.unlock.jiji); // 🔥 満員地獄・👴 敬老の日のタブは、その隠しモードを開けた人だけ
+    if (tab === 'rk') tab = 'rkon';
     if ((tab === 'hard' || tab === 'jiji') && !profile.unlock[tab]) tab = 'day';
+    if (!RANK_MODES.some((m) => m.subs.some((x) => x[0] === tab))) tab = 'day';
     rankTab = tab;
-    $('loopTabs').classList.toggle('hidden', !/^loop/.test(tab)); document.querySelectorAll('[data-lt]').forEach((x) => x.classList.toggle('on', x.dataset.lt === tab));
-    $('mkTabs').classList.toggle('hidden', !/^mk/.test(tab));
-    document.querySelectorAll('[data-mt]').forEach((x) => x.classList.toggle('on', 'mk' + x.dataset.mt === tab));
-    document.querySelectorAll('[data-kt]').forEach((x) => x.classList.toggle('on', x.dataset.kt === tab));
-    if (tab === 'rk' || tab === 'rkon') { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'rkon')); loadRanking(tab); return; }
-    if (/^mk/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'mkweek')); $('coopTabs').classList.add('hidden'); loadRanking(tab); return; }
-    $('coopTabs').classList.toggle('hidden', !/^coop/.test(tab));
-    document.querySelectorAll('[data-ct]').forEach((x) => x.classList.toggle('on', 'coop' + x.dataset.ct === tab));
-    if (/^coop/.test(tab)) { document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'coop2')); loadRanking(tab); return; }
-    if (/^loop/.test(tab)) { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'loopd')); loadRanking(tab); return; }
-    if (tab === 'games') { $('mkTabs').classList.add('hidden'); $('coopTabs').classList.add('hidden'); document.querySelectorAll('[data-rt]').forEach((x) => x.classList.toggle('on', x.dataset.rt === 'games')); loadRanking(tab); return; }
-    document.querySelectorAll('[data-rt]').forEach(x => x.classList.toggle('on', x.dataset.rt === tab));
+    const M = rankModeOf(tab), modes = RANK_MODES.filter((m) => !m.need || profile.unlock[m.need]);
+    $('rankModes').innerHTML = modes.map((m) => `<button data-rm="${m.k}" class="${m === M ? 'on' : ''}"><i>${m.ic}</i>${m.l}</button>`).join('');
+    $('rankSub').innerHTML = M.subs.length > 1 ? M.subs.map((x) => `<button data-rs="${x[0]}" class="${x[0] === tab ? 'on' : ''}">${x[1]}</button>`).join('') : '';
+    const on = $('rankModes').querySelector('.on'); if (on && on.scrollIntoView) try { on.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { }
     loadRanking(tab);
   }
+  $('rankModes').addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (!b) return; const M = RANK_MODES.find((m) => m.k === b.dataset.rm); if (M) setRankTab(M.subs[0][0]); });
+  $('rankSub').addEventListener('click', (e) => { const b = e.target.closest('[data-rs]'); if (b) setRankTab(b.dataset.rs); });
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   // 同じ点数は同じ順位にする
   function rankRows(b, limit) {
@@ -4026,9 +4051,6 @@
     return html;
   }
   // 共闘ランキング（人数ごと）
-  document.querySelectorAll('[data-kt]').forEach((b) => b.addEventListener('click', () => setRankTab(b.dataset.kt)));
-  document.querySelectorAll('[data-mt]').forEach((b) => b.addEventListener('click', () => setRankTab('mk' + b.dataset.mt)));
-  document.querySelectorAll('[data-ct]').forEach((b) => b.addEventListener('click', () => setRankTab('coop' + b.dataset.ct)));
   // ランク線のレートのランキング（今のシーズン）
   async function loadRk(listEl, tab) {
     const online = tab === 'rkon'; // rk：ひとり（ランク線）、rkon：オンライン対戦のレート
@@ -5241,7 +5263,6 @@
     $('mpAgain').textContent = MP.loopRide ? 'もう一回（環状線）' : MP.cpuMode ? 'もう一回（' + CPU_LVJ[MP.cpuLv] + '）' : 'もう一回（同じ部屋で）'; $('mpLeave').textContent = MP.cpuMode ? 'タイトルへ' : '部屋を出る';
     if (MP.loopRide) {
       const meR = res.find((r) => r.uid === MP.uid) || {};
-      loopSubmit(meR, rec);
       $('mpResNote').innerHTML = (meR.cause === 'clear' ? '🏁 1 周した！ ' : '💀 ' + (causeJa[meR.cause] || '脱落') + '… ') + '<b>' + (meR.score || 0) + ' 点</b><br>一緒に乗った 🤖 ' + (res.length - 1) + ' 人の中で ' + myRank + ' 位';
       track('環状線（CPU あり）：' + (meR.cause === 'clear' ? '1 周' : '脱落') + '・' + myRank + '位');
     } else if (MP.cpuMode) {
@@ -5251,6 +5272,7 @@
       track('CPU 戦：' + CPU_LVJ[MP.cpuLv] + '：' + myRank + '位');
     }
     const rec = mpRecKeep(res, v);
+    if (MP.loopRide) loopSubmit(res.find((r) => r.uid === MP.uid) || {}, rec); // 🏆 環状線のランキング（rec を作ったあとで。前は先に呼んでいてエラーで止まっていた）
     if (MP.isHost && MP.pub && !MP.cpuMode) rpfUpload(rec, res, v);
     if (v.coop) { // 共闘：チームのスコア。人間だけ（CPU なし）なら人数ごとのランキングに載せる（ホストが送る）
       const humans = MP.players.filter((p) => !p.cpu), ok = humans.length === MP.players.length && humans.length >= 2;
