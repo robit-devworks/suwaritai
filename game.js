@@ -4640,12 +4640,13 @@
     if (a) { b._tx = b.x = a[0] / 100; b._tz = b.z = a[1] / 100; b._tyaw = b.yaw = a[2] / 100; b._tpitch = a[3] / 100; applyPl(G, RP.P, a); }
     RP.np = null; RP.nextI = -2; camYaw = null; rpWhoText(); hud.st = hud.sub = ''; hud.stam = hud.karma = hud.toku = hud.wallet = hud.mind = -1;
   }
-  // 🎥 キルカメラ（2026-11-15・本人）：倒された（トドメを刺された）とき、結果画面から、やられる 6 秒前から相手の視点で見られる
+  // 🎥 キルカメラ（2026-11-15・本人）：倒された（トドメを刺された）とき、結果画面から、やられる 10 秒前〜3 秒後を相手の視点で見られる
   async function killCam() {
     const kc = MP.lastKc; if (!kc) return;
     if (!(await playMyRp('mpres'))) return;
     track('キルカメラを見た');
-    rpSeekTo(kc.t - RP.fr[0].t - 6);
+    RP.dg = { wins: [[Math.max(RP.t0, kc.t - 10), kc.t + 3, '🎥 キルカメラ']] }; // やられる 10 秒前から 3 秒後までだけ流す（2026-11-15・本人：前は最後まで全部流れていた。dgCut が外を飛ばす）
+    rpSeekTo(Math.max(0, kc.t - 10 - RP.t0));
     if (RP.mp && kc.by >= 0 && kc.by < G.players.length) rpWhoSet(kc.by);
     addToast('🎥 キルカメラ：' + kc.name + ' の視点（「👤」で切りかえ）', 'warn');
   }
