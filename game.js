@@ -549,10 +549,34 @@
         for (const [x, z] of [[-0.14, 0.3], [0.14, 0.3], [-0.14, -0.25], [0.14, -0.25]]) { const lg = new T3.Mesh(UCAP, fur); lg.scale.set(0.09, 0.12, 0.09); lg.position.set(x, 0.1, z); cap.add(lg); }
         const towel = new T3.Mesh(box(0.2, 0.04, 0.16), M('#f2f2f2')); towel.position.set(0, 0.6, 0.42); cap.add(towel); // 頭に手ぬぐい
       } else if (a === '子ゾウ') {
-        hideHuman(); head.material = M('#8a8f96'); head.scale.multiplyScalar(1.25);
-        for (const sx of [-1, 1]) { const ear = new T3.Mesh(new T3.CircleGeometry(0.75, 16), new T3.MeshLambertMaterial({ color: '#7d828a', side: T3.DoubleSide })); ear.position.set(sx * 1.05, 0.05, -0.1); ear.rotation.y = sx * 1.2; head.add(ear); ball(M('#111'), 0.09, 0.11, 0.05, sx * 0.32, 0.18, 0.95); }
-        const trunk = new T3.Group(); trunk.position.set(0, -0.2, 0.9); head.add(trunk); H.trunk = trunk;
-        let par = trunk; for (let i = 0; i < 4; i++) { const seg = new T3.Group(); seg.position.y = i ? -0.32 : 0; par.add(seg); const m = new T3.Mesh(UCAP, M('#8a8f96')); m.scale.set(0.24 - i * 0.03, 0.2, 0.24 - i * 0.03); m.position.y = -0.16; seg.add(m); par = seg; (H.trunkSegs = H.trunkSegs || []).push(seg); }
+        // 4 本足の子ゾウ（2026-11-15・本人：人の体のまま 2 本足で立っていた）。人の体はかくして一から作る。歩くと足が交互に動き、耳がパタパタ、鼻がゆれる（costumeAfter）
+        for (const o of [H.pelvis, H.legL.hp, H.legR.hp]) o.visible = false;
+        const zou = new T3.Group(); H.root.add(zou); H.zou = zou;
+        const gray = M('#9aa1aa'), dk = M('#848b94'), pink = M('#f2b6c2'), white = M('#f7f7f5');
+        const S = (mat, sx, sy, sz, x, y, z, par) => { const m = new T3.Mesh(PSPH, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); (par || zou).add(m); return m; };
+        S(gray, 0.27, 0.25, 0.38, 0, 0.5, -0.04); // 体
+        const hd = new T3.Group(); hd.position.set(0, 0.66, 0.36); zou.add(hd); H.zouHead = hd;
+        S(gray, 0.21, 0.2, 0.2, 0, 0, 0, hd); // 頭
+        const ears = []; for (const sx of [-1, 1]) {
+          const e = new T3.Group(); e.position.set(sx * 0.17, 0.02, -0.04); hd.add(e);
+          const outer = new T3.Mesh(new T3.CircleGeometry(0.22, 24), new T3.MeshLambertMaterial({ color: '#8e959e', side: T3.DoubleSide })); outer.position.set(sx * 0.15, -0.05, 0); e.add(outer);
+          const inner = new T3.Mesh(new T3.CircleGeometry(0.15, 20), new T3.MeshLambertMaterial({ color: '#f2b6c2', side: T3.DoubleSide })); inner.position.set(sx * 0.15, -0.05, 0.003); e.add(inner);
+          e.rotation.y = -sx * 0.35; ears.push(e);
+          S(M('#111'), 0.028, 0.034, 0.02, sx * 0.08, 0.05, 0.18, hd); S(white, 0.009, 0.009, 0.006, sx * 0.072, 0.064, 0.196, hd); // 目
+          S(pink, 0.03, 0.018, 0.01, sx * 0.12, -0.02, 0.16, hd); // ほっぺ
+        }
+        H.zouEars = ears;
+        const trunk = new T3.Group(); trunk.position.set(0, -0.06, 0.19); hd.add(trunk); H.trunk = trunk; H.zouTrunk = [];
+        let par = trunk; for (let i = 0; i < 4; i++) { const seg = new T3.Group(); seg.position.y = i ? -0.075 : 0; par.add(seg); const r = 0.055 - i * 0.007; const m = new T3.Mesh(UCAP, gray); m.scale.set(r * 2, 0.045, r * 2); m.position.y = -0.04; seg.add(m); par = seg; H.zouTrunk.push(seg); } // 鼻（前へくるんと曲げる：costumeAfter）
+        H.zouLegs = []; for (const [x, z] of [[-0.14, 0.2], [0.14, 0.2], [-0.14, -0.24], [0.14, -0.24]]) {
+          const lg = new T3.Group(); lg.position.set(x, 0.36, z); zou.add(lg);
+          const m = new T3.Mesh(UCAP, gray); m.scale.set(0.15, 0.13, 0.15); m.position.y = -0.18; lg.add(m);
+          const toe = S(white, 0.06, 0.025, 0.04, 0, -0.33, 0.05, lg); toe.material = M('#e8e2d6'); // つめ
+          H.zouLegs.push(lg);
+        }
+        const tail = new T3.Group(); tail.position.set(0, 0.55, -0.4); zou.add(tail); H.zouTail = tail;
+        const tl = new T3.Mesh(UCAP, dk); tl.scale.set(0.025, 0.07, 0.025); tl.position.y = -0.07; tail.add(tl); S(M('#555'), 0.025, 0.035, 0.025, 0, -0.16, 0, tail);
+        for (const ch of H.root.children) if (ch !== zou) ch.visible = false; // 人のときのかばんなども見せない
       }
     } else if (c === 'ghost') {
       H.ghost = true;
@@ -711,6 +735,15 @@
       H.root.position.x += Math.sin(H.ry) * (lz + back); H.root.position.z += Math.cos(H.ry) * (lz + back); H.root.position.y += ly;
     }
     if (H.capy) { H.capy.position.y = p.state === 'seated' ? 0.38 : 0; }
+    if (H.zou) { // 4 本足の子ゾウ：歩くと足が交互に・耳がパタパタ・しっぽがゆれる（鼻は costumePose の trunkSegs）
+      const t = performance.now() / 1000, walk = p.state === 'walk';
+      H.zou.position.y = p.state === 'seated' ? 0.3 : (walk ? Math.abs(Math.sin(t * 7)) * 0.015 : 0);
+      H.zouLegs.forEach((l, i) => { l.rotation.x = walk ? Math.sin(t * 7 + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.45 : 0; });
+      H.zouEars.forEach((e, i) => { e.rotation.y = (i ? -1 : 1) * (0.45 + 0.25 * Math.sin(t * (walk ? 6 : 2.2) + i)); });
+      H.zouTail.rotation.z = Math.sin(t * 3) * 0.4;
+      H.zouHead.rotation.y = walk ? 0 : Math.sin(t * 0.8) * 0.25;
+      H.zouTrunk.forEach((sg, i) => { sg.rotation.x = -(0.22 + 0.18 * Math.sin(t * 1.8 + i * 0.6)) * (i ? 1 : 0.5); sg.rotation.z = Math.sin(t * 1.2 + i) * 0.12; }); // 鼻は前へ（うしろに曲げると顔の中に入って見えなかった）
+    }
     if (H.peng) { // 子連れペンギン：よちよち歩き・ヒレがパタパタ・赤ちゃんはぴょこぴょこ
       const t = performance.now() / 1000, walk = p.state === 'walk', seat = p.state === 'seated';
       H.peng.position.y = seat ? 0.38 : 0;
@@ -966,7 +999,7 @@
   }
   function placeHeld(H, seated) {
     if (H.props) for (const k in H.props) H.props[k].visible = false;
-    if (H.peng || H.capy) return; // ペンギン・カピバラはスマホやかばんを持たない（ペンギンの頭の横にスマホが浮いていた）
+    if (H.peng || H.capy || H.zou) return; // ペンギン・カピバラ・子ゾウはスマホやかばんを持たない（ペンギンの頭の横にスマホが浮いていた）
     if (H.bagUp && seated && !H.bag) { const b = heldMesh(H, 'lapbag'); b.visible = true; b.position.set(0, 0.64, 0.26); b.rotation.set(0, 0, 0); }
     const hd = H.hold; if (!hd) return;
     const m = heldMesh(H, hd.kind);
@@ -2988,8 +3021,9 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
-    { d: '2026-11-15', t: '子連れペンギン ほか', items: [
+    { d: '2026-11-15', t: '子連れペンギン・4 本足の子ゾウ ほか', items: [
       '🐧 動物園前のペンギンが子連れに！ 人の足が生えていたのを直しました（座ると赤ちゃんはお母さんの膝の上）',
+      '🐘 子ゾウも 4 本足に！ 大きな耳と、くるんと曲がる鼻',
       '🏅 レート戦で上位 10 人に入ると、その試合のリプレイがランキングの ▶ で見られる',
     ] },
     { d: '2026-11-14', t: '隠しモードのランキング ほか', items: [
