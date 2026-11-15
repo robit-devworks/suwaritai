@@ -354,7 +354,8 @@
     g.phaseT = 0; g.doorsOpen = false; g.doorClose = C.T_STOP + 3; g.alighted = g.boarded = g.warned = false;
     g.ann = stationName(g, 0) + '、' + stationName(g, 0) + '。電車が来ました。';
     const sat = g.people.filter((p) => p.state === 'seated' && !p.role); // 6 席くらい空けておく（前の駅で降りた人の分）
-    for (let k = 0; k < 6 && sat.length; k++) { const p = sat.splice(r.int(0, sat.length - 1), 1)[0]; const s = g.seats[p.seat]; s.occ = -1; s.res = -1; p.state = 'gone'; p.seat = -1; }
+    // 環状線は最初から混んでいて、空いている席は 2 つだけ
+    for (let k = 0, nf = g.loop ? 2 : 6; k < nf && sat.length; k++) { const p = sat.splice(r.int(0, sat.length - 1), 1)[0]; const s = g.seats[p.seat]; s.occ = -1; s.res = -1; p.state = 'gone'; p.seat = -1; }
     g.people = g.people.filter((p) => p.state !== 'gone');
     const bodies0 = g.multi ? g.players.filter((P) => !P.away).map((P) => P.pl) : [g.player];
     bodies0.forEach((b, k) => { const d = DOORS[(k + r.int(0, 2)) % DOORS.length]; b.plat = true; b.seat = -1; b.x = d + r.range(-0.9, 0.9); b.z = sd * r.range(2.1, 2.9); b.yaw = sd > 0 ? 0 : Math.PI; b.pitch = 0; });
@@ -532,7 +533,7 @@
 
   function populateStart(g) {
     const r = g.r;
-    const nSeat = g.hard ? 30 : 26, nStand = g.hard ? 12 : 8;
+    const nSeat = g.hard || g.loop ? 30 : 26, nStand = g.hard ? 12 : g.loop ? 14 : 8; // 環状線は最初から混んでいる（2026-11-15・本人）
     const seatOrder = g.seats.map(s => s.id).sort(() => r() - 0.5);
     for (let i = 0; i < nSeat; i++) {
       let type = pickType(g, 1); if (TYPES[type].priority && !g.jiji && type !== 'elderly' || type === 'stroller') type = 'salaryman'; // ベビーカーの親は座らない
@@ -545,7 +546,7 @@
       g.people.push(p); placeStanding(g, p, true);
     }
     g.phase = 'stop'; g.phaseT = C.BOARD + 1.5; g.doorsOpen = true; g.doorSide = 1; g.nextDoorSide = 1;
-    g.ann = stationName(g, 0) + '駅。この電車は ' + (g.endless ? 'どこまでも' : stationName(g, lastStation(g)) + ' 行き') + 'です。';
+    g.ann = stationName(g, 0) + '駅。この電車は ' + (g.loop ? '環状線です。12 駅で 1 周します。' : (g.endless ? 'どこまでも' : stationName(g, lastStation(g)) + ' 行き') + 'です。');
   }
 
   function chooseSlot(g, p, nearX, nearZ, preferFront) {
@@ -2107,8 +2108,8 @@
     if (g.endless && st >= LINE.length - 1) range = [4 + Math.min(4, (st - 11) >> 2), 8 + Math.min(6, (st - 11) >> 1)];
     let n = g.r.int(range[0], range[1]);
     // 終点に向かってどんどん混む：後半の駅ほど乗ってくる人が多く、終点のひとつ手前でどっと乗ってくる
-    const last = lastStation(g), frac = g.endless ? 0 : Math.min(1, st / Math.max(1, last));
-    if (!g.endless && st > 0 && st < last) { n = Math.max(n, 4) ; n = Math.round(n * (0.7 + 1.3 * frac)); if (st === last - 1) n += 8; }
+    const last = lastStation(g), frac = g.endless ? 0 : g.loop ? 0.8 : Math.min(1, st / Math.max(1, last)); // 環状線は最初から混んでいる（どの駅も同じくらい）
+    if (!g.endless && st > 0 && st < last) { n = Math.max(n, 4) ; n = Math.round(n * (0.7 + 1.3 * frac)); if (st === last - 1 && !g.loop) n += 8; }
     if (g.hard) n = Math.round(n * 1.4);
     if (g.tutorial) n = 0; // チュートリアル：乗ってくる人はいない
     const alive = g.people.filter(p => p.state !== 'gone' && p.state !== 'exit').length;

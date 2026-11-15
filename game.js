@@ -20,7 +20,7 @@
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
   const NEW_UNTIL = '2026-11-25'; // この日まで、新しく入ったもの（今日のルール・練習乗車）に「NEW」の印
-  const MODE_JA = { rookie: '見習い乗車', online: 'オンライン', bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', loop: '環状線', guidetest: '座り方の案内のお試し', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const MODE_JA = { rookie: '見習い乗車', online: 'オンライン', bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', loop: '環状線β', guidetest: '座り方の案内のお試し', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -1280,7 +1280,7 @@
       if (sti !== lastSignStation) {
         lastSignStation = sti;
         const kana = g.loop ? (g.bossAt && g.bossAt[sti] ? '' : SW.LINE[g.loop.ring[(g.loop.start + sti) % SW.LOOP_N]].kana) : sti < SW.LINE.length ? SW.LINE[sti].kana : '';
-        drawStationSign(SW.stationName(g, sti), kana, sti > 0 ? SW.stationName(g, sti - 1) : '', sti < SW.lastStation(g) ? SW.stationName(g, sti + 1) : '終点');
+        drawStationSign(SW.stationName(g, sti), kana, sti > 0 ? SW.stationName(g, sti - 1) : '', sti < SW.lastStation(g) || g.loop ? SW.stationName(g, sti + 1) : '終点'); // 環状線は「終点」と出さない（2026-11-15・本人）
       }
       for (const L of outsideLayers) L.near.visible = L.s !== pside;
     } else { platform.visible = false; for (const L of outsideLayers) L.near.visible = true; }
@@ -1962,7 +1962,7 @@
     const last = SW.lastStation(g);
     const total = g.endless ? '∞' : last;
     let sName, sSub, prog;
-    if (g.phase === 'travel') { sName = '次は ' + SW.stationName(g, g.station + 1); sSub = (g.station + 1) + ' / ' + total + ' 駅目' + (g.station + 1 === last ? '（終点）' : '') + '・出口 ' + ((g.nextDoorSide || 1) > 0 ? '右' : '左') + '側'; prog = g.phaseT / SW.C.T_TRAVEL; }
+    if (g.phase === 'travel') { sName = '次は ' + SW.stationName(g, g.station + 1); sSub = (g.station + 1) + ' / ' + total + ' 駅目' + (g.station + 1 === last ? (g.loop ? '（ここで 1 周）' : '（終点）') : '') + '・出口 ' + ((g.nextDoorSide || 1) > 0 ? '右' : '左') + '側'; prog = g.phaseT / SW.C.T_TRAVEL; }
     else { sName = SW.stationName(g, g.station) + ' 停車中'; sSub = (g.doorsOpen ? 'ドアが開いています' : 'まもなく発車') + '（' + ((g.doorSide > 0) ? '右' : '左') + '側）'; prog = 1; }
     if (sName !== hud.st) { hud.st = sName; $('stName').textContent = sName; }
     if (sSub !== hud.sub) { hud.sub = sSub; $('stSub').textContent = sSub; }
@@ -2960,6 +2960,35 @@
   }
   $('bLoop').addEventListener('click', () => { track('ホーム：環状線'); loopRideStart(); }); // 🔄 環状線（CPU が乗ってくる）がいちばん上・たちっぱ線は一人モード（2026-11-15・本人）
   $('bStart').addEventListener('click', () => startGame('normal')); // 最初はまず体験してもらう（チュートリアルは聞かない）
+  // ？ルール（2026-11-15・本人）：ホームの環状線・たちっぱ線のボタンの右はしから、そのモードのルールを読める
+  const RULES = {
+    loop: ['🔄 環状線 β（テスト中）のルール', [
+      '🚉 ホームからスタート。電車が来てドアが開いたら、乗りこんで空いている席を取り合う',
+      '🔄 12 駅でちょうど 1 周。どの駅から乗っても全部の駅を 1 回ずつ通る（駅の並びはその日みんな同じ）',
+      '🤖 駅ごとに CPU の乗客が乗ってくる（本物のプレイヤーの遊び方をまねている）。見た目はふつうの乗客と同じ。動きで見破ろう',
+      '🧍 立っていると体力が減る。降りそうな人（掲示板チラ見・時計・荷物をまとめる）の前で待って、空いたら座る',
+      '🙏 席を譲る・落とし物を届ける・悪者を注意すると徳とスコア。徳はスキルに使える',
+      '👊 弱ったライバルにトドメでスコア +150（カルマもたまる）。落とし物を投げてもいい',
+      '🚨 殴られたら 20 秒以内にドア横の非常通報ボタンで通報 → 殴った人は連行',
+      '🎭 画面の右の「🎭 しぐさ」ボタン（PC は 8・9・0 キー）で、掲示板チラ見・時計・荷物をまとめる「ふり」ができる。降りるふりでライバル（CPU も）を前で待たせよう',
+      '💀 体力か精神が 0、カルマがいっぱい（連行）で終わり。倒れたあとは相手の視点で見続けられる',
+      '🏆 ランキング：今日・歴代（上位 10 人はリプレイが見られる）',
+    ]],
+    normal: ['🚃 たちっぱ線（一人モード）のルール', [
+      '🚃 各駅停車で、終点「やっと座れ橋」をめざす。乗っているのは自分だけ',
+      '🧍 立っていると体力が減る。降りそうな人（掲示板チラ見・時計・荷物をまとめる）を見極めて前に立ち、空いたら座る',
+      '😵 体力か精神が 0 で終わり。後半ほど混んでくる',
+      '🙏 席を譲る・落とし物を届ける・悪者をこらしめると徳とスコア。徳はスキルに使える',
+      '⚠ 関係ない人を殴るとカルマがたまる。いっぱいになると連行',
+      '🏢 ボス駅では「困った人たち」が乗ってくる。次の駅までに片付けるとボーナス',
+      '🏆 ランキング：今日・今週・歴代（上位 10 人はリプレイが見られる）',
+    ]],
+  };
+  let ruleMode = '';
+  function ruleShow(k) { const R = RULES[k]; if (!R) return; ruleMode = k; $('ruleT').textContent = R[0]; $('ruleL').innerHTML = R[1].map((t) => '<li>' + esc(t) + '</li>').join(''); $('ruleBox').classList.remove('hidden'); track('ルールを見た：' + k); }
+  document.querySelectorAll('#startBox .rq').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); ruleShow(b.dataset.rule); }));
+  $('ruleBox').addEventListener('click', (e) => { if (e.target === $('ruleBox') || e.target.closest('.rbx')) $('ruleBox').classList.add('hidden'); });
+  $('ruleGo').addEventListener('click', () => { $('ruleBox').classList.add('hidden'); if (ruleMode === 'loop') { track('ルールから環状線'); loopRideStart(); } else startGame('normal'); });
   // ---- チュートリアル
   const I = SW._internal;
   const TUT_STEPS = [
@@ -3082,10 +3111,10 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
-    { d: '2026-11-15', t: '大型アップデート：環状線・だれが人間か分からない席取りバトル', items: [
+    { d: '2026-11-15', t: '大型アップデート：環状線・だれがライバルか分からない席取りバトル', items: [
       '🏆 環状線のランキング（今日・歴代）！ ランキングの「🔄 環状線」で見られる。上位 10 人はリプレイも',
-      '🔄 ホームのいちばん上が「環状線」に！ ホームから来た電車に乗りこんで、ドアが開いた瞬間から席の取り合い。本物のプレイヤーの遊び方をまねた CPU が駅ごとに乗ってくる（たちっぱ線は「一人モード」でそのまま遊べます）',
-      '🕵 対戦では、だれが人間か分からない！ プレイヤーも CPU も、ふつうの乗客と同じ見た目。動きで見極めよう（人狼みたいに）',
+      '🔄 ホームのいちばん上が「環状線 β」に（テスト中）！ ホームから来た電車に乗りこんで、ドアが開いた瞬間から席の取り合い。本物のプレイヤーの遊び方をまねた CPU が駅ごとに乗ってくる（たちっぱ線は「一人モード」でそのまま遊べます）',
+      '🕵 対戦では、だれがライバルか分からない！ プレイヤーも CPU も、ふつうの乗客と同じ見た目。動きで見極めよう（人狼みたいに）',
       '🎭 しぐさ：掲示板チラ見・時計・荷物をまとめる「ふり」。座って降りるふりをすると、ライバルが前で待ちぼうけ',
       '👊 ライバルを倒すとスコア +150。🚨 殴られたら 20 秒以内にドア横の非常通報ボタンで、殴った人を連行！ 🎥 倒されたらキルカメラ・倒した相手の視点で見続けられる',
       '👶 12 駅に 1 回、ベビーカーが乗ってくる。赤ちゃんをいちばん先に笑わせた人はカルマ全回復',
@@ -3281,7 +3310,7 @@
     profile.history = (profile.history || []).concat([{ s: sc.total, t: sc.title, m: mode, d: Date.now() }]).sort((a, b) => b.s - a.s).slice(0, 20);
     if (g.rookie) profile.rookieDone = true;
     saveProfile();
-    const causeTxt = { clear: '🎉 終点到着！', collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', broken: '🧠 心が折れた…' }[r.cause];
+    const causeTxt = { clear: g.loop ? '🔄 1 周した！' : '🎉 終点到着！', collapse: '🦵 膝が笑った…', ko: '💥 KO負け', arrest: '🚨 駅員に連行', broken: '🧠 心が折れた…' }[r.cause];
     const stName = SW.stationName(g, Math.min(g.station + (g.phase === 'travel' ? 1 : 0), SW.lastStation(g)));
     $('rCause').textContent = causeTxt; $('rCause').className = 'res-cause ' + (r.cause === 'clear' ? 'good' : 'bad');
     $('rText').innerHTML = `<b class="dg">${dg.icon} あなたは「${dg.name}」タイプ${dgNew ? ' <span class="pill">NEW</span>' : ''}</b><br><span style="color:var(--sub)" title="${dg.desc}">${dg.why}${g.endless ? '（' + s.stations + '駅）' : ''}</span>${g.practice ? `<br><b style="color:#ff8a5e">🔰 練習乗車：本番なら ${s.saves ? s.saves + ' 回終わってた' : '一度も倒れなかった！'}</b>` : ''}${g.bossRush ? `<br><b style="color:#ffb35e">⚠ ボス駅ラッシュ：クリア ${s.bossClear || 0} 駅 / 挑戦 ${(s.bossLog || []).length} 駅</b><br><span class="small" style="color:var(--sub)">${(s.bossLog || []).map(([k, ok]) => (ok ? '○' : '×') + esc(SW.BOSS[k].name)).join('　')}</span>` : ''}${g.mikiwame ? `<br><b style="color:#7fd1ff">👀 見極め線：座れた ${s.mkSits} 回・🎯 読み的中 ${s.mkHits} 回（最大 ${s.mkBest} 連続）</b>` : ''}`;
@@ -3408,7 +3437,7 @@
       return xFit([[mom ? mom + '\n' : '', 4], ['スワリタイ！ 今日のダイヤ ' + todayKey().slice(5).replace('-', '/').replace(/^0/, ''), 0], [R.rule ? R.rule.icon + R.rule.name : '', 3], [grid, 2], [R.sc.total + '点' + pct + '\n', 0], ['あなたは何点？', 1], [shareUrl() + '\n', 0], ['#スワリタイ', 0]]);
     }
     const modeTxt = R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線', bossrush: 'ボス駅ラッシュ' }[R.mode] || '') + '】';
-    const how = R.cause === 'clear' ? '終点に到着！' : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
+    const how = R.cause === 'clear' ? (R.mode === 'loop' ? '環状線を 1 周した！' : '終点に到着！') : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
     const stats = R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`;
     return xFit([
       [mom ? mom + '\n' : '', 3],
@@ -5200,7 +5229,7 @@
     $('mpOut').classList.add('hidden'); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden');
     if (document.pointerLockElement) document.exitPointerLock();
     state = 'result'; backTo = 'mpres';
-    const causeJa = { alive: '生き残り', clear: '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', pko: 'トドメ', leave: '途中で降りた', broken: '心が折れた' };
+    const causeJa = { alive: '生き残り', clear: MP.loopRide ? '1 周した' : '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', pko: 'トドメ', leave: '途中で降りた', broken: '心が折れた' };
     let myRank = 0;
     $('mpResList').innerHTML = res.map((r, k) => {
       const me = r.uid === MP.uid; if (me) myRank = k + 1;
@@ -5208,7 +5237,7 @@
       return `<div class="mpr ${me ? 'me' : ''}"><span class="n">${k + 1}</span><i style="background:${MPCOL[r.i]}"></i><span class="nm">${nameHtml(r.name)}${r.cpu ? ' 🤖' : tagHtml(r.uid)}${me ? ' <span class="pill">あなた</span>' : ''}<small>${esc(extra)}</small></span><span class="sc">${r.score}</span></div>`;
     }).join('');
     $('mpResNote').textContent = myRank === 1 ? '🎉 あなたの勝ち！' : myRank ? 'あなたは ' + myRank + ' 位' : '';
-    $('mpResT').textContent = v.coop ? '🤝 共闘の結果' : MP.loopRide ? '🔄 環状線の結果' : MP.cpuMode ? '🤖 CPU 戦（' + CPU_LVJ[MP.cpuLv] + '）の結果' : '🏁 オンライン対戦の結果';
+    $('mpResT').textContent = v.coop ? '🤝 共闘の結果' : MP.loopRide ? '🔄 環状線β の結果' : MP.cpuMode ? '🤖 CPU 戦（' + CPU_LVJ[MP.cpuLv] + '）の結果' : '🏁 オンライン対戦の結果';
     $('mpAgain').textContent = MP.loopRide ? 'もう一回（環状線）' : MP.cpuMode ? 'もう一回（' + CPU_LVJ[MP.cpuLv] + '）' : 'もう一回（同じ部屋で）'; $('mpLeave').textContent = MP.cpuMode ? 'タイトルへ' : '部屋を出る';
     if (MP.loopRide) {
       const meR = res.find((r) => r.uid === MP.uid) || {};
