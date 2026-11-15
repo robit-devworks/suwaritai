@@ -23,6 +23,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
+#startBox{display:flex;flex-direction:column;gap:5px}
 :root{
   --bg:#0e1116; --panel:rgba(14,18,26,.78); --panel2:rgba(255,255,255,.08); --ink:#f4f1ea; --sub:#b8bdc8;
   --stam:#4fd17a; --stamLow:#ff5a4f; --karma:#b366ff; --toku:#ffd447; --good:#5fe08a; --bad:#ff6b5e; --warn:#ffb13b;
@@ -113,6 +114,12 @@ body.touch #bLand{display:block}
 #rotate .rot-t{margin:0;font-size:24px;font-weight:800;color:var(--toku)}
 @keyframes rot{0%,20%{transform:rotate(0)}50%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
 @media (prefers-reduced-motion: reduce){#rotate .rot-phone{animation:none;transform:rotate(-90deg)}}
+#gestW{position:absolute;right:max(10px,env(safe-area-inset-right));top:44%;display:flex;align-items:center;gap:6px;pointer-events:auto;z-index:4}
+#gestW button{width:48px;height:48px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:#fff;font-size:20px;line-height:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0}
+#gestW button small{font-size:9px;margin-top:2px;color:#ccd}
+#gestPop{display:flex;gap:5px}#gestPop.hidden{display:none}
+#gestW button.cd{opacity:.4}
+body.replay #gestW{display:none}
 #skills{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));display:flex;gap:6px;pointer-events:auto}
 .sk{position:relative;width:50px;height:54px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:21px;line-height:1;padding:0}
 .sk small{font-size:10px;color:var(--toku);font-weight:800;margin-top:3px}
@@ -342,6 +349,19 @@ body.vrec #rpPlay,body.vrec #rpSpeed,body.vrec #rpTpv,body.vrec #rpWho{opacity:.
 #spName i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
 #spBar button{font:inherit;font-size:13px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;cursor:pointer;flex:0 0 auto}
 body.nosk #skills,body.replay #skills,body.replay #touch,body.replay #prompt{display:none!important}
+#vrBusy{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);z-index:30;width:min(320px,86vw);background:rgba(12,14,20,.9);border:1px solid rgba(255,90,90,.6);border-radius:12px;padding:8px 12px 7px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.5);pointer-events:none;text-align:center}
+#vrBusy .vrT{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:800;font-size:14px}
+#vrBusy .vrDot{width:11px;height:11px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 8px #ff3b3b;animation:vrBlink 1s ease-in-out infinite}
+#vrBusy.fin .vrDot{background:transparent;box-shadow:none;border:2px solid #ffd447;border-top-color:transparent;animation:vrSpin .8s linear infinite}
+#vrBusy .vrBar{height:7px;border-radius:99px;background:rgba(255,255,255,.15);overflow:hidden;margin:6px 0 4px}
+#vrBusy .vrBar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff5b5b,#ffd447);border-radius:99px;transition:width .3s linear}
+#vrBusy.fin .vrBar i{width:100%!important;background:repeating-linear-gradient(45deg,#ffd447 0 10px,#e0a020 10px 20px);background-size:28px 28px;animation:vrStripe .6s linear infinite}
+#vrBusy small{display:block;font-size:11px;color:#bbb}
+@keyframes vrBlink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes vrSpin{to{transform:rotate(360deg)}}@keyframes vrStripe{to{background-position:28px 0}}
+#repTag{position:fixed;left:50%;top:calc(max(8px,env(safe-area-inset-top)) + 196px);transform:translateX(-50%);z-index:6;font-size:13px;font-weight:800;color:#fff;background:rgba(170,20,30,.85);border:1px solid #ff8a8a;border-radius:99px;padding:4px 12px;white-space:nowrap;pointer-events:none;animation:repP 1s ease-in-out infinite}@keyframes repP{0%,100%{box-shadow:0 0 0 rgba(255,80,80,0)}50%{box-shadow:0 0 12px rgba(255,80,80,.9)}}
+body:not(.touch) #repTag{top:120px}
+@media (orientation: portrait){body.touch #repTag{top:calc(max(8px,env(safe-area-inset-top)) + 300px)}}
+@media (orientation: landscape){body.touch #repTag{top:calc(max(8px,env(safe-area-inset-top)) + 92px)}}
 #ruleTag{position:fixed;right:10px;top:calc(96px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#1a1300;background:rgba(255,212,71,.92);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none;font-weight:800}
 #rookieTag{position:fixed;right:10px;top:calc(96px + env(safe-area-inset-top));z-index:5;font-size:11px;color:#fff;background:rgba(46,160,90,.85);border-radius:99px;padding:3px 10px;white-space:nowrap;pointer-events:none}
 #carryCard{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top));z-index:6;max-width:calc(100% - 24px);background:rgba(12,14,20,.86);border:2px solid #ffd447;border-radius:14px;padding:8px 16px;text-align:center;color:#fff;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.4)}
@@ -423,7 +443,9 @@ html.pland #title .nmlbl{display:none}
   html:not(.pland) #title .logo h1{font-size:clamp(44px,15vw,66px)}
   html:not(.pland) #title #bLand{order:3}
   html:not(.pland) #title #bSaveResume{order:3}
-  html:not(.pland) #title #bStart{order:4;font-size:clamp(17px,5vw,20px);padding:14px}
+  html:not(.pland) #title #startBox{order:4}
+  html:not(.pland) #title #bLoop{font-size:clamp(17px,5vw,20px);padding:14px}
+  html:not(.pland) #title #bStart{font-size:clamp(13px,3.8vw,15px)}
   html:not(.pland) #title #dailyRow{order:5}
   html:not(.pland) #title #modesRow{order:6}
   html:not(.pland) #title .row:not(#dailyRow):not(#modesRow){order:7}
@@ -432,7 +454,8 @@ html.pland #title .nmlbl{display:none}
   html:not(.pland) #title #bPort{order:9}
   html:not(.pland) #title .card>p.small:last-child{order:10}
   html:not(.pland) #title .btn{margin:0;padding:9px 6px}
-  html:not(.pland) #title #bStart{padding:14px}
+  html:not(.pland) #title #bLoop{padding:14px}
+  html:not(.pland) #title #bStart{padding:8px 6px}
   html:not(.pland) #title .btn:not(.main), html:not(.pland) #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
   html:not(.pland) #title .row .btn{white-space:nowrap;font-size:clamp(12px,3.6vw,15px);padding:9px 2px;min-width:0}
   html:not(.pland) #title .row:not(#dailyRow):not(#modesRow){gap:6px}
@@ -482,7 +505,9 @@ html.pland #title .nmlbl{display:none}
   #title .logo h1{font-size:clamp(40px,8.4vw,72px);transform:rotate(-4deg)}
   #title .logo p{font-size:clamp(13px,2.2vw,19px)}
   #title .logo .tag, #title #bestLine, #title #nameNote{display:none}
-  #title #bStart{grid-row:3;align-self:end;font-size:clamp(16px,2.6vw,21px);padding:clamp(9px,1.9vh,14px)}
+  #title #startBox{grid-row:3;align-self:end}
+  #title #bLoop{font-size:clamp(16px,2.6vw,21px);padding:clamp(8px,1.6vh,13px)}
+  #title #bStart{font-size:clamp(12px,2vw,15px);padding:clamp(4px,1vh,7px)}
   #title #dailyRow{grid-row:4}
   #title #modesRow{grid-row:5}
   #title #bLand, #title #bPort{grid-column:1;grid-row:6;align-self:end;width:auto;justify-self:start;text-align:left}
@@ -496,7 +521,7 @@ html.pland #title .nmlbl{display:none}
   #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
   #title #bLand, #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
   #title #dailyRow .btn, #title #modesRow .btn{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,2.1vw,16px);padding:7px 4px}
-  #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #title #startBox .btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #title #dailyRow .pill,#title #modesRow .pill{font-size:10px;padding:0 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
   body.touch #bLand.landed{display:none}
   #online .card>p.small:first-of-type{display:none}
@@ -559,7 +584,9 @@ html.pland #title .logo{grid-column:1;grid-row:2 / span 4;align-self:center;text
 html.pland #title .logo h1{font-size:clamp(40px,calc(var(--ph) * 8.4 / 100),72px);transform:rotate(-4deg)}
 html.pland #title .logo p{font-size:clamp(13px,calc(var(--ph) * 2.2 / 100),19px)}
 html.pland #title .logo .tag, html.pland #title #bestLine, html.pland #title #nameNote{display:none}
-html.pland #title #bStart{grid-row:3;align-self:end;font-size:clamp(16px,calc(var(--ph) * 2.6 / 100),21px);padding:clamp(9px,calc(var(--pw) * 1.9 / 100),14px)}
+html.pland #title #startBox{grid-row:3;align-self:end}
+html.pland #title #bLoop{font-size:clamp(16px,calc(var(--ph) * 2.6 / 100),21px);padding:clamp(8px,calc(var(--pw) * 1.6 / 100),13px)}
+html.pland #title #bStart{font-size:clamp(12px,calc(var(--ph) * 2 / 100),15px);padding:clamp(4px,calc(var(--pw) * 1 / 100),7px)}
 html.pland #title #dailyRow{grid-row:4}
 html.pland #title #modesRow{grid-row:5}
 html.pland #title #bLand, html.pland #title #bPort{grid-column:1;grid-row:6;align-self:end;width:auto;justify-self:start;text-align:left}
@@ -573,7 +600,7 @@ html.pland #title .namebox{flex-wrap:nowrap;white-space:nowrap;min-width:0}
 html.pland #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
 html.pland #title #bLand, html.pland #title .small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.8)}
 html.pland #title #dailyRow .btn, html.pland #title #modesRow .btn{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,calc(var(--ph) * 2.1 / 100),16px);padding:7px 4px}
-html.pland #title #bStart{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.pland #title #startBox .btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html.pland #title #dailyRow .pill, html.pland #title #modesRow .pill{font-size:10px;padding:0 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
 html.pland body.touch #bLand.landed{display:none}
 html.pland #online .card>p.small:first-of-type{display:none}
@@ -626,6 +653,8 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div id="carryCard" class="hidden"></div>
   <div id="rookieTag" class="hidden" title="ランキングには載りません">🔰 見習い乗車</div>
   <div id="ruleTag" class="hidden" title="今日のダイヤの特別ルール"></div>
+  <div id="repTag" class="hidden"></div>
+  <div id="vrBusy" class="hidden"><div class="vrT"><span class="vrDot"></span><span id="vrMsg">🎬 動画を作成中…</span><b id="vrPct">0%</b></div><div class="vrBar"><i id="vrBarI"></i></div><small id="vrSub">終わるまでこのまま待ってね（画面を閉じないで）</small></div>
   <div id="topL">
     <div id="station"><div id="stName">—</div><div id="stSub"></div><div id="stProg"><i></i></div><div id="stBoss" class="hidden"></div></div>
     <div class="bar" id="stamBar"><b>体力</b><div class="t"><i id="stamF"></i></div><span class="v" id="stamV">100</span></div>
@@ -649,6 +678,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div id="ann" class="hidden"></div>
   <div id="pcHint" class="hidden"></div>
   <div id="skills"></div>
+  <div id="gestW" class="hidden"><div id="gestPop" class="hidden"><button data-g="board">🪧<small>掲示板</small></button><button data-g="watch">⌚<small>時計</small></button><button data-g="pack">🎒<small>荷物</small></button></div><button id="bGest" title="しぐさ（8・9・0 キー）">🎭<small>しぐさ</small></button></div>
 </div>
 
 <div id="touch" class="hidden">
@@ -670,7 +700,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
     <button class="btn sub2 hidden" id="bSaveResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
-    <button class="btn main" id="bStart">🚃 出発する（たちっぱ線）</button>
+    <div id="startBox"><button class="btn main" id="bLoop">🔄 出発する（環状線）</button><button class="btn" id="bStart">🚃 たちっぱ線（一人モード）</button></div>
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
     <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る <span class="pill">PV・作者の実況プレイ</span></button></div>
     <div class="row"><button class="btn sub2" id="bHow"><i class="ic">📖</i>遊び方</button><button class="btn sub2" id="bRank"><i class="ic">🏆</i>ランキング</button><button class="btn sub2" id="bAch"><i class="ic">🎖</i>実績</button><button class="btn sub2" id="bStat"><i class="ic">📊</i>Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
@@ -737,8 +767,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <ul>
       <li>関係ない人を殴る・無理やりどかす・洗脳する・譲るべき人を無視すると<b>カルマ</b>がたまる</li>
       <li>カルマが100になると<b>駅員に連行</b>されて終わり</li>
-      <li>👀 <b>まわりの目</b>：悪いことをしたとき、5m 以内で起きている人 1 人につきカルマが 4% 増える（最大 18 人で 1.72 倍）。寝ている人・倒れている人は見ていない。混んでいるときほど目立つ</li>
-      <li>🕵 乗客の中には<b>変装した駅員</b>がまざっていることも。近く（6m 以内）にいると「変装した駅員に見られていた！」で、カルマがさらに <b>2 倍</b></li>
+      <li>🕵 乗客の中には<b>変装した駅員</b>がまざっていることも。近く（6m 以内）で悪いことをすると「変装した駅員に見られていた！」で、カルマが <b>2 倍</b>。<b>強制どかしを見られたら、その場で連行</b>（寝ている駅員は見ていない）</li>
     </ul>
     <h3>スキル（徳で買う）</h3>
     <div id="skillHelp"></div>
@@ -750,8 +779,8 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <li><b>🤝 共闘</b>：部屋のホストが選べる。みんなの合計スコアで勝負。倒れた仲間はそばで「💊 復活させる」（徳を使う。足りなければスコアから）。人数ごとの共闘ランキングあり</li>
       <li>ひとりで遊んでいるときに、募集中の部屋や待っている人がいると上に出る。参加すると今のプレイは保存されて、タイトルの「▶ 続きから」で再開できる</li>
       <li>ライバルを殴ると、相手はよろけるだけ（体力 −8）で、自分のカルマ +15。<b>具合が悪そうな顔</b>（体力 20 以下）ならトドメを刺せる（カルマ +25）</li>
-      <li>⚔ 対戦は<b>脱落なし</b>：みんな<b>徳 30</b> を持ってスタート。膝が笑う・KO・連行・心が折れると、その場で<b>スコア 0・徳 30 からやり直し</b></li>
-      <li>終わったら「🎬 この試合のリプレイを見る」でふり返れる（「👤」で見る人を切りかえ・動画にもできる）。共闘ランキングの上位 10 チームはリプレイを ▶ で見られる</li>
+      <li>⚔ 対戦は<b>脱落なし</b>：みんな<b>徳 30</b> を持ってスタート。膝が笑う・KO・連行・心が折れると、その場で<b>スコア半分・徳 30 からやり直し</b></li>
+      <li>終わったら「🎬 この試合のリプレイを見る」でふり返れる（「👤」で見る人を切りかえ・動画にもできる）。フレンド戦・共闘・レート戦の試合は、ランキングの「🎬 みんなの試合」に公開される（新しい 30 試合。部屋のホストが「公開する」を外せば公開しない）。共闘ランキングの上位 10 チームはリプレイを ▶ で見られる</li>
       <li>部屋をつくった人（ホスト）の端末が試合を進めます。ホストは試合中にアプリを切りかえないでね</li>
       <li>合言葉を入れて <b>👀 観戦</b>もできる（「次の人」で見る人を切りかえ・1 人称／3 人称）</li>
     </ul>
@@ -793,7 +822,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div class="card">
     <h2>ランキング</h2>
     <div class="tabs" id="rankTabs"><button data-rt="day" class="on">今日</button><button data-rt="week">今週</button><button data-rt="normal">歴代</button><button data-rt="daily">ダイヤ</button></div>
-    <div class="tabs" id="rankTabs2"><button data-rt="rkon">🏅 対戦レート</button><button data-rt="mkweek">👀 見極め</button><button data-rt="coop2">🤝 共闘</button><button data-rt="hard" id="rtHard" class="hidden">🔥 地獄</button><button data-rt="jiji" id="rtJiji" class="hidden">👴 敬老</button></div>
+    <div class="tabs" id="rankTabs2"><button data-rt="rkon">🏅 対戦レート</button><button data-rt="mkweek">👀 見極め</button><button data-rt="coop2">🤝 共闘</button><button data-rt="games">🎬 みんなの試合</button><button data-rt="hard" id="rtHard" class="hidden">🔥 地獄</button><button data-rt="jiji" id="rtJiji" class="hidden">👴 敬老</button></div>
     <div class="tabs hidden" id="mkTabs"><button data-mt="week" class="on">今週</button><button data-mt="best">歴代</button></div>
     <div class="tabs hidden" id="coopTabs"><button data-ct="2" class="on">2人</button><button data-ct="3">3人</button><button data-ct="4">4人</button></div>
     <button class="btn sub2" id="bMyRp2" style="margin:2px 0 6px;padding:6px">🎬 前回の自分のリプレイ</button>
@@ -917,6 +946,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <div class="row" id="olModeRow"><button class="btn sub2" data-olmode="vs">⚔ 対戦</button><button class="btn sub2" data-olmode="coop">🤝 共闘</button></div>
       <p class="small" id="olModeNote" style="margin:0 0 4px;color:var(--sub)"></p>
       <label class="small olcpu hidden"><input type="checkbox" id="olCpu"> 空いた席は CPU で埋める</label>
+      <label class="small hidden" id="olPubL" style="display:block;margin:4px 0"><input type="checkbox" id="olPub" checked> 🎬 この部屋の試合を「みんなの試合」に公開する（ランキングの画面で、だれでもリプレイを見られる）</label>
       <label class="small olcpu" id="olPubL"><input type="checkbox" id="olPub" checked> 🌐 だれでも入れる（ひとりで遊んでいる人に知らせる）</label>
       <button class="btn main" id="olStart">🚃 スタート</button>
       <p class="small" id="olWait"></p>
@@ -932,6 +962,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <button class="btn main" id="mpGhost">👻 ニセ乗客になって邪魔する</button>
     <p class="small">座っている人に照準を合わせてアクション → ウソの「降りるサイン」を出させる。だまされた人の数が「いたずら」になる</p>
     <button class="btn" id="mpWatch">👀 見ているだけ</button>
+    <button class="btn sub2 hidden" id="mpToRes">結果へ</button>
     <button class="btn sub2" id="mpQuit">部屋を出る</button>
   </div>
 </div>
@@ -941,6 +972,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div id="mpResList"></div>
     <p class="small" id="mpResNote"></p>
     <p class="small"><a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">🔔 作者（𝕏 @ROBITdesuyo）をフォローして、アップデート情報を受け取る</a></p>
+    <button class="btn sub2 hidden" id="mpKc" style="border-color:#ff7a7a;color:#ffd0d0"></button>
     <button class="btn sub2 hidden" id="mpMyRp">🎬 この試合のリプレイを見る（動画にもできる）</button>
     <button class="btn main" id="mpAgain">もう一回（同じ部屋で）</button>
     <button class="btn sub2" id="mpLeave">部屋を出る</button>
@@ -1008,7 +1040,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261115062258"</script><script src="logic.js?v=20261115062258"></script>
-<script src="game.js?v=20261115062258"></script>
+<script>window.SW_VER="20261115094500"</script><script src="logic.js?v=20261115094500"></script>
+<script src="game.js?v=20261115094500"></script>
 </body>
 </html>

@@ -84,6 +84,7 @@
     sick: { name: '具合が悪そうな人', female: 0.5, sleepy: 0.05, watch: 0, idle: ['none'], want: 1, react: 1.4, speed: 0.9, priority: 35 },
     dasher: { name: 'せっかちな人', female: 0.3, sleepy: 0, watch: 0, idle: ['phone'], want: 1, react: 0.05, speed: 2.8 },
     emperor: { name: '車内の帝王', female: 0, sleepy: 0, watch: 0, idle: ['none'], want: 1, react: 0.1, speed: 0.9, tough: 1 },
+    stroller: { name: 'ベビーカーの親', female: 0.65, sleepy: 0, watch: 0, idle: ['none'], want: 0, react: 1.2, speed: 0.8 }, // 👶 赤ちゃんに手を振ると笑う（BABY の項）
     henchman: { name: '帝王の子分', female: 0, sleepy: 0, watch: 0, idle: ['none'], want: 0, react: 1, speed: 1.4, tough: 1 },
   };
   const BASE_WEIGHTS = { salaryman: 22, ol: 14, student: 12, elderly: 9, pregnant: 2.5, injured: 2, mother: 2.5, obachan: 6, tourist: 4, gamer: 7, yankee: 3, drunk: 2, otaku: 4, sick: 1.2 };
@@ -121,6 +122,23 @@
     const n = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
     return DAILY_RULES[((n % DAILY_RULES.length) + DAILY_RULES.length) % DAILY_RULES.length];
   }
+  // ================================================================ LOOP：環状線（2026-11-15・本人。乱入型にする前の、一人用の試作）
+  // 12 駅の環状線を、自分が乗った駅から 12 駅でちょうど 1 周する（どこから乗っても全部の駅を 1 回ずつ通る＝公平）。
+  // 駅の並び・ボス駅（4 駅ごとに初級・中級・最終を 1 つずつ。並び順は日によって変わる）はその日の日付で決まる（全員同じ）。乗る駅は毎回ランダム（ボス駅からは乗らない）
+  const LOOP_N = 12, LOOP_BOSS_AT = [3, 7, 11]; // ボス駅になる環状線の中の位置
+  function loopPlan(dayKey) {
+    const [y, m, d] = String(dayKey).split('-').map(Number);
+    const r = rng(((Math.floor(Date.UTC(y, m - 1, d) / 86400000) * 2654435761) ^ 0x10095eed) >>> 0);
+    const ring = [...Array(LOOP_N).keys()];
+    for (let i = ring.length - 1; i > 0; i--) { const j = r.int(0, i); [ring[i], ring[j]] = [ring[j], ring[i]]; }
+    const tiers = [1, 2, 3]; for (let i = 2; i > 0; i--) { const j = r.int(0, i); [tiers[i], tiers[j]] = [tiers[j], tiers[i]]; }
+    const boss = {}; LOOP_BOSS_AT.forEach((at, k) => { boss[at] = r.pick(Object.keys(BOSS).filter((b) => BOSS[b].tier === tiers[k])); });
+    return { day: dayKey, ring, boss }; // ring[位置] = LINE の何番目の駅か
+  }
+  const loopAt = (g, i) => (g.loop.start + i) % LOOP_N; // 自分の i 駅目が、環状線のどの位置か
+  const LOOP_BOARD = [4, 6]; // 始発・終点だった駅も、環状線ではふつうに人が乗る
+  function loopBoard(g, i) { if (i === 0 || i >= LOOP_N) return [0, 0]; const b = LINE[g.loop.ring[loopAt(g, i)]].board; return b[1] === 0 ? LOOP_BOARD : b; }
+
   const SKILLS = [
     { key: 'glasses', name: '見極めメガネ', icon: '👓', cost: 25, dur: 30, desc: '乗客があと何駅で降りるか見える（30秒）' },
     { key: 'drink', name: 'エナドリ', icon: '🥤', cost: 20, desc: '体力+35。飲むたびに値上がり' },
@@ -251,7 +269,7 @@
   // ---------------------------------------------------------------- ゲーム作成
   function makePlayer(x, z) {
     return {
-      x, z, yaw: Math.PI / 2, pitch: 0, seat: -1, stamina: C.MAX_STAMINA, karma: 0, toku: 0, earned: 0,
+      x, z, yaw: Math.PI / 2, pitch: 0, seat: -1, stamina: C.MAX_STAMINA, karma: 0, toku: 0, earned: 0, good: 0,
       combo: 0, lastDeedT: -999, carrying: null, lastBraceT: -99, braceHeld: false, punchCD: 0, hitFlash: 0,
       fakeSleep: false, mode: null, modeT: 0, buffs: {}, nav: -1, drinkCount: 0, confessCD: 0, stagger: 0, punchAnim: 0,
       ignoreT: 0, sitT: 0, st: normStats(null), mind: 100,
@@ -304,7 +322,17 @@
     g.rules = (opts.rules || []).filter((k) => DAILY_RULES.some((r) => r.key === k)); // 今日のダイヤの特別ルール（DAILY_RULES）
     if (opts.mikiwame) { g.mikiwame = true; g.villainKinds = []; g.noBoss = true; g.nextChikanCheck = 1e9; g.nextItemCheck = 1e9; g.mkFree = []; Object.assign(g.stats, { mkSits: 0, mkHits: 0, mkCombo: 0, mkBest: 0, mkGive: 0 }); } // 見極め線（MIKIWAME の項）
     if (opts.survival && g.multi) g.survival = true; // 生き残り（CPU 戦）：倒れたら即脱落。最後の 1 人か、終点で生き残った人の中で点の高い人が勝ち
+    if (g.multi && !opts.coop) g.anon = true; // ⚔ 対戦など：だれがプレイヤーか分からない（名前を出さない。共闘は仲間が分かるように出す）
     if (opts.coop && g.multi) { g.coop = true; g.coopRev = 0; g.coopPen = 0; } // 共闘モード（COOP の項）
+    if (opts.loop) { // 環状線：その日の並び＋乗る駅（ボス駅からは乗らない）
+      const P = loopPlan(opts.loop.day), ok = [...Array(LOOP_N).keys()].filter((i) => !P.boss[i]);
+      g.loop = Object.assign(P, { start: opts.loop.start != null ? opts.loop.start : ok[rng((g.seed ^ 0x5717a7) >>> 0).int(0, ok.length - 1)] });
+    }
+    if (g.loop && g.multi && opts.riders) { // 環状線の CPU：2 人目からは「まだ乗っていない」席。駅ごとに乗ってきて、何駅か乗って降りる（RIDERS の項）
+      g.loopRide = { r: rng((g.seed ^ 0x51de1d3) >>> 0), pool: opts.riders.slice(), k: 0, n: 0, st: -1, log: [] };
+      g.players.forEach((P) => { if (P.cpu) { P.rider = true; P.away = true; P.out = true; P.pl.x = 999; } });
+    }
+    if (opts.platStart) g.platStart = true; // 🚉 ホームスタート（PLAT の項）。populateStart のあとで並べる
     if (opts.seatGuide && !g.multi) g.guide = { st: 'wait', tries: 0 }; // はじめての 1 回目だけ：座り方の案内（GUIDE の項）
     if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
     if (opts.bossRush) { g.bossRush = true; g.endless = true; g.villainKinds = []; g.noBoss = false; } // ボス駅ラッシュ（倒れるまで、毎駅がボス駅）
@@ -316,13 +344,26 @@
     g.player.stamina = C.MAX_STAMINA;
     if (opts.stats && !g.multi) g.player.st = capStats(opts.stats, opts.statCap || STAT_CAP_TOTAL);
     populateStart(g);
+    if (g.platStart) platSetup(g);
     if (g.multi) setCtx(g, -1);
     return g;
   }
+  // 🚉 ホームスタート：電車が着いてドアが開く前から、プレイヤーはホームのドアの前。席はいくつか空いていて、開いたら取り合い
+  function platSetup(g) {
+    const r = rng((g.seed ^ 0x9a7f0) >>> 0), sd = g.doorSide || 1;
+    g.phaseT = 0; g.doorsOpen = false; g.doorClose = C.T_STOP + 3; g.alighted = g.boarded = g.warned = false;
+    g.ann = stationName(g, 0) + '、' + stationName(g, 0) + '。電車が来ました。';
+    const sat = g.people.filter((p) => p.state === 'seated' && !p.role); // 6 席くらい空けておく（前の駅で降りた人の分）
+    for (let k = 0; k < 6 && sat.length; k++) { const p = sat.splice(r.int(0, sat.length - 1), 1)[0]; const s = g.seats[p.seat]; s.occ = -1; s.res = -1; p.state = 'gone'; p.seat = -1; }
+    g.people = g.people.filter((p) => p.state !== 'gone');
+    const bodies0 = g.multi ? g.players.filter((P) => !P.away).map((P) => P.pl) : [g.player];
+    bodies0.forEach((b, k) => { const d = DOORS[(k + r.int(0, 2)) % DOORS.length]; b.plat = true; b.seat = -1; b.x = d + r.range(-0.9, 0.9); b.z = sd * r.range(2.1, 2.9); b.yaw = sd > 0 ? 0 : Math.PI; b.pitch = 0; });
+  }
 
-  function lastStation(g) { return g.endless ? 1e9 : g.online ? 7 : LINE.length - 1; }
+  function lastStation(g) { return g.endless ? 1e9 : g.online ? 7 : g.loop ? LOOP_N : LINE.length - 1; }
   function stationName(g, i) {
     if (g.bossAt && g.bossAt[i]) return BOSS[g.bossAt[i]].name;
+    if (g.loop) return LINE[g.loop.ring[loopAt(g, i)]].name; // 環状線：12 駅目は乗った駅にもどる
     if (g.online && i >= 7) return LINE[LINE.length - 1].name;
     if (i < LINE.length - (g.endless ? 1 : 0)) return LINE[i].name;
     if (g.endless) {
@@ -347,6 +388,18 @@
   // 世界の処理から見たプレイヤーの体（脱落した人は含めない）
   function bodies(g) { return g.multi ? g.players.filter(P => !P.out).map(P => P.pl) : [g.player]; }
   function seatedBody(g) { for (const b of bodies(g)) if (b.seat >= 0) return b; return null; }
+  // 😇 良い人度（GOOD・2026-11-15・本人）：善行で上がり、カルマで下がる（0〜100）。お年寄りなど優先の人は、座っているプレイヤーの中から
+  //   良い人度の高い人のところへ行きがち（良い人度 100 は 3m 近いのと同じ。遠すぎれば近い人）。譲れば徳、座り続けるのもあり
+  const GOOD_MAX = 100, GOOD_DEED = 8, GOOD_M = 3;
+  function seatedPick(g, p) {
+    let best = null, bs = 1e9;
+    for (const b of bodies(g)) {
+      if (b.seat < 0) continue;
+      const s = g.seats[b.seat], sc = dist2(p.x, p.z, s.x, s.fz) - (b.good || 0) / GOOD_MAX * GOOD_M;
+      if (sc < bs) { bs = sc; best = b; }
+    }
+    return best;
+  }
   function withEach(g, fn) {
     if (!g.multi) { fn(g.player, 0); return; }
     const prev = g.pi;
@@ -359,6 +412,16 @@
   function bubble(g, p, text, dur) { p.bubble = text; p.bubbleT = dur || 2.2; emit(g, { type: 'bubble', id: p.id, text }); }
 
   // ---------------------------------------------------------------- 乗客生成
+  // ベビーカーは 12 駅に 1 回くらい（1 回の乗車で 1 台・終点なしは 12 駅ごと）。乗る駅はほかとは別の乱数で決める（2026-11-15・本人：めったに来ないから争奪戦）
+  function strollerAt(g, st) {
+    if (g.jiji || g.tutorial || g.mikiwame || g.bossRush || g.bossTest || g.noStroller || (g.bossAt && g.bossAt[st])) return false;
+    if (!g.strollerPlan) {
+      const r = rng((g.seed ^ 0xbab1e5) >>> 0), last = Math.min(lastStation(g), 400), plan = {};
+      for (let a = 0; a < last; a += 12) { const lo = a + 2, hi = Math.min(a + 11, last - 3); if (hi >= lo) plan[r.int(lo, hi)] = 1; }
+      g.strollerPlan = plan;
+    }
+    return !!g.strollerPlan[st];
+  }
   function pickType(g, station) {
     const r = g.r;
     if (g.jiji) return r.chance(0.08) ? 'obachan' : 'elderly';
@@ -441,6 +504,7 @@
       undercover: false, stunned: 0, wantT: 0, priOK: r.chance(0.5),
     };
     if (type === 'salaryman' && r.chance(0.06)) p.undercover = true;
+    if (type === 'stroller') { p.look.costume = 'stroller'; p.look.bag = false; p.idle = 'none'; p.babyT = 0; p.babyN = 0; p.babyCD = {}; p.look.baby = ['#ffd6e4', '#cfe8ff', '#fff1b8', '#d8f5d0'][p.id % 4]; }
     return p;
   }
   function assignSleep(g, p) {
@@ -471,7 +535,7 @@
     const nSeat = g.hard ? 30 : 26, nStand = g.hard ? 12 : 8;
     const seatOrder = g.seats.map(s => s.id).sort(() => r() - 0.5);
     for (let i = 0; i < nSeat; i++) {
-      let type = pickType(g, 1); if (TYPES[type].priority && !g.jiji && type !== 'elderly') type = 'salaryman';
+      let type = pickType(g, 1); if (TYPES[type].priority && !g.jiji && type !== 'elderly' || type === 'stroller') type = 'salaryman'; // ベビーカーの親は座らない
       const p = spawn(g, type, 0);
       g.people.push(p); sitAt(g, p, g.seats[seatOrder[i]]);
     }
@@ -562,7 +626,16 @@
       if (d < 5 && p.sleep === 0 && p.state !== 'ko') n++;
       if (p.undercover && d < 6 && p.sleep === 0) uc = true;
     }
-    return { f: (1 + 0.04 * Math.min(n, 18)) * (uc ? 2 : 1), n, uc };
+    return { f: uc ? 2 : 1, n, uc }; // まわりの人の数でカルマが増えるのはやめた（2026-11-15・本人）。変装した駅員に見られていたら 2 倍は残す
+  }
+  // 🚨 強制どかしを変装した駅員（6m 以内）に見られたら、その場で連行（2026-11-15・本人：駅員は少ないし、強制どかしを使う場面も少ないので、まれに起きるくらい）
+  function forceCaught(g) {
+    const pl = g.player, uc = g.people.find((p) => p.undercover && p.state !== 'gone' && p.state !== 'exit' && p.sleep === 0 && dist2(p.x, p.z, pl.x, pl.z) < 6);
+    if (!uc) return false;
+    uc.expr = 'angry'; uc.exprT = 6; bubble(g, uc, '駅員です。ちょっと来てもらえますか', 3);
+    toast(g, '🚨 変装した駅員に見られていた！', 'bad'); emit(g, { type: 'sfx', name: 'whistle' });
+    gameOver(g, 'arrest', { text: '強制どかしを、乗客に変装した駅員に見られて連行された…' });
+    return true;
   }
   function addKarma(g, base, why, useWitness) {
     let amt = base;
@@ -571,6 +644,7 @@
       amt = base * w.f;
       if (w.uc) toast(g, '…変装した駅員に見られていた！', 'bad');
     }
+    if (amt > 0) g.player.good = Math.max(0, (g.player.good || 0) - amt * 0.6); // 悪いことをすると良い人度が下がる
     amt = Math.round(amt);
     const k0 = g.player.karma;
     g.player.karma = Math.min(C.MAX_KARMA, g.player.karma + amt);
@@ -585,6 +659,12 @@
     const pl = g.player; pl.toku += n; pl.earned += n;
     emit(g, { type: 'points', amount: n, text: label, combo: 1 });
   }
+  // スコアだけ増える（徳は増えない・スキルには使えない）：ほかのプレイヤー（CPU も）を KO したとき（2026-11-15・本人）
+  const KO_PTS = 150; // 2026-11-15・本人：高めに（60 → 150）
+  function scorePts(g, n, label) {
+    const pl = g.player; pl.earned += n;
+    emit(g, { type: 'points', amount: n, text: label, combo: 1, score: true });
+  }
   function deed(g, base, label) {
     const pl = g.player;
     if (g.t - pl.lastDeedT < C.COMBO_WINDOW) pl.combo++; else pl.combo = 1;
@@ -593,6 +673,7 @@
     const pts = Math.round(base * mult);
     pl.toku += pts; pl.earned += pts;
     pl.karma = Math.max(0, pl.karma - 5);
+    pl.good = Math.min(GOOD_MAX, (pl.good || 0) + GOOD_DEED); // 😇 良い人度（GOOD の項）
     pl.mind = Math.min(C.MAX_MIND, pl.mind + 5); // 「ありがとう」で心も回復
     g.stats.deeds++;
     g.stats.maxCombo = Math.max(g.stats.maxCombo, pl.combo);
@@ -635,7 +716,7 @@
     toast(g, '💥 本番なら「' + (SAVE_MSG[cause] || '終わってた') + '」！（' + g.stats.saves + '回目）…練習なので続行', 'bad');
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'shake', amount: 0.8 });
   }
-  // オンライン（⚔ 対戦）は脱落なし：倒れたら（膝が笑った・KO・連行・心が折れた）その場でやり直し。スコアは 0 から、徳は 30 から（はじめも徳 30）
+  // オンライン（⚔ 対戦）は脱落なし：倒れたら（膝が笑った・KO・連行・心が折れた）その場でやり直し。スコアは半分から（2026-11-15 まで 0）、徳は 30 から（はじめも徳 30）
   const MP_TOKU = 30;
   // 倒れたら、まず床に倒れる（ほかの人には倒れた姿・本人は床から見る）。MP_DOWN 秒たったらやり直し
   const MP_DOWN = 1.8;
@@ -645,19 +726,20 @@
     if (pl.carrying) { const it = pl.carrying; pl.carrying = null; [it.x, it.z] = aisleClamp(pl.x, pl.z); it.taken = false; it.t0 = g.t; g.items.push(it); }
     pl.fakeSleep = false; pl.mode = null; pl.stagger = 0;
     P.down = true; P.respawnAt = g.t + MP_DOWN;
-    toast(g, '💫 ' + CAUSES[cause].title + '…！ スコア 0・徳 ' + MP_TOKU + ' からやり直し', 'bad');
+    P.keepScore = Math.floor(finalScore(g).total / 2); // フレンド戦：倒れたらスコア半分（2026-11-15・本人。前は 0）
+    toast(g, '💫 ' + CAUSES[cause].title + '…！ スコア半分（' + P.keepScore + ' 点）・徳 ' + MP_TOKU + ' からやり直し', 'bad');
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'shake', amount: 0.8 });
-    toOthers(g, { type: 'toast', text: P.name + ' が' + CAUSES[cause].title + '！（スコア 0 からやり直し）', kind: 'warn' });
+    toOthers(g, { type: 'toast', text: (g.anon ? 'だれか' : P.name) + 'が' + CAUSES[cause].title + '！（スコア半分からやり直し）', kind: 'warn' });
   }
   function mpRespawnNow(g, P) {
     const pl = P.pl;
-    pl.earned = 0; pl.toku = MP_TOKU; pl.karma = 0; pl.stamina = C.MAX_STAMINA; pl.mind = C.MAX_MIND; pl.combo = 0; pl.stBase = g.stats.stations;
+    pl.earned = P.keepScore || 0; P.keepScore = 0; pl.toku = MP_TOKU; pl.karma = 0; pl.stamina = C.MAX_STAMINA; pl.mind = C.MAX_MIND; pl.combo = 0; pl.stBase = g.stats.stations;
     pl.hitFlash = 0.6; pl.buffs = {};
     P.down = false; P.respawnAt = 0; P.respawns = (P.respawns || 0) + 1;
   }
   function gameOver(g, cause, extra) {
     if (g.practice && !g.multi && cause !== 'clear') { practiceSave(g, cause); return; }
-    if (g.multi && !g.coop && !g.survival && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out && !P.down) mpRespawn(g, cause); return; }
+    if (g.multi && !g.coop && !g.survival && !g.loopRide && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out && !P.down) mpRespawn(g, cause); return; }
     if (g.multi) {
       const P = g.players[g.pi]; if (!P || P.out) return;
       P.out = true; P.outT = g.t; P.outStation = g.station; g.outCount = (g.outCount || 0) + 1; P.outOrder = g.outCount;
@@ -703,6 +785,35 @@
     for (const d of DOORS) if (Math.abs(x - d) < 0.62) zm = 1.3;
     return [x, clamp(z, -zm, zm)];
   }
+  // 🚉 ホームスタート（PLAT・2026-11-15・本人）：プレイヤーはホームから、来た電車に乗り込む。pl.plat のあいだはホームの上（ドアが開いていればドアから車内へ）
+  const PLAT_IN = 1.45, PLAT_OUT = 3.4;
+  function bodyClamp(g, pl, x, z) {
+    if (!pl.plat) return aisleClamp(x, z);
+    const sd = g.doorSide || 1; x = clamp(x, X_MIN, X_MAX); let zs = z * sd;
+    const atDoor = g.doorsOpen && DOORS.some((d) => Math.abs(x - d) < 0.62);
+    if (zs < PLAT_IN) { if (atDoor && zs < 1.15) { pl.plat = false; return aisleClamp(x, z); } if (!atDoor) zs = PLAT_IN; }
+    return [x, Math.min(zs, PLAT_OUT) * sd];
+  }
+  function platBoardAll(g) { // ドアが閉まる：まだホームにいる人は駆け込む
+    for (const b of g.multi ? g.players.filter((P) => !P.out && !P.away).map((P) => P.pl) : [g.player]) if (b.plat) { b.plat = false; b.z = (g.doorSide || 1) * 0.9; b.x = nearestDoor(b.x); }
+  }
+  // 🚨 駅員に通報（REPORT・2026-11-15・本人）：ほかのプレイヤー（CPU も）に殴られたら、REPORT_T 秒以内にドア横の非常通報ボタンで通報 → 殴った人はその場で連行（1 回だけ）
+  //   何度も殴られるのを防ぐため。通報させないには、弱っている（体力が少ない）ときを狙ってトドメを刺す
+  const REPORT_T = 20;
+  function sosSpot(g, pl) { for (const d of DOORS) for (const side of [-1, 1]) if (dist2(pl.x, pl.z, d + 0.75, side * 1.1) < 0.55 && Math.abs(pl.z) > 0.8) return [d + 0.75, side * 1.1]; return null; }
+  function reportPrompt(g) {
+    const pl = g.player; if (!g.multi || g.coop || pl.seat >= 0 || !pl.hitBy || g.t - pl.hitBy.t > REPORT_T || !sosSpot(g, pl)) return null;
+    return { act: 'report', label: '🚨 駅員に通報（殴った人を連行・あと ' + Math.ceil(REPORT_T - (g.t - pl.hitBy.t)) + ' 秒）' };
+  }
+  function doReport(g) {
+    const pl = g.player, me = g.pi, h = pl.hitBy; if (!h) return; pl.hitBy = null;
+    const T = g.players[h.i];
+    emit(g, { type: 'sfx', name: 'buzzer' });
+    if (!T || T.out || T.away) { toast(g, '🚨 通報した…けど、殴った人はもういなかった', 'info'); return; }
+    g.stats.reports = (g.stats.reports || 0) + 1;
+    toast(g, '🚨 通報した！ 殴ったのは ' + T.name + ' だった。駅員に連行！', 'good');
+    setCtx(g, h.i); emit(g, { type: 'sfx', name: 'whistle' }); gameOver(g, 'arrest', { text: '殴った相手に通報されて、駅員に連行された…', by: g.players[me].name }); setCtx(g, me);
+  }
   function nearestDoor(x) { let b = DOORS[0]; for (const d of DOORS) if (Math.abs(d - x) < Math.abs(b - x)) b = d; return b; }
 
   // ---------------------------------------------------------------- プレイヤー行動
@@ -712,6 +823,15 @@
     const apd = ap ? dist2(ap.x, ap.z, pl.x, pl.z) : 99;
     if (g.over) return null;
     { const rv = revivePrompt(g); if (rv) return rv; }
+    { const rp = reportPrompt(g); if (rp) return rp; }
+    if (g.multi && !g.coop && aimId >= PID && (pl.mode === 'force' || pl.mode === 'brainwash')) { // ⚔ 座っているほかのプレイヤー（CPU も）にも、洗脳ビーム・強制どかし（2026-11-15・本人）
+      const j = aimId - PID, T = g.players[j];
+      if (T && j !== g.pi && !T.out && !T.down && T.pl.seat >= 0) {
+        const d = dist2(T.pl.x, T.pl.z, pl.x, pl.z);
+        if (pl.mode === 'brainwash' && d < 6) return { act: 'brainwashP', label: '洗脳ビーム発射', id: aimId };
+        if (pl.mode === 'force' && d < 1.7 && pl.seat < 0) return { act: 'forceP', label: '無理やりどかす', id: aimId };
+      }
+    }
     if (pl.mode === 'brainwash' && ap && ap.state === 'seated' && apd < 6) return { act: 'brainwash', label: '洗脳ビーム発射', id: ap.id };
     if (pl.mode === 'force' && ap && ap.state === 'seated' && apd < 1.7 && pl.seat < 0) return { act: 'force', label: '無理やりどかす', id: ap.id };
     if (pl.seat >= 0) {
@@ -723,6 +843,7 @@
       if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.2) return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
       { const wp = warnPrompt(g, ap, apd, true); if (wp) return wp; }
       { const wp = wrongWarnPrompt(g, ap, apd); if (wp) return wp; }
+      { const bp = babyPrompt(g, ap, apd); if (bp) return bp; }
       if (g.mikiwame) return null; // 見極め線：一度座ったら、お年寄りに譲るまで立てない（立って座ってのくり返しで点を稼げないように）
       return { act: 'stand', label: '立ち上がる' };
     }
@@ -731,6 +852,7 @@
     if (speakerNear(g)) return { act: 'speaker', label: '🔊 スピーカーを壊す（パンチでもOK）' };
     if (ap && ap.role === 'caller' && !ap.hushed && apd < 2.0 && ap.state !== 'ko') return { act: 'hush', label: '「電話は静かに…」と注意する', id: ap.id };
     { const wp = warnPrompt(g, ap, apd, false); if (wp) return wp; }
+    { const bp = babyPrompt(g, ap, apd); if (bp) return bp; }
     if (ap && ap.type === 'sick' && (ap.state === 'stand' || ap.state === 'walk') && ap.role !== 'faked' && !ap.checked && apd < 1.8) return { act: 'expose', label: '「…仮病じゃない？」と指摘する', id: ap.id };
     { const sp = stealPrompt(g, aimId); if (sp) return sp; }
     for (const it of g.items) if (!it.taken && dist2(it.x, it.z, pl.x, pl.z) < 1.15 && !pl.carrying && !(it.dropBy === g.pi && g.t - it.dropT < 4)) return { act: 'pick', label: it.name + 'を拾う', id: it.id };
@@ -757,6 +879,35 @@
     if (g.phase !== 'stop' || !g.doorsOpen || pl.seat >= 0) return false;
     const d = nearestDoor(pl.x);
     return Math.abs(pl.x - d) < 0.95 && Math.sign(pl.z || 1) === g.doorSide && Math.abs(pl.z) > 0.55;
+  }
+  // ---------------------------------------------------------------- 👶 BABY：ベビーカーの赤ちゃんに手を振る（2026-11-15・本人）
+  //   12 駅に 1 回くらいしか来ない（strollerAt）。赤ちゃんが笑うのは 1 回だけで、いちばん先に笑わせた人のカルマが全部消える（争奪戦）
+  //   手を振っても笑うのは 4 割くらい。笑わなかったら、その人は BABY_CD 秒あける（ほかの人はすぐ振れる）
+  const BABY_P = 0.4, BABY_CD = 6;
+  const babyKey = (g) => (g.multi ? g.pi : 0);
+  function babyPrompt(g, ap, apd) {
+    if (!ap || ap.type !== 'stroller' || ap.babyDone || apd > 3 || ap.state === 'ko' || ap.state === 'exit' || ap.state === 'gone') return null;
+    const cd = (ap.babyCD && ap.babyCD[babyKey(g)]) || 0;
+    return { act: 'wave', label: cd > g.t ? '👋 赤ちゃんに手を振る（' + Math.ceil(cd - g.t) + '秒）' : '👋 赤ちゃんに手を振る（笑えばカルマ全回復）', id: ap.id };
+  }
+  function waveBaby(g, p) {
+    const pl = g.player, k0 = babyKey(g); p.babyCD = p.babyCD || {};
+    if (p.babyDone) return;
+    if ((p.babyCD[k0] || 0) > g.t) { toast(g, '👶 赤ちゃんはそっぽを向いている…（' + Math.ceil(p.babyCD[k0] - g.t) + '秒）', 'info'); return; }
+    p.babyN = (p.babyN || 0) + 1; pl.waveT = 1.2;
+    emit(g, { type: 'wave' });
+    if (g.r() < BABY_P) {
+      p.babyT = g.t + 3.2; p.babyDone = true; g.stats.babySmile = (g.stats.babySmile || 0) + 1;
+      const k = pl.karma; pl.karma = 0; pl.mind = Math.min(C.MAX_MIND, pl.mind + 4);
+      bubble(g, p, g.r() < 0.5 ? 'あら、笑った！ ありがとうございます' : 'よかったねぇ〜、バイバイって', 2.2);
+      toast(g, '👶 キャッキャ！ 赤ちゃんが笑った！ ' + (k >= 1 ? 'カルマが全部消えた（-' + Math.round(k) + '）' : '（カルマはもともと 0）'), 'good');
+      toOthers(g, { type: 'toast', text: '👶 ' + (g.multi ? g.players[g.pi].name : '') + ' が赤ちゃんを笑わせた（カルマ全回復）', kind: 'info' });
+      emit(g, { type: 'sfx', name: 'clear' });
+    } else {
+      p.babyCD[k0] = g.t + BABY_CD;
+      p.babyStare = g.t + 2.5;
+      toast(g, '👶 …じーっ（真顔だった。' + BABY_CD + '秒後にもう一回）', 'info');
+    }
   }
   function priorityNear(g) {
     const pl = g.player; if (pl.seat < 0) return null;
@@ -828,6 +979,22 @@
         hurtMind(g, 10, 'お年寄りだと思ったらプレイヤーだった'); toast(g, '😳 …お年寄りじゃなくて ' + T.name + ' だった！', 'bad');
         break;
       }
+      case 'forceP': case 'brainwashP': { // ほかのプレイヤーを立たせる（強制どかしは自分がそのまま座る）
+        const j = pr.id - PID, T = g.players[j], me = g.pi, bw = pr.act === 'brainwashP', k = bw ? 2 : 3, sk = SKILLS[k], cost = skillCost(g, k);
+        if (!T || T.out || T.pl.seat < 0) return;
+        if (pl.toku < cost) { toast(g, '徳が足りない', 'bad'); return; }
+        pl.toku -= cost; pl.mode = null; g.stats.skillsUsed++; skillCount(g, bw ? 'brainwash' : 'force'); if (bw) g.stats.brainwash++; else g.stats.force++;
+        if (!bw && forceCaught(g)) return;
+        addKarma(g, sk.karma, bw ? '洗脳' : '強制どかし');
+        const seat = g.seats[T.pl.seat];
+        setCtx(g, j); playerStand(g); hurtMind(g, bw ? 6 : 10, bw ? '洗脳ビームで立たされた' : '無理やりどかされた');
+        { const by = g.anon ? 'だれか' : g.players[me].name; toast(g, bw ? '🌀 ' + by + 'の洗脳ビームで、思わず立ち上がってしまった…' : '😠 ' + by + 'に無理やりどかされた！（精神-10）', 'bad'); } setCtx(g, me);
+        if (!bw) playerSit(g, seat);
+        toast(g, bw ? '🌀 ' + T.name + '（プレイヤー）を立たせた！ 今のうちに座れ' : '💺 ' + T.name + '（プレイヤー）をどかして座った', 'good');
+        emit(g, { type: 'sfx', name: bw ? 'beam' : 'push' }); emit(g, { type: 'skill', key: bw ? 'brainwash' : 'force', quiet: true });
+        break;
+      }
+      case 'wave': { const p = person(g, pr.id); if (p) waveBaby(g, p); break; }
       case 'wake': pl.fakeSleep = false; break;
       case 'give': {
         const p = person(g, pr.id); if (!p) return;
@@ -910,6 +1077,7 @@
         toast(g, '「駆け込み乗車はおやめください！」', 'bad');
         break;
       }
+      case 'report': doReport(g); break;
       case 'sos': {
         if (g.chikan && g.chikan.stage === 'active') {
           g.chikan.stage = 'reported'; g.stats.sos++;
@@ -1019,7 +1187,7 @@
         const p = person(g, pr.id); if (!p) return;
         const sk = SKILLS[2];
         if (pl.toku < sk.cost) { toast(g, '徳が足りない', 'bad'); return; }
-        pl.toku -= sk.cost; pl.mode = null; g.stats.brainwash++; g.stats.skillsUsed++;
+        pl.toku -= sk.cost; pl.mode = null; g.stats.brainwash++; g.stats.skillsUsed++; skillCount(g, 'brainwash');
         addKarma(g, sk.karma, '洗脳');
         p.expr = 'dazed'; p.exprT = 3; bubble(g, p, 'あ…用事を思い出した…', 2.5);
         p.sleep = 0; p.oversleep = false;
@@ -1036,7 +1204,8 @@
         const p = person(g, pr.id); if (!p) return;
         const sk = SKILLS[3];
         if (pl.toku < sk.cost) { toast(g, '徳が足りない', 'bad'); return; }
-        pl.toku -= sk.cost; pl.mode = null; g.stats.skillsUsed++;
+        pl.toku -= sk.cost; pl.mode = null; g.stats.skillsUsed++; skillCount(g, 'force');
+        if (forceCaught(g)) return;
         if (p.tough || p.type === 'alien') {
           hurt(g, 25, 'ko');
           addKarma(g, 10, '乱暴');
@@ -1058,6 +1227,18 @@
     }
   }
 
+  function skillCount(g, k) { const b = g.stats.skillBy = g.stats.skillBy || {}; b[k] = (b[k] || 0) + 1; }
+  // ================================================================ STYLE：遊び方のくせ（2026-11-15・本人。環状線で、実際のプレイヤーをまねた CPU を乗せるため）
+  // 1 回の乗車をまとめて短い文字列に（1 駅あたりの数を 10 倍した整数など）。ランキングとは別に suwaritai/style/{uid} に送る（いちばん新しい 1 回分）
+  //   a 殴った（悪者）/w 関係ない人を殴った/d 善行/s 座れた/q すばやく座れた割合%/r 座っていた時間の割合%/b 踏ん張り成功%/k スキル/sk よく使うスキル/c 終わり方/st 何駅
+  function styleOf(g) {
+    const S = g.stats, n = Math.max(1, S.stations || 0), per = (x) => Math.round((x || 0) / n * 10);
+    const ko = (S.thiefKO || 0) + (S.suriKO || 0) + (S.chikanKO || 0) + (S.henchKO || 0) + (S.emperorKO || 0) + (S.brawlKO || 0) + (S.speakerKO || 0);
+    const by = S.skillBy || {}, top = Object.keys(by).sort((x, y) => by[y] - by[x])[0] || '';
+    const pct = (x, y) => (y ? Math.round(100 * x / y) : 0);
+    const f = { a: per(ko), w: per(S.wrongPunch), d: per((S.gives || 0) + (S.deeds || 0) + (S.delivered || 0)), s: per(S.sits), q: pct(S.quickSits || 0, S.sits || 0), r: pct(S.sitTime || 0, (S.sitTime || 0) + (S.standTime || 0)), b: pct(S.braces || 0, (S.braces || 0) + (S.braceFail || 0)), k: per(S.skillsUsed), sk: top, c: g.result ? g.result.cause : '', st: S.stations || 0 };
+    return Object.keys(f).map((k) => k + ':' + f[k]).join(',');
+  }
   function useSkill(g, idx) {
     const pl = g.player, sk = SKILLS[idx]; if (!sk || g.over) return false;
     if (g.mikiwame) { toast(g, '見極め線ではスキルは使えない', 'info'); return false; }
@@ -1079,7 +1260,7 @@
       if (!ok(t)) { t = null; let bd = 1e9; for (const p of g.people) if (ok(p)) { const d = dist2(p.x, p.z, pl.x, pl.z); if (d < bd) { bd = d; t = p; } } }
       if (!t) { toast(g, '注意できる相手がいない', 'info'); return false; }
       const keep = g.prompt; g.prompt = { act: 'warn', id: t.id };
-      pl.toku -= cost; g.stats.skillsUsed++; g.stats.shouts = (g.stats.shouts || 0) + 1;
+      pl.toku -= cost; g.stats.skillsUsed++; skillCount(g, sk.key); g.stats.shouts = (g.stats.shouts || 0) + 1;
       emit(g, { type: 'skill', key: sk.key });
       doAction(g); g.prompt = keep;
       return true;
@@ -1095,7 +1276,7 @@
       }
       if (!best) { toast(g, '📱 次の駅で降りる人が見つからない…（徳は減らない）', 'info'); return false; }
       pl.nav = best.seat; pl.navId = best.id; pl.buffs.transfer = 90;
-      pl.toku -= cost; g.stats.skillsUsed++;
+      pl.toku -= cost; g.stats.skillsUsed++; skillCount(g, sk.key);
       emit(g, { type: 'skill', key: sk.key });
       toast(g, '📱 次の駅で空く席を見つけた！ 光っている席へ', 'good');
       return true;
@@ -1112,7 +1293,7 @@
     } else {
       pl.buffs[sk.key] = sk.dur + (sk.key === 'glasses' ? 2 * ST(g, 'eye') : 0);
     }
-    pl.toku -= cost; g.stats.skillsUsed++;
+    pl.toku -= cost; g.stats.skillsUsed++; skillCount(g, sk.key);
     emit(g, { type: 'skill', key: sk.key });
     return true;
   }
@@ -1288,12 +1469,15 @@
     if (tp.stamina <= 20) {
       g.players[me].pko++;
       addKarma(g, 25, T.name + 'にトドメ');
-      toast(g, T.name + ' にトドメを刺した！', 'warn');
-      setCtx(g, j); gameOver(g, 'pko', { by: g.players[me].name, text: g.players[me].name + ' のパンチで床に沈んだ…' }); setCtx(g, me);
+      scorePts(g, KO_PTS, '👊 ' + T.name + ' を KO（スコアだけ・徳は増えない）');
+      toast(g, T.name + ' にトドメを刺した！（スコア +' + KO_PTS + '）', 'warn');
+      setCtx(g, j); emit(g, { type: 'killed', by: me, name: g.players[me].name }); gameOver(g, 'pko', { by: g.players[me].name, byI: me, text: g.players[me].name + ' のパンチで床に沈んだ…' }); setCtx(g, me); // killed：キルカメラ用（だれに・いつ）
     } else {
       addKarma(g, 15, T.name + (thrown ? 'に物をぶつけた' : 'を殴った'));
       tp.stamina = Math.max(1, tp.stamina - Math.round(8 * mul)); tp.stagger = 0.5; tp.hitFlash = 0.4;
-      T.events.push({ type: 'toast', text: g.players[me].name + (thrown === 'head' ? ' に頭へ物をぶつけられた！ 体力-' : thrown ? ' に物をぶつけられた！ 体力-' : ' に殴られた！ 体力-') + Math.round(8 * mul), kind: 'bad' });
+      tp.hitBy = { i: me, t: g.t }; // 🚨 通報できる（REPORT）
+      T.events.push({ type: 'toast', text: '🚨 ' + REPORT_T + ' 秒以内にドア横の非常通報ボタンで通報すると、殴った人を連行できる', kind: 'warn' });
+      T.events.push({ type: 'toast', text: (g.anon ? 'だれか' : g.players[me].name) + (thrown === 'head' ? ' に頭へ物をぶつけられた！ 体力-' : thrown ? ' に物をぶつけられた！ 体力-' : ' に殴られた！ 体力-') + Math.round(8 * mul), kind: 'bad' });
       T.events.push({ type: 'shake', amount: 1 }); T.events.push({ type: 'sfx', name: 'hit' });
     }
   }
@@ -1313,13 +1497,39 @@
     keepUp();
   }
   // 1 人分の操作と体の更新。脱落・終わりなら false
+  // 🎭 しぐさ（GESTURE・2026-11-15・本人）：プレイヤーも乗客のふりができる。ほかの人（CPU も）からは、ふつうの乗客のしぐさに見える
+  //   座って荷物をまとめるふりをすると、ライバルが「次で降りる」と思って前で待つ（わな）。タダ・同じしぐさは cd 秒あける
+  const GESTS = { board: { name: '🪧 掲示板をチラ見', cd: 4 }, watch: { name: '⌚ 時計を見る', cd: 4 }, pack: { name: '🎒 荷物をまとめるふり', cd: 12, seat: true } };
+  function doGesture(g, k) {
+    const pl = g.player, G0 = GESTS[k]; if (!G0) return;
+    pl.gcd = pl.gcd || {};
+    if ((pl.gcd[k] || 0) > g.t) return;
+    if (G0.seat && pl.seat < 0) { toast(g, '荷物をまとめるふりは、座っているときだけ', 'info'); return; }
+    pl.gcd[k] = g.t + G0.cd; pl.looks = pl.looks || []; pl.watches = pl.watches || [];
+    if (k === 'board') { pl.ganim = 'board'; pl.ganimT = 1.3; pl.looks.push(g.t); }
+    else if (k === 'watch') { pl.ganim = 'watch'; pl.ganimT = 1.1; pl.watches.push(g.t); }
+    else pl.gpack = g.t + 15;
+    if (pl.looks.length > 8) pl.looks.shift(); if (pl.watches.length > 8) pl.watches.shift();
+    g.stats.gestures = (g.stats.gestures || 0) + 1;
+  }
+  // プレイヤーの体のしぐさを、乗客と同じ様子のカードの文にする（game.js の playerObs）
+  function gestureNotes(g, b) {
+    const out = [], L = (b.looks || []).filter((t) => g.t - t < 30).length, W = (b.watches || []).filter((t) => g.t - t < 30).length;
+    if (b.gpack > g.t && b.seat >= 0) out.push('🎒 荷物をまとめている');
+    if (L) out.push('🪧 掲示板をチラ見 ×' + L + '（30秒）');
+    if (W) out.push('⌚ 時計を見た ×' + W);
+    return out;
+  }
   function playerStep(g, dt, input) {
     const pl = g.player;
     const isOver = () => g.multi ? g.players[g.pi].out : g.over;
     // 視点
     if (input.yaw != null) pl.yaw = input.yaw;
     if (input.pitch != null) pl.pitch = clamp(input.pitch, -1.2, 1.2);
-    pl.punchCD = Math.max(0, pl.punchCD - dt); pl.punchAnim = Math.max(0, pl.punchAnim - dt);
+    pl.punchCD = Math.max(0, pl.punchCD - dt); pl.punchAnim = Math.max(0, pl.punchAnim - dt); if (pl.waveT) pl.waveT = Math.max(0, pl.waveT - dt);
+    if (input.gesture) doGesture(g, input.gesture);
+    if (pl.ganimT) pl.ganimT = Math.max(0, pl.ganimT - dt);
+    if (pl.gpack && (pl.seat < 0 || g.t > pl.gpack)) pl.gpack = 0;
     pl.hitFlash = Math.max(0, pl.hitFlash - dt); pl.confessCD = Math.max(0, pl.confessCD - dt); pl.stagger = Math.max(0, pl.stagger - dt);
     for (const k in pl.buffs) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { delete pl.buffs[k]; toast(g, (SKILLS.find(s => s.key === k) || {}).name + 'の効果が切れた', 'info'); } }
     if (pl.buffs.disguise && pl.seat < 0) disguiseStep(g, dt);
@@ -1336,7 +1546,7 @@
 
     // 移動（オンラインの参加者は自分の端末で動かして、場所だけ送ってくる）
     let moving = false;
-    if (input.pos) { if (pl.seat < 0) { [pl.x, pl.z] = aisleClamp(+input.pos[0] || 0, +input.pos[1] || 0); moving = !!input.mv; } }
+    if (input.pos) { if (pl.seat < 0) { [pl.x, pl.z] = bodyClamp(g, pl, +input.pos[0] || 0, +input.pos[1] || 0); moving = !!input.mv; } }
     else if (pl.seat < 0) moving = movePlayer(g, pl, input, dt);
     pl.moving = moving;
 
@@ -1405,8 +1615,9 @@
   }
 
   // 立っているプレイヤーの移動（混雑で遅くなる・人に押される）。動いたら true
+  const SHOVE_MIND = 2; // 押しのけた人 1 人ごとに精神 -2（同じ人は 2.5 秒あける）
   function movePlayer(g, pl, input, dt) {
-    let moving = false;
+    let moving = false, mvDir = null;
       let mx = input.mx || 0, mz = input.mz || 0;
       const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
       if (pl.braceHeld) { mx *= 0.25; mz *= 0.25; }
@@ -1422,24 +1633,37 @@
         }
         if (crowd) sp *= 0.55 + 0.015 * spd;
         let nx = pl.x + (fx * mz + rx * mx) * sp * dt, nz = pl.z + (fz * mz + rz * mx) * sp * dt;
-        [nx, nz] = aisleClamp(nx, nz);
+        [nx, nz] = bodyClamp(g, pl, nx, nz);
         pl.x = nx; pl.z = nz; moving = true;
+        const vl = Math.hypot(fx * mz + rx * mx, fz * mz + rz * mx) || 1; mvDir = [(fx * mz + rx * mx) / vl, (fz * mz + rz * mx) / vl];
       }
-      // 人との押し合い（やわらかい当たり）
+      // 人との押し合い（やわらかい当たり）。進む先にいる立っている人は、精神をけずって押しのける（SHOVE・2026-11-15・本人：動けなくなるときがあった）
+      let shoved = 0;
       for (const p of g.people) {
         if (p.state === 'gone' || p.state === 'seated' || p.state === 'exit' && Math.abs(p.z) > 1.4) continue;
         const d = dist2(p.x, p.z, pl.x, pl.z), m = 0.42;
+        if (d < m && d > 0.001 && mvDir && (p.state === 'stand' || p.state === 'walk') && !p.hold && p.state !== 'ko' && p.state !== 'fight') {
+          const ux = (p.x - pl.x) / d, uz = (p.z - pl.z) / d;
+          if (ux * mvDir[0] + uz * mvDir[1] > 0.25) { // 前にいる人：横へずらす（自分は止まらない）
+            const side = (ux * mvDir[1] - uz * mvDir[0]) >= 0 ? 1 : -1, k = (m - d) * 0.9;
+            [p.x, p.z] = aisleClamp(p.x + (ux + side * mvDir[1] * 0.8) * k, p.z + (uz - side * mvDir[0] * 0.8) * k);
+            if (!(p.shovedT > g.t)) { p.shovedT = g.t + 2.5; shoved++; p.expr = 'angry'; p.exprT = 1.5; if (g.r() < 0.35) bubble(g, p, g.r() < 0.5 ? 'ちょっと…' : 'いてっ', 1.1); }
+            continue;
+          }
+        }
         if (d < m && d > 0.001) {
           const push = (m - d) * 0.35;
           pl.x += (pl.x - p.x) / d * push; pl.z += (pl.z - p.z) / d * push;
-          [pl.x, pl.z] = aisleClamp(pl.x, pl.z);
+          [pl.x, pl.z] = bodyClamp(g, pl, pl.x, pl.z);
         }
       }
       if (g.multi) for (const P of g.players) {
-        const o = P.pl; if (o === pl || P.out || o.seat >= 0) continue;
+        const o = P.pl; if (o === pl || P.out || P.away || o.seat >= 0) continue;
         const d = dist2(o.x, o.z, pl.x, pl.z), m = 0.45;
-        if (d < m && d > 0.001) { const push = (m - d) * 0.4; pl.x += (pl.x - o.x) / d * push; pl.z += (pl.z - o.z) / d * push; [pl.x, pl.z] = aisleClamp(pl.x, pl.z); }
+        if (d < m && d > 0.001 && mvDir && (o.x - pl.x) / d * mvDir[0] + (o.z - pl.z) / d * mvDir[1] > 0.25) { const k = (m - d) * 0.7; [o.x, o.z] = bodyClamp(g, o, o.x + (o.x - pl.x) / d * k, o.z + (o.z - pl.z) / d * k); if (!(o.shovedT > g.t)) { o.shovedT = g.t + 2.5; shoved++; } continue; } // ほかのプレイヤー（CPU も）も押しのける
+        if (d < m && d > 0.001) { const push = (m - d) * 0.4; pl.x += (pl.x - o.x) / d * push; pl.z += (pl.z - o.z) / d * push; [pl.x, pl.z] = bodyClamp(g, pl, pl.x, pl.z); }
       }
+      if (shoved && pl === g.player) { g.stats.shoves = (g.stats.shoves || 0) + shoved; hurtMind(g, SHOVE_MIND * shoved, '人を押しのけた'); }
         return moving;
   }
 
@@ -1463,6 +1687,7 @@
     if (g.worldEvents.length) { for (const P of g.players) for (const e of g.worldEvents) P.events.push(e); g.worldEvents.length = 0; }
     for (const P of g.players) if (P.events.length > 300) P.events.splice(0, P.events.length - 300);
     if (!g.over && g.players.every(P => P.out && !P.ghost) || !g.over && g.players.every(P => P.out)) { g.over = true; g.result = { cause: 'end' }; }
+    if (g.loopRide && !g.over) { riderTick(g); if (g.players.some((P) => !P.rider && P.out) && !g.keepWatch) { g.over = true; g.result = { cause: 'end' }; } } // keepWatch：倒れたあと相手を見続けているあいだは終わらない（game.js）
     if (!g.over && g.survival) { // 生き残り：残りが 1 人になったら、その人の勝ち（終点まで行かなくても）。人間がみんな脱落したら、そこで終わり
       const alive = g.players.filter((P) => !P.out);
       if (alive.length <= 1 || g.players.filter((P) => !P.cpu).every((P) => P.out)) {
@@ -1531,11 +1756,42 @@
     { name: '上級', st: { hp: 4, spd: 4, atk: 3, def: 3, guts: 3, eye: 3 }, react: [0.3, 0.5], miss: 0, brace: 1, hunt: 26, steal: 1 },
   ];
   function botInput(g, i) {
-    const P = g.players[i], pl = P.pl, L = CPU_LV[P.lv] || CPU_LV[0], mem = P.bot || (P.bot = { react: L.react[0] + ((i * 0.37) % 1) * (L.react[1] - L.react[0]) });
+    const P = g.players[i], pl = P.pl, L = P.L || CPU_LV[P.lv] || CPU_LV[0], mem = P.bot || (P.bot = { react: L.react[0] + ((i * 0.37) % 1) * (L.react[1] - L.react[0]) });
     const inp = { yaw: pl.yaw, pitch: 0 };
     if (g.phase === 'travel' && g.lurchPlan) for (const Lu of g.lurchPlan) if (Lu.warned && !Lu.done && g.phaseT > Lu.t - 0.55) { if (mem.br !== Lu) { mem.br = Lu; mem.brOk = g.r() < L.brace; } if (mem.brOk) inp.bracePressed = true; }
     const pr = g.prompt;
-    if (pl.seat >= 0) { if (pr && pr.act === 'give' && pl.stamina > 70) inp.action = true; return inp; }
+    if (pl.hitBy && g.t - pl.hitBy.t < REPORT_T && !g.coop && pl.seat < 0) { // 🚨 殴られた CPU は、ドア横の通報ボタンへ走る（ときどき）
+      if (mem.repFor !== pl.hitBy.t) { mem.repFor = pl.hitBy.t; mem.repGo = g.r() < 0.7; }
+      if (mem.repGo) {
+        if (pr && pr.act === 'report') { inp.action = true; return inp; }
+        let bx = 0, bz = 0, bd = 1e9; for (const d of DOORS) for (const sd of [-1, 1]) { const dd = dist2(pl.x, pl.z, d + 0.75, sd * 1.1); if (dd < bd) { bd = dd; bx = d + 0.75; bz = sd * 1.1; } }
+        const dx = bx - pl.x, dz = bz - pl.z; inp.yaw = Math.atan2(-dx, -dz); inp.mz = 1; return inp;
+      }
+    }
+    if (pl.plat) { // 🚉 ホームにいる：ドアの前で待って、開いたら乗りこむ
+      const d = nearestDoor(pl.x), sd = g.doorSide || 1, tx = d, tz = g.doorsOpen ? sd * 0.6 : sd * 1.7;
+      const dx = tx - pl.x, dz = tz - pl.z; if (Math.hypot(dx, dz) > 0.15) { inp.yaw = Math.atan2(-dx, -dz); inp.mz = 1; }
+      return inp;
+    }
+    if (P.leaving) { // 環状線：降りる駅。立ってドアへ
+      if (pl.seat >= 0) { if (pr && pr.act === 'stand') inp.action = true; return inp; }
+      const dx = P.leaving[0] - pl.x, dz = P.leaving[1] - pl.z; inp.yaw = Math.atan2(-dx, -dz); inp.mz = 1; return inp;
+    }
+    { // 👶 ベビーカーの赤ちゃん（まだ笑っていない）を狙いに行く。善行の多いくせの CPU ほど行きやすい（ベビーカーごとに 1 回決める）
+      const bp = g.people.find((q) => q.type === 'stroller' && !q.babyDone && q.state !== 'exit' && q.state !== 'gone');
+      if (bp) {
+        if (mem.babyFor !== bp.id) { mem.babyFor = bp.id; mem.babyGo = g.r() < 0.45 + (L.kind || 0) * 0.5; mem.babyT = g.t + 0.6 + g.r() * 2; }
+        const cd = (bp.babyCD && bp.babyCD[i]) || 0;
+        if (pr && pr.act === 'wave' && pr.id === bp.id && cd <= g.t && g.t > mem.babyT) { inp.action = true; mem.babyT = g.t + 0.8; return inp; }
+        if (mem.babyGo && pl.seat < 0 && !(pr && pr.act === 'sit')) {
+          const d = dist2(bp.x, bp.z, pl.x, pl.z), dx = bp.x - pl.x, dz = bp.z - pl.z;
+          if (d < 9) { inp.yaw = Math.atan2(-dx, -dz); inp.pitch = -0.2; if (d > 1.6) inp.mz = 1; return inp; }
+        }
+        if (pl.seat >= 0 && dist2(bp.x, bp.z, pl.x, pl.z) < 3) { const dx = bp.x - pl.x, dz = bp.z - pl.z; inp.yaw = Math.atan2(-dx, -dz); inp.pitch = -0.1; }
+      }
+    }
+    if (L.skill && L.skillK && g.r() < L.skillK * 0.004) { const k = SKILLS.findIndex((x) => x.key === L.skill); if (k >= 0 && pl.toku >= skillCost(g, k) + 10 && !(pl.buffs && pl.buffs[L.skill])) inp.skill = k; } // よく使うスキル（くせ）
+    if (pl.seat >= 0) { if (pr && pr.act === 'give' && pl.stamina > 70 - (L.kind || 0) * 40) inp.action = true; else if (g.anon && !g.coop) { const rr = g.r(); if (rr < 0.0008) inp.gesture = 'board'; else if (rr < 0.0012) inp.gesture = 'pack'; } return inp; }
     if (pr && pr.act === 'sit') { if (!mem.sitSeen) mem.sitSeen = g.t; if (g.t - mem.sitSeen > mem.react) { inp.action = true; mem.sitSeen = 0; } return inp; }
     mem.sitSeen = 0;
     if (pr && pr.act === 'staff') { inp.action = true; return inp; }
@@ -1565,6 +1821,15 @@
       if (g.players.some((Q, j) => j !== i && !Q.out && dist2(Q.pl.x, Q.pl.z, seat.x, seat.fz) < 0.5)) sc -= 4;
       if (sc > bs) { bs = sc; best = seat; }
     }
+    g.players.forEach((Q, j) => { // 座っているほかのプレイヤーのしぐさも読む（荷物をまとめるふりにだまされる）
+      if (j === i || Q.out || Q.away || Q.pl.seat < 0) return;
+      const b = Q.pl, seat = g.seats[b.seat];
+      let sc = (b.looks || []).filter((t) => g.t - t < 30).length * 2 + (b.watches || []).filter((t) => g.t - t < 30).length * 2 + (b.gpack > g.t ? 6 : 0);
+      if (sc <= 0) return;
+      sc -= dist2(seat.x, seat.fz, pl.x, pl.z) * 0.3;
+      if (sc > bs) { bs = sc; best = seat; }
+    });
+    if (g.anon && !g.coop) { const rr = g.r(); if (rr < 0.0012) inp.gesture = 'board'; else if (rr < 0.0022) inp.gesture = 'watch'; } // まぎれるために、ときどきしぐさをする
     if (best) {
       const dx = best.x - pl.x, dz = best.fz - pl.z, d = Math.hypot(dx, dz);
       if (d > 0.25) { inp.yaw = Math.atan2(-dx, -dz); inp.mz = 1; }
@@ -1572,6 +1837,63 @@
     return inp;
   }
   // （CPU_LV は botInput の上）
+  // ---------------------------------------------------------------- 環状線の CPU（RIDERS）
+  // 本物のプレイヤーの名前と遊び方のくせ（styleOf の文字列）をまねて乗ってくる。opts.riders = [{ n: 名前, y: くせ }]
+  function styleParse(y) { const o = {}; String(y || '').split(',').forEach((kv) => { const k = kv.split(':')[0], v = kv.slice(k.length + 1); if (k) o[k] = v === '' || isNaN(+v) ? v : +v; }); return o; }
+  // くせ → CPU の強さ・性格（CPU_LV と同じ形）
+  function styleLv(y) {
+    const s = styleParse(y), cl = (x, a, b) => Math.max(a, Math.min(b, x)), has = y && String(y).indexOf('a:') === 0;
+    if (!has) return Object.assign({}, CPU_LV[2]);
+    const q = cl((s.q || 0) / 100, 0, 1), sits = s.s || 0, r0 = cl(1.5 - q * 0.9 - Math.min(sits, 10) * 0.04, 0.35, 1.6);
+    return {
+      st: CPU_LV[2].st, react: [r0, r0 + 0.35], miss: cl(6 - Math.min(sits, 10) * 0.5, 0, 8), brace: cl((s.b == null ? 60 : s.b) / 100, 0.2, 1),
+      hunt: s.a >= 4 ? 30 : s.a >= 1 ? 24 : 0, steal: s.a >= 2 ? 0.6 : 0, kind: cl((s.d || 0) / 10, 0, 1),
+      skill: ['brainwash', 'force', 'disguise'].indexOf(s.sk) < 0 ? s.sk || '' : '', skillK: cl((s.k || 0) / 10, 0, 1),
+    };
+  }
+  function riderTick(g) {
+    const R = g.loopRide;
+    if (g.phase === 'stop' && (g.doorsOpen || (g.platStart && g.station === 0)) && R.st !== g.station) { R.st = g.station; riderStation(g); }
+    for (const P of g.players) {
+      if (!P.rider || P.away || !P.leaving) continue;
+      if (dist2(P.pl.x, P.pl.z, P.leaving[0], P.leaving[1]) < 0.35 || g.phase !== 'stop' || g.phaseT > g.doorClose - 0.5) riderOff(g, P);
+    }
+  }
+  function riderStation(g) {
+    const R = g.loopRide, last = lastStation(g);
+    for (const P of g.players) {
+      if (!P.rider || P.away) continue;
+      if (P.out || g.station >= last) { riderOff(g, P); continue; } // 倒れた CPU は駅で降ろす
+      if (!P.leaving && g.station >= P.offAt) { const dx = DOORS.reduce((a, d) => (Math.abs(d - P.pl.x) < Math.abs(a - P.pl.x) ? d : a), DOORS[0]); P.leaving = [dx, g.doorSide * 1.25]; }
+    }
+    if (g.station >= last - 1 || (g.bossAt && g.bossAt[g.station])) return; // 終点の手前・ボス駅からは乗らない（ボス駅の助っ人はあとで）
+    const away = g.players.filter((P) => P.rider && P.away), on = g.players.filter((P) => P.rider && !P.away).length;
+    away.forEach((P, k) => { if (R.r() < (g.station === 0 && on + k === 0 ? 1 : 0.45)) riderOn(g, P); });
+  }
+  function riderOn(g, P) {
+    const R = g.loopRide, aboard = g.players.filter((Q) => !Q.away).map((Q) => Q.name);
+    let o = null;
+    for (let t = 0; t < R.pool.length && !o; t++) { const c = R.pool[R.k++ % R.pool.length]; if (aboard.indexOf(c.n) < 0) o = c; }
+    if (!o) o = { n: 'CPUの乗客' + (R.n + 1), y: '' };
+    const L = styleLv(o.y), d = DOORS[R.r.int(0, DOORS.length - 1)], prev = g.pi;
+    P.name = o.n; P.uid = o.u || ''; P.L = L; P.lv = 2; P.rid = ++R.n; P.bot = null; P.leaving = null;
+    P.pl = Object.assign(makePlayer(d + R.r.range(-0.3, 0.3), g.doorSide * 0.9), { toku: MP_TOKU, st: capStats(L.st, STAT_CAP_FAIR) });
+    P.pl.yaw = g.doorSide > 0 ? 0 : Math.PI; P.stats = makeStats(); P.out = false; P.away = false; P.down = false; P.result = null; P.from = g.station;
+    P.offAt = g.station + R.r.int(3, 8);
+    if (g.platStart && g.station === 0 && !g.doorsOpen) { P.pl.plat = true; P.pl.z = g.doorSide * R.r.range(2.1, 2.9); P.pl.yaw = g.doorSide > 0 ? 0 : Math.PI; } // ホームスタート：CPU もホームから
+    setCtx(g, prev);
+    g.players.forEach((Q) => { if (!Q.rider) Q.events.push({ type: 'toast', text: '🚃 ' + P.name + '（🤖）が乗ってきた！', kind: 'info' }); });
+  }
+  function riderOff(g, P) {
+    const R = g.loopRide, pl = P.pl, prev = g.pi;
+    if (pl.seat >= 0) { freeSeat(g, g.seats[pl.seat], -1); pl.seat = -1; }
+    if (pl.carrying) { const it = pl.carrying; pl.carrying = null; [it.x, it.z] = aisleClamp(pl.x, pl.z); it.taken = false; it.t0 = g.t; g.items.push(it); }
+    const sc = finalScoreOf(g, P.i).total, cause = P.result ? P.result.cause : 'off';
+    R.log.push({ n: P.name, u: P.uid, s: sc, from: P.from, to: g.station, cause });
+    P.away = true; P.out = true; P.leaving = null; pl.x = 999; pl.z = 0;
+    setCtx(g, prev);
+    g.players.forEach((Q) => { if (!Q.rider) Q.events.push({ type: 'toast', text: (cause === 'off' ? '🚪 ' + P.name + ' が降りた（' : '💫 ' + P.name + ' は倒れて降ろされた（') + sc + '点）', kind: 'info' }); });
+  }
   // i 人目の最終スコア
   function finalScoreOf(g, i) { const prev = g.pi; setCtx(g, i); const r = finalScore(g); setCtx(g, prev); return r; }
   // ---------------------------------------------------------------- 共闘（COOP）
@@ -1612,6 +1934,14 @@
   function teamScore(g) { if (!g.multi) return 0; let t = 0; g.players.forEach((P, i) => { t += finalScoreOf(g, i).total; }); return Math.max(0, t - (g.coopPen || 0)); }
   // 順位（スコアの高い順。同点なら長く残った人が上）
   function standings(g) {
+    if (g.loopRide) { // 環状線：自分と、一緒に乗った CPU（降りた人も・いま乗っている人も）
+      const me = g.players.find((P) => !P.rider), mi = g.players.indexOf(me), stn = (i) => stationName(g, i);
+      const rows = [{ i: mi, name: me.name, cpu: false, score: finalScoreOf(g, mi).total, cause: me.result ? me.result.cause : 'alive', ride: '' }];
+      g.loopRide.log.forEach((l, k) => rows.push({ i: 1 + (k % 3), name: l.n, cpu: true, score: l.s, cause: l.cause === 'off' ? '' : l.cause, ride: stn(l.from) + '〜' + stn(l.to) }));
+      g.players.forEach((P, i) => { if (P.rider && !P.away) rows.push({ i, name: P.name, cpu: true, score: finalScoreOf(g, i).total, cause: P.out && P.result ? P.result.cause : '', ride: stn(P.from) + '〜（乗車中）' }); });
+      const bad = (c) => (c && c !== 'clear' && c !== 'alive' ? 1 : 0);
+      return rows.sort((a, b) => b.score - a.score || bad(a.cause) - bad(b.cause));
+    }
     const rows = g.players.map((P, i) => ({ i, name: P.name, cpu: P.cpu, lv: P.lv, score: finalScoreOf(g, i).total, cause: P.result ? P.result.cause : (g.survival ? 'alive' : 'clear'), outOrder: P.outOrder || 99, tricks: P.tricks, pko: P.pko, alive: !P.out || (P.result && P.result.cause === 'clear') }));
     if (g.survival) return rows.sort((a, b) => (b.alive - a.alive) || (a.alive ? b.score - a.score : b.outOrder - a.outOrder) || b.score - a.score); // 生き残り：生き残った人が上（その中は点）、脱落した人は遅く脱落した人が上
     return rows.sort((a, b) => b.score - a.score || b.outOrder - a.outOrder);
@@ -1646,6 +1976,7 @@
         if (g.station > 0 && !g.tutorial && g.r.chance(0.3)) g.runner = { active: true, door: g.r.pick(DOORS), held: false };
       }
       if (g.phaseT >= g.doorClose && g.doorsOpen) {
+        platBoardAll(g);
         g.doorsOpen = false; emit(g, { type: 'doors', open: false, side: g.doorSide }); emit(g, { type: 'sfx', name: 'door' });
         if (g.runner && g.runner.held) { // 駆け込みの人が乗る
           const p = spawn(g, g.r.pick(['salaryman', 'student', 'ol']), g.station);
@@ -1771,7 +2102,7 @@
   }
   function startBoard(g) {
     const st = g.station;
-    let range = st < LINE.length && !g.endless ? LINE[st].board : [3, 9];
+    let range = g.loop ? loopBoard(g, st) : st < LINE.length && !g.endless ? LINE[st].board : [3, 9];
     if (g.endless && st < LINE.length - 1) range = LINE[st].board;
     if (g.endless && st >= LINE.length - 1) range = [4 + Math.min(4, (st - 11) >> 2), 8 + Math.min(6, (st - 11) >> 1)];
     let n = g.r.int(range[0], range[1]);
@@ -1785,6 +2116,7 @@
     let i = 0;
     g.boardQueue = [];
     for (; i < n; i++) g.boardQueue.push({ at: g.phaseT + i * 0.32, type: pickType(g, st) });
+    if (strollerAt(g, st)) { g.boardQueue.push({ at: g.phaseT + i * 0.32, type: 'stroller' }); g.strollerIn = st; }
     const thiefAboard = g.people.some(p => p.role === 'thief' && p.state !== 'ko');
     if (!g.endless && !g.mikiwame && st >= 2 && st <= lastStation(g) - 3 && !thiefAboard && !g.jiji && (g.thiefCount || 0) < 2 && g.r.chance(g.hard ? 0.4 : 0.25) && g.boardQueue.length)
       g.boardQueue.splice(g.r.int(0, g.boardQueue.length - 1), 0, { at: 0, type: 'thief' });
@@ -1796,7 +2128,7 @@
     if (!g.boardQueue || !g.boardQueue.length || g.phase !== 'stop') return;
     while (g.boardQueue.length && g.boardQueue[0].at <= g.phaseT) {
       const q = g.boardQueue.shift();
-      const p = spawn(g, q.type, g.station, q.type === 'thief' ? g.station + g.r.int(3, 5) : null);
+      const p = spawn(g, q.type, g.station, q.type === 'thief' ? g.station + g.r.int(3, 5) : q.type === 'stroller' ? Math.min(lastStation(g), g.station + 5) : null);
       if (q.v) setupVillain(g, p, q.v);
       if (q.type === 'thief') { g.thiefCount = (g.thiefCount || 0) + 1; p.role = 'thief'; p.wantSeat = false; p.stolen = 0; p.thiefT = g.r.range(3, 7); p.thiefHp = 3; p.look.mask = g.r.chance(0.4); }
       const d = g.r.pick(DOORS);
@@ -1814,9 +2146,10 @@
       if (best) { best.res = p.id; p.state = 'walk'; p.tx = best.x; p.tz = best.fz; p.then = 'sit'; p.seatTarget = best.id; }
       else if (p.role === 'hench' || p.role === 'suri') { p.state = 'walk'; p.tx = p.x; p.tz = 0; p.then = 'stand'; }
       else if (p.priority && seatedBody(g) && g.r.chance(0.55)) {
-        const s = g.seats[seatedBody(g).seat]; p.state = 'walk'; p.tx = s.x + (g.r() - 0.5) * 0.3; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true; p.targetSeat = s.id;
+        const s = g.seats[seatedPick(g, p).seat]; p.state = 'walk'; p.tx = s.x + (g.r() - 0.5) * 0.3; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true; p.targetSeat = s.id;
       } else placeStanding(g, p, false);
       if (q.type === 'ceo' || q.type === 'alien') emit(g, { type: 'rare', id: p.id });
+      if (q.type === 'stroller') { toast(g, '👶 ベビーカーが乗ってきた！ 赤ちゃんを笑わせた人はカルマが全部消える（1 回だけ・早い者勝ち）', 'good'); emit(g, { type: 'sfx', name: 'chime' }); }
     }
   }
 
@@ -1939,10 +2272,10 @@
             } else p.scanT = 0;
           }
           // 優先の人：座っているプレイヤーの前へ寄ってくる
-          const sb = seatedBody(g);
+          const sb = p.priority && !p.targetPlayer ? seatedPick(g, p) : seatedBody(g);
           if (p.priority && !p.targetPlayer && sb && g.phase === 'travel' && g.r() < 0.02 * dt) {
             const s = g.seats[sb.seat];
-            if (dist2(p.x, p.z, s.x, s.fz) < 4.5) { releaseSlot(g, p); p.state = 'walk'; p.tx = s.x + 0.15; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true; p.targetSeat = s.id; }
+            if (dist2(p.x, p.z, s.x, s.fz) < 4.5 + (sb.good || 0) / GOOD_MAX * GOOD_M) { if ((sb.good || 0) >= 40 && g.multi) bubble(g, p, 'あの人、優しそう…', 1.6); releaseSlot(g, p); p.state = 'walk'; p.tx = s.x + 0.15; p.tz = s.fz; p.then = 'stand'; p.targetPlayer = true; p.targetSeat = s.id; }
           }
           if (p.targetPlayer && !(p.targetSeat != null && g.multi ? g.seats[p.targetSeat].occ === 0 : sb)) p.targetPlayer = false;
           break;
@@ -2113,6 +2446,7 @@
     const r = rng((g.seed ^ 0xb055b055) >>> 0), last = lastStation(g);
     const pick = (tier) => r.pick(Object.keys(BOSS).filter((k) => BOSS[k].tier === tier));
     if (g.endless) { for (let st = 4; st < 400; st += 4) g.bossAt[st] = pick(1 + ((st / 4 - 1) % 3)); return; }
+    if (g.loop) { for (let i = 1; i < LOOP_N; i++) { const k = g.loop.boss[loopAt(g, i)]; if (k) g.bossAt[i] = k; } return; } // 環状線：その日のボス駅（どこから乗っても 3 つ）
     if (g.online) { g.bossAt[r.int(2, 3)] = pick(1); g.bossAt[5] = pick(3); return; }
     g.bossAt[r.int(3, 4)] = pick(1); g.bossAt[r.int(6, 7)] = pick(2); g.bossAt[r.int(last - 2, last - 1)] = pick(g.practice ? 2 : 3); // 最終ボス駅は本番だけ（練習乗車では中級が代わりに出る）
     if (r.chance(0.4)) { const st = r.pick([2, 5].filter((s) => !g.bossAt[s] && !g.bossAt[s + 1] && !g.bossAt[s - 1])); if (st) g.bossAt[st] = 'rojin'; }
@@ -2992,10 +3326,10 @@
 
   return {
     PTYPES, diagnose, villainKO, BOSS, bossStatus,
-    C, LINE, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
+    C, LINE, LOOP_N, loopPlan, styleOf, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     DAILY_RULES, dailyRule, hasRule, saveGame, loadGame,
     teamScore, reviveCost,
-    CPU_LV, create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
-    _internal: { addKarma, bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, doThrow, throwRange, throwTarget, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
+    CPU_LV, styleLv, styleParse, create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
+    KO_PTS, REPORT_T, GOOD_MAX, BABY_P, strollerAt, GESTS, gestureNotes, _internal: { seatedPick,  punchPlayer, addKarma, bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, doThrow, throwRange, throwTarget, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });
