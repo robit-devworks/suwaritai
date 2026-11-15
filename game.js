@@ -4021,10 +4021,11 @@
     rankTab = tab;
     const M = rankModeOf(tab), modes = RANK_MODES.filter((m) => !m.need || profile.unlock[m.need]);
     $('rankModes').innerHTML = modes.map((m) => `<button data-rm="${m.k}" class="${m === M ? 'on' : ''}"><i>${m.ic}</i>${m.l}</button>`).join('');
+    $('rankPick').innerHTML = `<i>${M.ic}</i>${M.l}<b>種類をえらぶ ▾</b>`; $('rankModes').classList.add('hidden'); // いま見ているランキング。押すと全部の種類が出る（2026-11-15・本人：横並びは見づらい）
     $('rankSub').innerHTML = M.subs.length > 1 ? M.subs.map((x) => `<button data-rs="${x[0]}" class="${x[0] === tab ? 'on' : ''}">${x[1]}</button>`).join('') : '';
-    const on = $('rankModes').querySelector('.on'); if (on && on.scrollIntoView) try { on.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { }
     loadRanking(tab);
   }
+  $('rankPick').addEventListener('click', () => { const h = $('rankModes').classList.toggle('hidden'); $('rankPick').querySelector('b').textContent = h ? '種類をえらぶ ▾' : 'とじる ▴'; });
   $('rankModes').addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (!b) return; const M = RANK_MODES.find((m) => m.k === b.dataset.rm); if (M) setRankTab(M.subs[0][0]); });
   $('rankSub').addEventListener('click', (e) => { const b = e.target.closest('[data-rs]'); if (b) setRankTab(b.dataset.rs); });
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
