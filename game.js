@@ -20,7 +20,7 @@
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
   const NEW_UNTIL = '2026-11-25'; // この日まで、新しく入ったもの（今日のルール・練習乗車）に「NEW」の印
-  const MODE_JA = { rookie: '見習い乗車', online: 'オンライン', bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const MODE_JA = { rookie: '見習い乗車', online: 'オンライン', bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', guidetest: '座り方の案内のお試し', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -167,7 +167,7 @@
 
   // 座席
   const seatGlow = [], hogBags = [], flyBags = [];
-  let navGlow = null, navTag = null, navArrow = null, awMark = null, thMark = null; // thMark：投げる落とし物の落ちる所 // awMark：タップした行き先の床の輪
+  let navGlow = null, navTag = null, navArrow = null, guideTag = null, guideTag2 = null, awMark = null, thMark = null; // thMark：投げる落とし物の落ちる所 // awMark：タップした行き先の床の輪
   let speakerM = null, lastBeat = -1;
   const glowMat = new T3.MeshBasicMaterial({ color: '#7dff9a', transparent: true, opacity: 0.4, depthWrite: false });
   (function buildSeats() {
@@ -204,6 +204,8 @@
     navGlow = new T3.Mesh(new T3.PlaneGeometry(0.5, 0.48), new T3.MeshBasicMaterial({ color: 0x38c8ff, transparent: true, opacity: 0.6, depthWrite: false }));
     navGlow.rotation.x = -Math.PI / 2; navGlow.visible = false; car.add(navGlow);
     navTag = makeSpriteText('📱 次で空く！', { bg: '#1689c9', fg: '#fff', noTail: true }); navTag.scale.set(0.62, 0.155, 1); navTag.visible = false; car.add(navTag);
+    guideTag = makeSpriteText('👀 次で降りそう！', { bg: '#e0a800', fg: '#1a1a1a', noTail: true }); guideTag.scale.set(0.7, 0.16, 1); guideTag.visible = false; car.add(guideTag); // 座り方の案内（はじめての 1 回目だけ）
+    guideTag2 = makeSpriteText('💺 空いた！ 座ろう', { bg: '#e0a800', fg: '#1a1a1a', noTail: true }); guideTag2.scale.set(0.7, 0.16, 1); guideTag2.visible = false; car.add(guideTag2);
     { const sh = new T3.Shape(); sh.moveTo(0, 0.28); sh.lineTo(0.16, 0); sh.lineTo(0.06, 0); sh.lineTo(0.06, -0.22); sh.lineTo(-0.06, -0.22); sh.lineTo(-0.06, 0); sh.lineTo(-0.16, 0); sh.lineTo(0, 0.28);
       const am = new T3.Mesh(new T3.ShapeGeometry(sh), new T3.MeshBasicMaterial({ color: 0x38c8ff, transparent: true, opacity: 0.85, depthWrite: false, side: T3.DoubleSide })); am.rotation.x = Math.PI / 2;
       navArrow = new T3.Group(); navArrow.add(am); navArrow.visible = false; car.add(navArrow); }
@@ -378,6 +380,7 @@
   // ================================================================ 人間
   const UCAP = new T3.CapsuleGeometry(0.5, 1, 4, 10);
   const USPH = new T3.SphereGeometry(1, 18, 14);
+  const PSPH = new T3.SphereGeometry(1, 40, 30); // ペンギン用のなめらかな球（境目がギザギザにならないように）
   const FACE_GEO = new T3.SphereGeometry(1.015, 14, 12, Math.PI / 2 - 0.95, 1.9, 0.95, 1.4);
   const HAIR_CAP = new T3.SphereGeometry(1.07, 16, 10, 0, TAU, 0, Math.PI * 0.5);
   const HAIR_BOB = new T3.SphereGeometry(1.1, 16, 10, 0, TAU, 0, Math.PI * 0.62);
@@ -505,12 +508,35 @@
         ball(M('#c98a6a'), 0.32, 0.18, 0.2, 0, -0.38, 1.0); // 口
         const tail = new T3.Mesh(new T3.TorusGeometry(0.16, 0.025, 6, 12, Math.PI * 1.4), M('#7a5230')); tail.position.set(0, 0.05, -0.12); tail.rotation.y = Math.PI / 2; H.pelvis.add(tail);
       } else if (a === 'ペンギン') {
-        hideHuman(); head.material = M('#1d2024');
-        ball(M('#f2f2f2'), 0.62, 0.55, 0.3, 0, -0.18, 0.78);
-        for (const sx of [-1, 1]) ball(M('#111'), 0.1, 0.12, 0.06, sx * 0.28, 0.12, 0.98);
-        const beak = new T3.Mesh(new T3.ConeGeometry(0.2, 0.55, 8), M('#f2a03a')); beak.rotation.x = Math.PI / 2; beak.position.set(0, -0.12, 1.2); head.add(beak);
-        const belly = new T3.Mesh(USPH, M('#f2f2f2')); belly.scale.set(h * 0.11, h * 0.16, h * 0.05); belly.position.set(0, h * 0.14, h * 0.07); torso.add(belly);
-        H.waddle = true;
+        // 子連れペンギン（2026-11-15・本人：人の体をなおしただけだと人っぽい。本物みたいに足はみじかく・かわいく・赤ちゃんペンギンも）
+        // 人の体はかくして、卵みたいな丸い体の親ペンギン＋となりに灰色のふわふわの赤ちゃん。歩くとよちよち・ヒレがパタパタ（costumeAfter）
+        for (const o of [H.pelvis, H.legL.hp, H.legR.hp]) o.visible = false;
+        const peng = new T3.Group(); H.root.add(peng); H.peng = peng;
+        // ペンギンはなめらかな球（ふつうの球は面が少なく、白いお腹・顔と黒い体の境目がギザギザになっていた）
+        const mk = (s, baby) => {
+          const g = new T3.Group();
+          const B = (mat, sx, sy, sz, x, y, z, par) => { const m = new T3.Mesh(PSPH, mat); m.scale.set(sx * s, sy * s, sz * s); m.position.set(x * s, y * s, z * s); (par || g).add(m); return m; };
+          const back = M(baby ? '#8f969e' : '#1d2024'), white = M('#f7f7f5'), orange = M('#f2a03a');
+          B(back, 0.27, 0.34, 0.25, 0, 0.36, 0); // 体（卵みたい）
+          B(baby ? M('#b9bfc6') : white, 0.21, 0.27, 0.14, 0, 0.33, 0.13); // お腹
+          const hd = new T3.Group(); hd.position.set(0, 0.74 * s, 0.02 * s); g.add(hd);
+          B(M('#1d2024'), 0.19, 0.18, 0.18, 0, 0, 0, hd); // 頭
+          B(white, baby ? 0.15 : 0.13, baby ? 0.12 : 0.11, 0.08, 0, -0.03, 0.12, hd); // 顔の白いところ
+          for (const sx of [-1, 1]) {
+            B(M('#111'), 0.03, 0.036, 0.02, sx * 0.065, 0.0, 0.19, hd); // 目
+            B(white, 0.011, 0.011, 0.008, sx * 0.058, 0.014, 0.205, hd); // 目の光
+            B(M('#ff9fb0'), 0.03, 0.018, 0.01, sx * 0.1, -0.06, 0.17, hd); // ほっぺ
+          }
+          const beak = new T3.Mesh(new T3.ConeGeometry(0.035 * s, 0.11 * s, 8), baby ? M('#3a3a3a') : orange); beak.rotation.x = Math.PI / 2; beak.position.set(0, -0.04 * s, 0.22 * s); hd.add(beak);
+          const fl = []; for (const sx of [-1, 1]) { const f = new T3.Group(); f.position.set(sx * 0.25 * s, 0.5 * s, 0); g.add(f); B(back, 0.05, 0.2, 0.11, 0, -0.17, 0, f); f.rotation.z = sx * 0.25; fl.push(f); } // ヒレ
+          for (const sx of [-1, 1]) B(orange, 0.07, 0.022, 0.1, sx * 0.1, 0.02, 0.08); // みじかい足
+          g.userData = { fl, hd };
+          return g;
+        };
+        const mom = mk(0.82, false); peng.add(mom);
+        const baby = mk(0.42, true); baby.position.set(0.3, 0, 0.12); peng.add(baby);
+        H.pengMom = mom; H.pengBaby = baby;
+        for (const ch of H.root.children) if (ch !== peng) ch.visible = false; // 人のときのかばんなども見せない
       } else if (a === 'カピバラ') {
         // 体ごと横長のカピバラにする（人の体はかくす）
         for (const o of [H.pelvis, H.torso, H.legL.hp, H.legR.hp]) o.visible = false;
@@ -685,6 +711,19 @@
       H.root.position.x += Math.sin(H.ry) * (lz + back); H.root.position.z += Math.cos(H.ry) * (lz + back); H.root.position.y += ly;
     }
     if (H.capy) { H.capy.position.y = p.state === 'seated' ? 0.38 : 0; }
+    if (H.peng) { // 子連れペンギン：よちよち歩き・ヒレがパタパタ・赤ちゃんはぴょこぴょこ
+      const t = performance.now() / 1000, walk = p.state === 'walk', seat = p.state === 'seated';
+      H.peng.position.y = seat ? 0.38 : 0;
+      const sw = walk ? Math.sin(t * 9) : Math.sin(t * 1.6) * 0.25;
+      H.pengMom.rotation.z = sw * 0.14; H.pengMom.userData.fl.forEach((f, i) => { f.rotation.z = (i ? 1 : -1) * (0.25 + (walk ? 0.35 + 0.3 * Math.sin(t * 9 + i * 3) : 0.08 * Math.sin(t * 2))); });
+      H.pengMom.userData.hd.rotation.y = walk ? 0 : Math.sin(t * 0.7) * 0.35;
+      const bw = walk ? Math.sin(t * 11 + 1) : Math.sin(t * 2.3) * 0.3;
+      H.pengBaby.rotation.z = bw * 0.18;
+      // 座っているときは、赤ちゃんはお母さんのお腹の前（膝の上）にちょこんと乗る（2026-11-15・本人：横で浮いていた）。立っているときはとなりを歩く
+      if (seat) H.pengBaby.position.set(0, 0.16 + 0.006 * Math.sin(t * 2.3), 0.2); else H.pengBaby.position.set(0.3, walk ? Math.abs(Math.sin(t * 11)) * 0.03 : 0, 0.12);
+      H.pengBaby.userData.fl.forEach((f, i) => { f.rotation.z = (i ? 1 : -1) * (0.3 + 0.35 * Math.abs(Math.sin(t * (walk ? 11 : 3) + i))); });
+      H.pengBaby.userData.hd.rotation.x = -0.15 + 0.08 * Math.sin(t * 1.9);
+    }
   }
   function disposeHuman(H) {
     scene.remove(H.root);
@@ -1096,11 +1135,14 @@
       if (!bag && hogBags[i]) { scene.remove(hogBags[i]); hogBags[i] = null; }
     });
     { // 乗換案内
-      const pl = g.player, ns = pl.buffs && pl.buffs.transfer && pl.nav >= 0 && pl.seat < 0 ? g.seats[pl.nav] : null;
-      navGlow.visible = navTag.visible = navArrow.visible = !!ns;
+      const pl = g.player, gd = g.guide && (g.guide.st === 'show' || g.guide.st === 'free') && pl.seat < 0 ? g.guide : null; // 座り方の案内も同じ光・矢印を使う
+      const ns = pl.buffs && pl.buffs.transfer && pl.nav >= 0 && pl.seat < 0 ? g.seats[pl.nav] : gd ? g.seats[gd.seat] : null;
+      navGlow.visible = navArrow.visible = !!ns; navTag.visible = !!ns && !gd;
+      guideTag.visible = !!gd && gd.st === 'show' && !gd.near; guideTag2.visible = !!gd && gd.st === 'free' && !gd.near; // そばに来たら札は出さない（目の前で大きくなって見えなくなるので。文は画面の上に出る）
+      guideMsg(gd);
       if (ns) {
         navGlow.position.set(ns.x, 0.49, ns.z); navGlow.material.opacity = 0.45 + 0.3 * Math.sin(now * 7);
-        navTag.position.set(ns.x, 1.55 + 0.05 * Math.sin(now * 3), ns.z * 0.8);
+        for (const t of [navTag, guideTag, guideTag2]) t.position.set(ns.x, 1.55 + 0.05 * Math.sin(now * 3), ns.z * 0.8);
         const dx = ns.x - pl.x, dz = ns.fz - pl.z, d = Math.hypot(dx, dz);
         navArrow.visible = d > 0.7;
         if (d > 0.7) { const a = Math.atan2(dx, dz); navArrow.position.set(pl.x + dx / d * 0.75, 0.03, pl.z + dz / d * 0.75); navArrow.rotation.set(0, a, 0); }
@@ -1959,6 +2001,15 @@
     if (pl.seat >= 0 && SW._internal.priorityNear(g)) tip('give', '目の前に座りたそうな人が。譲ると徳が入る…けど、また立つことに。無視するとカルマ');
     if (pl.karma >= 40) tip('karma', 'カルマが100になると駅員に連行される。🙏懺悔か善行で減らそう');
   }
+  // 座り方の案内の文（画面の上）と、空いたときのアクションボタンの点滅
+  let guideTxt = '';
+  function guideMsg(gd) {
+    const act = isTouch ? '✋ アクション' : 'E キー';
+    const t = !gd ? '' : gd.st === 'free' ? '💺 今だ！ 「' + act + '」で座ろう' : gd.near ? '👍 いい位置！ 席が空いたら「' + act + '」で座ろう' : '👀 光っている人、そわそわしてる…次で降りそう！ その人の前に立って待とう';
+    if (t === guideTxt) return; guideTxt = t;
+    const el = $('guideMsg'); el.textContent = t; el.classList.toggle('hidden', !t); document.body.classList.toggle('guideOn', !!t);
+    $('bAct').classList.toggle('guideP', !!gd && gd.st === 'free');
+  }
   function handleEvents(g) {
     tipsTick(g);
     for (const e of g.events) {
@@ -1982,6 +2033,15 @@
         case 'rare': { const p = SW.person(g, e.id); if (p) addToast(p.type === 'ceo' ? '金のネクタイの紳士が乗ってきた…' : '…なにか様子のおかしい乗客が乗ってきた', 'warn'); break; }
         case 'arrive': sfx('arrive'); showAnn(g.ann); speak(SW.stationName(g, g.station) + '、' + SW.stationName(g, g.station)); break;
         case 'announce': showAnn(e.text); if (/^次は/.test(e.text)) speak(e.text); break;
+        case 'guide': { // 座り方の案内（はじめての 1 回目だけ）
+          if (e.k === 'show') track('座り方の案内：出した（' + e.n + '回目）');
+          else if (e.k === 'near') track('座り方の案内：前に立った');
+          else if (e.k === 'free') { track('座り方の案内：席が空いた'); sfx('free'); }
+          else if (e.k === 'sat') { track('座り方の案内：座れた'); addToast('🎉 座れた！ 座ると体力が回復する。掲示板をチラ見する・荷物をまとめる人は、もうすぐ降りる。しぐさを見極めて座ろう', 'good'); }
+          else if (e.k === 'retry') addToast('もう 1 回！ 次の駅でも、降りそうな人を光らせるよ', 'info');
+          else if (e.k === 'miss') track('座り方の案内：座れなかった');
+          break;
+        }
         case 'seatFree': { const s = g.seats[e.id]; if (s && Math.hypot(s.x - g.player.x, s.fz - g.player.z) < 3.5) sfx('free'); break; }
         case 'bagThrow': { const m = new T3.Mesh(box(0.34, 0.26, 0.2), lam('#8a3b5c')); m.position.set(e.x, 0.62, e.z); scene.add(m); flyBags.push({ m, t: 0, v: new T3.Vector3((Math.random() - 0.5) * 2.5, 3.2, -e.side * 2.2) }); shakeAmt = Math.max(shakeAmt, 0.5); addPop('ぶん投げた！', 'k'); break; }
         case 'speakerHit': addPop('バキッ！'); break;
@@ -2344,7 +2404,8 @@
     // ボス駅テスト（作者のお試し用）：claude.ai 版か ?bosstest=1 か開発者の名前のときだけ
     if (inClaude || /[?&]bosstest=1\b/.test(location.search) || /ROBIT/.test(profile.name || '')) {
       const B = SW.BOSS, tierJ = ['イベント', '初級', '中級', '最終'];
-      $('modeList').innerHTML += '<h3 style="margin:12px 0 4px">🧪 ボス駅テスト（毎駅がボス駅・倒れない・ランキングなし）</h3><div class="btest">'
+      $('modeList').innerHTML += '<h3 style="margin:12px 0 4px">🧪 座り方の案内のお試し（はじめての 1 回目と同じ・ランキングなし）</h3><div class="btest"><button class="btn sub2" data-mode="guidetest">🔰 座り方の案内を見る</button></div>'
+        + '<h3 style="margin:12px 0 4px">🧪 ボス駅テスト（毎駅がボス駅・倒れない・ランキングなし）</h3><div class="btest">'
         + '<button class="btn sub2" data-mode="bosstest:all">全部を順番に</button>'
         + Object.keys(B).sort((a, b) => (B[a].tier || 9) - (B[b].tier || 9)).map((k) => `<button class="btn sub2" data-mode="bosstest:${k}">${tierJ[B[k].tier]}：${B[k].name}</button>`).join('') + '</div>'
         + '<h3 style="margin:12px 0 4px">📅 今日のルールのお試し（ランキングなし）</h3><div class="btest">' + SW.DAILY_RULES.map((r) => `<button class="btn sub2" data-mode="ruletest:${r.key}">${r.icon} ${r.name}</button>`).join('') + '</div>';
@@ -2367,6 +2428,8 @@
     // 見習い乗車：はじめの 3 回は自動（たちっぱ線）。「路線・練習」の「🔰 見習い乗車」でいつでも遊べる
     const rookieSel = mode === 'rookie';
     if (rookieSel) mode = 'normal';
+    const guideTest = mode === 'guidetest'; // 座り方の案内のお試し（作者用・ランキングなし）
+    if (guideTest) mode = 'normal';
     const rkTrain = mode.startsWith('ranked:') ? +mode.slice(7) : -1; // ランク線：今週の電車（rkSeed）
     if (rkTrain >= 0) mode = 'ranked';
     const seed = mode === 'daily' ? dailySeed() : rkTrain >= 0 ? rkSeed(weekKey(), rkTrain) : (Math.random() * 1e9) | 0;
@@ -2376,8 +2439,8 @@
     const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'hard' || mode === 'jiji' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
-    G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : mode;
+    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, seatGuide: guideTest || (mode === 'normal' && !rookieSel && !(profile.plays || 0)), stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'hard' || mode === 'jiji' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : guideTest ? 'guidetest' : mode;
     G.rkTrain = rkTrain; G.rkWeek = resume ? resume.meta.rkWeek : weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
     G.rookie = resume ? !!resume.meta.rookie : rookieSel || (mode === 'normal' && (profile.plays || 0) < ROOKIE_N && !profile.rookieOff);
@@ -2924,6 +2987,10 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
+    { d: '2026-11-15', t: '子連れペンギン ほか', items: [
+      '🐧 動物園前のペンギンが子連れに！ 人の足が生えていたのを直しました（座ると赤ちゃんはお母さんの膝の上）',
+      '🏅 レート戦で上位 10 人に入ると、その試合のリプレイがランキングの ▶ で見られる',
+    ] },
     { d: '2026-11-14', t: '隠しモードのランキング ほか', items: [
       '🔥 隠しモード（満員地獄・敬老の日）にもランキングとリプレイ。開けた人だけに見える秘密のランキング。開け方は…今週のランキングで上位 30 位に入ると、こっそり教えてもらえるかも？',
       '🎛 「感度・ボタン調整」が横向きでも使いやすく（パネルが小さくなって、「▾ 小さく」でたためる）',
@@ -3826,9 +3893,11 @@
       if (rankTab !== tab) return;
       const arr = []; snap.forEach((c) => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), r: v.r || 0, g: v.g || 0 }); });
       arr.sort((a, b) => b.r - a.r);
+      const rpi = online ? ((await withTimeout(F.db.ref('suwaritai/rpri/' + season).get(), 8000).catch(() => null))?.val() || {}) : {}; // 🏅 対戦レートの上位 10 人のレート戦のリプレイ（2026-11-14）
+      if (rankTab !== tab) return;
       $('rankNote').textContent = (online ? '🌐 オンライン対戦のレート（レート戦）' : '🏅 ランク線のレート（ひとり）') + '・' + season.replace('-', '年') + '月のシーズン・' + arr.length + '人';
       let prev = null, rank = 0;
-      listEl.innerHTML = arr.length ? arr.map((x, i) => { if (x.r !== prev) { rank = i + 1; prev = x.r; } const me = x.id === F.uid; return `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name)}${tagHtml(x.id)}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${rkBadge(x.r)}・${x.g} 回</div></span><span class="sc">${x.r}</span></div>`; }).join('') : '<p class="small">まだだれもいません。ランク線で一番乗りしよう！</p>';
+      listEl.innerHTML = arr.length ? arr.map((x, i) => { if (x.r !== prev) { rank = i + 1; prev = x.r; } const me = x.id === F.uid; return `<div class="rk ${me ? 'me' : ''}"><span class="n">${rank}</span><span class="nm">${nameHtml(x.name)}${tagHtml(x.id)}${me ? ' <span class="pill">あなた</span>' : ''}<div class="ttl">${rkBadge(x.r)}・${x.g} 回</div></span><span class="sc">${x.r}</span>${rpi[x.id] && rank <= RP_TOP ? `<button class="rpb" data-rpr="${esc(x.id)}" data-season="${season}" title="最近のレート戦のリプレイを見る">▶</button>` : ''}</div>`; }).join('') : '<p class="small">まだだれもいません。ランク線で一番乗りしよう！</p>';
     } catch (e) { $('rankNote').textContent = 'ランク線のランキングを読めませんでした'; }
   }
   async function loadCoop(tab, listEl) {
@@ -4402,6 +4471,7 @@
     try { const F = await firebaseReady(); await withTimeout(F.db.ref('suwaritai/rpl/' + RP.uid + '/' + F.uid).set(true), 10000); track('リプレイにいいね'); } catch (e) { }
   });
   $('rankList').addEventListener('click', (e) => {
+    const q = e.target.closest('[data-rpr]'); if (q) { playReplay('rate', q.dataset.rpr, { path: 'suwaritai/rpr/' + q.dataset.season + '/' + q.dataset.rpr }); return; }
     const c = e.target.closest('[data-rpc]'); if (c) { playReplay('coop', c.dataset.rpc, { path: 'suwaritai/rpc/' + c.dataset.n + '/' + c.dataset.rpc }); return; }
     const b = e.target.closest('[data-rp]'); if (!b) return;
     playReplay(b.dataset.kind, b.dataset.rp);
@@ -4931,10 +5001,28 @@
     }
     $('mpAgain').classList.toggle('hidden', !MP.isHost);
     if (!MP.isHost) $('mpResNote').insertAdjacentHTML('beforeend', '<br>（ホストが「もう一回」を押すと、同じ部屋で始まります）');
-    if (v.rated) mmRateUpdate(res).then((t) => { if (t && state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>' + t); });
+    if (v.rated) mmRateUpdate(res).then((t) => { if (t && state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>' + t); return rateRpUpload(rec, res); }).then((t) => { if (t && state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>' + t); });
     show('mpres');
     sfx(myRank === 1 || v.coop ? 'clear' : 'over');
     if (!v.coop && !MP.cpuMode) track('オンライン：結果 ' + myRank + '位');
+  }
+  // 🏅 対戦レートのリプレイ（2026-11-14・本人）：レート戦が終わって、自分の対戦レートがシーズンの上位 10 人に入っていたら、
+  //   自分の見た試合を suwaritai/rpr/{シーズン}/{uid} に載せる（いちばん新しい 1 試合だけ・目次は rpri）。ランキングの 🏅 対戦レートの ▶ で見られる
+  async function rateRpUpload(rec, res) {
+    try {
+      if (!rec || NET_LOCAL || MP.cpuMode || typeof CompressionStream === 'undefined' || !profile.mmr) return '';
+      const F = await firebaseReady(); if (!F) return '';
+      const season = profile.mmr.s, r = profile.mmr.r;
+      const above = (await withTimeout(F.db.ref('suwaritai/mm/r/' + season).orderByChild('r').startAt(r + 0.5).limitToFirst(RP_TOP).get(), 10000)).numChildren();
+      if (above >= RP_TOP) return '';
+      const d = await gz(JSON.stringify({ v: 1, seed: rec.seed, mode: 'online', mp: rec.mp, fr: rec.fr }));
+      if (d.length > 900000) return '';
+      const mine = res.find((x) => x.uid === MP.uid), s = Math.max(0, Math.min(30000, Math.round(mine ? mine.score : 0))), n = rankName();
+      await withTimeout(F.db.ref('suwaritai/rpr/' + season + '/' + F.uid).set({ n, s, r, d, t: F.TS }), 20000);
+      await withTimeout(F.db.ref('suwaritai/rpri/' + season + '/' + F.uid).set({ n, s, r, t: F.TS }), 10000);
+      track('レート戦のリプレイを載せた');
+      return '🎬 対戦レートの上位 ' + RP_TOP + ' 人に入ったので、この試合のリプレイを載せました';
+    } catch (e) { return ''; }
   }
   // 共闘ランキング：suwaritai/coop/{人数}/{メンバーの uid を並べて _ でつなぐ}。前より高いときだけ書く
   async function submitCoop(humans, score, rv, rec) {
@@ -5171,5 +5259,5 @@
   }
   if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(boot); else boot();
   // テスト用
-  window.__SW = { get AW() { return AW; }, hardTip, avatarUrl, makeName, camera, tapFace, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
+  window.__SW = { get AW() { return AW; }, get humans() { return humans; }, hardTip, avatarUrl, makeName, camera, tapFace, mpTick: (dt) => { if (MP.active && G) { mpFrame(dt, performance.now() / 1000, { yaw: inp.yaw, pitch: inp.pitch }); handleEvents(G); } }, get MP() { return MP; }, playLandscape, toggleFullscreen, inp, AU, sfx, trainSpeed, VMAX, get G() { return G; }, get state() { return state; }, startGame, titleScreen, humans, profile, finishGame: () => finishGame(), get TUT() { return TUT; }, shareImg: () => drawShareImage(lastResult).toDataURL(), shareText: () => shareText(lastResult) };
 })();

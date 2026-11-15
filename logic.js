@@ -305,6 +305,7 @@
     if (opts.mikiwame) { g.mikiwame = true; g.villainKinds = []; g.noBoss = true; g.nextChikanCheck = 1e9; g.nextItemCheck = 1e9; g.mkFree = []; Object.assign(g.stats, { mkSits: 0, mkHits: 0, mkCombo: 0, mkBest: 0, mkGive: 0 }); } // 見極め線（MIKIWAME の項）
     if (opts.survival && g.multi) g.survival = true; // 生き残り（CPU 戦）：倒れたら即脱落。最後の 1 人か、終点で生き残った人の中で点の高い人が勝ち
     if (opts.coop && g.multi) { g.coop = true; g.coopRev = 0; g.coopPen = 0; } // 共闘モード（COOP の項）
+    if (opts.seatGuide && !g.multi) g.guide = { st: 'wait', tries: 0 }; // はじめての 1 回目だけ：座り方の案内（GUIDE の項）
     if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
     if (opts.bossRush) { g.bossRush = true; g.endless = true; g.villainKinds = []; g.noBoss = false; } // ボス駅ラッシュ（倒れるまで、毎駅がボス駅）
     if (opts.bossTest) { g.bossTest = opts.bossTest; g.endless = true; g.villainKinds = []; g.noBoss = false; }
@@ -1328,6 +1329,7 @@
       else if ((!q || q.seat !== pl.nav) && pl.buffs.transfer > 8) pl.buffs.transfer = 8;
     }
     if (!pl.buffs.transfer) pl.nav = -1;
+    if (g.guide) guideTick(g);
     if (pl.mode) { pl.modeT -= dt; if (pl.modeT <= 0) pl.mode = null; }
     pl.braceHeld = !!input.brace;
     if (input.bracePressed) pl.lastBraceT = g.t;
@@ -1803,7 +1805,7 @@
       // 空いている席へ（近いところ）
       let best = null, bd = 6;
       if (p.wantSeat) for (const s of g.seats) {
-        if (s.occ >= 0 || s.res >= 0) continue;
+        if (s.occ >= 0 || s.res >= 0 || guideHold(g, s)) continue;
         if (s.pri && !p.priority && !p.priOK && p.type !== 'obachan' && p.type !== 'yankee') continue;
         const dd = dist2(s.x, s.fz, p.x, 0) + g.r() * 0.8;
         if (dd < bd) { bd = dd; best = s; }
@@ -1919,7 +1921,7 @@
           if (p.wantSeat && !p.leaving && rem >= 1 && (!p.role || SEEKERS[p.role]) && !(p.blockCD > g.t) && !(g.phase === 'stop' && p.dest <= g.station)) {
             let best = null, bd = p.role === 'dasher' ? 5.5 : p.type === 'obachan' ? 4.0 : 3.0;
             for (const s of g.seats) {
-              if (s.occ >= 0) continue;
+              if (s.occ >= 0 || guideHold(g, s)) continue;
               if (s.res >= 0 && !(p.role === 'dasher' && dashSteal(g, p, s))) continue;
               if (s.pri && !p.priority && !p.priOK && p.type !== 'obachan' && p.type !== 'yankee' && p.type !== 'drunk') continue;
               const d = dist2(s.x, s.fz, p.x, p.z);
@@ -1980,7 +1982,7 @@
       g.samaritanT = g.r.range(12, 22);
       const needy = g.people.filter(p => p.priority && (p.state === 'stand') && !p.targetPlayer);
       for (const n of needy) {
-        const giver = g.people.find(q => q.state === 'seated' && !q.priority && !q.role && q.sleep === 0 && q.type !== 'yankee' && q.type !== 'obachan' && q.type !== 'gamer' && dist2(q.x, q.z, n.x, n.z) < 1.8);
+        const giver = g.people.find(q => q.state === 'seated' && !q.priority && !q.role && !q.guide && q.sleep === 0 && q.type !== 'yankee' && q.type !== 'obachan' && q.type !== 'gamer' && dist2(q.x, q.z, n.x, n.z) < 1.8);
         if (giver && g.r.chance(0.45)) {
           const s = g.seats[giver.seat]; freeSeat(g, s, giver.id); giver.seat = -1; giver.state = 'stand';
           giver.z = s.fz; placeStanding(g, giver, false);
@@ -2337,11 +2339,51 @@
     p.state = 'stand';
     return p;
   }
+  // ================================================================ GUIDE：座り方の案内（2026-11-14・本人。はじめての 1 回目の乗車だけ）
+  // 1 駅目の走っているあいだに、近くに座っているふつうの人を 1 人選んで「次で降りる」ことにし、光らせて案内する。
+  // その人は着く少し前に立つ（席が走っているうちに空く）。空いた席は、プレイヤーが座るまでほかの乗客に取らせない。
+  // 1 駅目で座れなかったら、2 駅目でもう 1 回だけ。座れたら終わり。st：wait → show（光っている）→ free（空いた）→ done
+  function guideHold(g, s) { return !!(g.guide && g.guide.st === 'free' && g.guide.seat === s.id); }
+  function guideTick(g) {
+    const G = g.guide, pl = g.player;
+    if (G.st === 'done') return;
+    if (pl.seat >= 0) { // 座れた（案内した席でも、ほかの席でも）
+      if (G.st !== 'wait' || G.tries > 0) emit(g, { type: 'guide', k: 'sat' });
+      G.st = 'done'; return;
+    }
+    if (G.st === 'wait') {
+      if (g.phase !== 'travel' || g.phaseT < 2 || g.over) return;
+      const ns = nextStation(g);
+      let best = null, bd = 1e9;
+      for (const p of g.people) {
+        if (p.state !== 'seated' || p.seat < 0 || p.role || p.fake || p.sleep || p.undercover || p.priority || p.hogSeat != null) continue;
+        const sx = g.seats[p.seat]; if (sx.pri || sx.hog) continue;
+        const T = TYPES[p.type]; if (!T || T.noLook) continue;
+        const dx = sx.x - pl.x, dz = sx.fz - pl.z, d0 = Math.hypot(dx, dz) || 1, fwd = (dx * -Math.sin(pl.yaw) + dz * -Math.cos(pl.yaw)) / d0;
+        const d = d0 + (fwd < 0.85 ? 6 : 0); // 画面に映っている（見ている向きの）人を優先（横やうしろの人は見つけにくい）
+        if (d < bd) { bd = d; best = p; }
+      }
+      if (!best) return;
+      best.dest = ns; best.feinted = true; best.feintNow = false; best.prep = 2.5; best.guide = true; // 着く 2.5 秒前に立つ
+      Object.assign(G, { st: 'show', id: best.id, seat: best.seat, st0: g.station, near: false, tries: G.tries + 1 });
+      emit(g, { type: 'guide', k: 'show', n: G.tries });
+      return;
+    }
+    const seat = g.seats[G.seat];
+    if (!seat) { G.st = 'done'; return; }
+    if (!G.near && dist2(seat.x, seat.fz, pl.x, pl.z) < 0.8) { G.near = true; emit(g, { type: 'guide', k: 'near' }); }
+    if (G.st === 'show' && seat.occ !== G.id) { G.st = 'free'; seat.res = -1; emit(g, { type: 'guide', k: 'free' }); }
+    // 次の駅を出ても座れていなければ：もう 1 回（2 駅目）だけ、だめなら終わり
+    if (g.phase === 'travel' && g.station > G.st0) {
+      if (G.tries < 2) { G.st = 'wait'; emit(g, { type: 'guide', k: 'retry' }); }
+      else { G.st = 'done'; emit(g, { type: 'guide', k: 'miss' }); }
+    }
+  }
   // 2 人分の席：となりの空き席も使う
   function hogClaim(g, p) {
     if (p.seat < 0 || p.hogSeat != null) return;
     const seat = g.seats[p.seat];
-    const s2 = g.seats.find(o => o.id !== seat.id && o.side === seat.side && o.pri === seat.pri && Math.abs(o.x - seat.x) < 0.55 && o.occ < 0 && o.res < 0);
+    const s2 = g.seats.find(o => o.id !== seat.id && o.side === seat.side && o.pri === seat.pri && Math.abs(o.x - seat.x) < 0.55 && o.occ < 0 && o.res < 0 && !guideHold(g, o));
     if (!s2) return;
     s2.occ = p.id; s2.hog = p.id; p.hogSeat = s2.id;
   }
@@ -2777,7 +2819,7 @@
       }
     }
     // 落とし物
-    g.nextItemCheck -= dt;
+    if (!(g.guide && g.guide.st !== 'done')) g.nextItemCheck -= dt; // 座り方の案内のあいだは落とし物を出さない（アクションが「拾う」になってまぎらわしいので）
     if (g.nextItemCheck <= 0) {
       // 新バランス（お試し）：落とし物は 1 駅に 1 個くらい・同時に 1 個まで
       g.nextItemCheck = g.bal2 ? g.r.range(30, 45) : g.r.range(20, 36); // 落とし物は前の半分くらい（拾ってばかりにならないように）

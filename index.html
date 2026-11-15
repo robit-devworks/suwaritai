@@ -204,6 +204,8 @@ body.customlay #tbtns{left:0!important;top:0!important;right:0!important;bottom:
 .tb:active,.tb.down{background:rgba(255,212,71,.35)}
 #bAct{right:0;bottom:0;width:92px;height:92px;border-color:var(--toku);font-size:12px}
 #bAct.dim{opacity:.45}
+#bAct.guideP{animation:guideP .6s ease-in-out infinite alternate;opacity:1!important}@keyframes guideP{to{transform:scale(1.15);box-shadow:0 0 0 8px rgba(255,212,71,.55),0 0 26px rgba(255,212,71,.9)}}
+#guideMsg{position:absolute;left:50%;top:calc(max(8px,env(safe-area-inset-top)) + 96px);transform:translateX(-50%);z-index:25;width:min(92vw,460px);box-sizing:border-box;text-align:center;font-weight:800;font-size:15px;line-height:1.4;color:#1a1a1a;background:#ffd447;border:2px solid #fff;border-radius:12px;padding:8px 12px;box-shadow:0 4px 14px rgba(0,0,0,.45);pointer-events:none}#guideMsg.hidden{display:none}body.touch #guideMsg{top:calc(max(8px,env(safe-area-inset-top)) + 178px)}body.touch.hasbuff #guideMsg{top:calc(max(8px,env(safe-area-inset-top)) + 204px)}body.touch.guideOn #toasts{top:calc(max(8px,env(safe-area-inset-top)) + 250px)}@media (orientation: landscape) and (max-height:540px){body.touch #guideMsg{top:max(6px,env(safe-area-inset-top));font-size:13px;padding:5px 10px;width:min(46vw,380px);left:50%}}
 #bPunch{right:100px;bottom:4px;width:70px;height:70px}
 #bGuard{right:14px;bottom:100px;width:70px;height:70px}
 #bSleep{right:100px;bottom:84px;width:60px;height:60px;font-size:10px}
@@ -639,6 +641,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
   <div id="cross"></div><div id="thGauge" class="hidden"><i></i><b>🎯</b></div>
   <div id="target" class="hidden"><h4 id="tName"></h4><div id="tNotes"></div></div>
   <div id="prompt" class="hidden"></div>
+  <div id="guideMsg" class="hidden"></div>
   <div id="tut" class="hidden"><div class="tt"><b id="tutT"></b><button id="tutSkip">スキップ ›</button></div><div id="tutD"></div><div id="tutBtns" class="hidden"><button class="btn main" id="tutGo">🚃 出発する（たちっぱ線）</button><button class="btn sub2" id="tutEnd">タイトルへ</button></div></div>
   <div id="toasts"></div>
   <div id="pops"></div>
@@ -1005,7 +1008,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261114025106"</script><script src="logic.js?v=20261114025106"></script>
-<script src="game.js?v=20261114025106"></script>
+<script>window.SW_VER="20261115055023"</script><script src="logic.js?v=20261115055023"></script>
+<script src="game.js?v=20261115055023"></script>
 </body>
 </html>
