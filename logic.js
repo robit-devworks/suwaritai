@@ -1467,6 +1467,7 @@
     if (tp.seat >= 0) { toast(g, '座っている人には効かない…', 'info'); return; } // 座っているプレイヤーはパンチ・投げた物でダメージを受けない（2026-11-13・本人）
     const mul = (base || 1) * (g.player.buffs.protein > 0 ? 2 : 1);
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hitPlayer', i: j });
+    T.stats.hitByP = (T.stats.hitByP || 0) + 1; // ほかのプレイヤーに殴られた回数（シェアの一言用）
     if (tp.stamina <= 20) {
       g.players[me].pko++;
       addKarma(g, 25, T.name + 'にトドメ');

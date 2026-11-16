@@ -298,6 +298,7 @@ body.tpv #cross,body.tpv #target{display:none!important}
 #lobbyBan{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 64px);transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:6px;width:min(420px,calc(100% - 20px));background:rgba(20,40,70,.95);border:2px solid #7fd1ff;border-radius:14px;padding:8px 10px;color:#fff;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
 #lobbyBan span{flex:1;line-height:1.35}#lobbyBan .av{width:16px;height:16px}
 #lobbyBan button{flex:none;border:0;border-radius:10px;padding:6px 10px;font-weight:800;font-size:13px;background:#7fd1ff;color:#0b2033}#lobbyBan #lbX{background:transparent;color:#bcd;padding:6px}
+#rNudge b.pl,#mpNudge b.pl{font-size:16px;line-height:1.45;color:#fff}#mpNudge{margin:6px 0;padding:8px 10px;border:2px solid #ffd447;border-radius:14px;background:rgba(255,212,71,.08);text-align:center}#mpNudge small{display:block;font-size:12px;color:#9be39b}#mpNudge div{display:flex;margin-top:6px}#mpNudge .btn{flex:1;margin:0;padding:10px;font-size:15px}#mpNudge b{display:block}
 #rNudge{margin:6px 0;padding:8px 10px;border:2px solid #ffd447;border-radius:14px;background:rgba(255,212,71,.08);text-align:center}#rNudge b{display:block;color:#ffd447;font-size:14px}#rNudge span,#rNudge small{display:block;font-size:12px;color:var(--sub)}#rNudge small{color:#9be39b}#rNudge div{display:flex;gap:6px;margin-top:6px}#rNudge .btn{flex:1;margin:0;padding:8px;font-size:13px}
 #title .btn .ic{display:block;font-style:normal;font-size:16px;line-height:1.1;margin:0 auto 1px}
 #title .row .btn{position:relative}#title .row .btn .newb{position:absolute;top:-6px;right:-2px;margin:0;font-size:8px;padding:2px 3px}
@@ -816,7 +817,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
       <li>ひとりで遊んでいるときに、募集中の部屋や待っている人がいると上に出る。参加すると今のプレイは保存されて、タイトルの「▶ 続きから」で再開できる</li>
       <li>ライバルを殴ると、相手はよろけるだけ（体力 −8）で、自分のカルマ +15。<b>具合が悪そうな顔</b>（体力 20 以下）ならトドメを刺せる（カルマ +25）</li>
       <li>⚔ 対戦は<b>脱落なし</b>：みんな<b>徳 30</b> を持ってスタート。膝が笑う・KO・連行・心が折れると、その場で<b>スコア半分・徳 30 からやり直し</b></li>
-      <li>終わったら「🎬 この試合のリプレイを見る」でふり返れる（「👤」で見る人を切りかえ・動画にもできる）。フレンド戦・共闘・レート戦の試合は、ランキングの「🎬 みんなの試合」に公開される（新しい 30 試合。部屋のホストが「公開する」を外せば公開しない）。共闘ランキングの上位 10 チームはリプレイを ▶ で見られる</li>
+      <li>終わったら「🎬 この試合のリプレイを見る」でふり返れる（「👤」で見る人を切りかえ）。フレンド戦・共闘・レート戦の試合は、ランキングの「🎬 みんなの試合」に公開される（新しい 30 試合。部屋のホストが「公開する」を外せば公開しない）。共闘ランキングの上位 10 チームはリプレイを ▶ で見られる</li>
       <li>部屋をつくった人（ホスト）の端末が試合を進めます。ホストは試合中にアプリを切りかえないでね</li>
       <li>合言葉を入れて <b>👀 観戦</b>もできる（「次の人」で見る人を切りかえ・1 人称／3 人称）</li>
     </ul>
@@ -847,7 +848,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     </div>
     <p class="small">📱 スマホは、人や空いた席を<b>軽くタップ</b>するとそっちを向きます。一時停止（Ⅱ）の「🎛 感度・ボタン調整」で<b>視点の感度</b>・ボタンの位置と大きさを変えられます。</p>
     <p class="small">👆 <b>タップで移動</b>（スマホ・どの操作方法でも。「🎛 感度・ボタン調整」で切りかえ）：<b>👉 画面をタップ</b>：タップした床（黄色い輪）まで自動で歩く。人をタップするとその人の正面まで。座る・注意するはアクション（スティックのトントン・どこでも 2 回タップでも）／<b>🕹 スティック</b>：歩く（タップで歩いているあいだは、行き先へ向かいながらスティックの向きに寄り道できる）／<b>👀 画面をなぞる</b>：視点を回す（自動の歩きも止まる）／<b>✋ スティックをトントン</b>：アクション</p>
-    <p class="small">🎬 遊び終わったら、結果画面で<b>自分のリプレイ</b>が見られます（前回の分はランキングの画面からも）。「📹 おまかせ」でいちばん大きな出来事の<b>動画</b>、「✂ 選ぶ」で好きな場面（最大 1 分）を動画にして、X などにシェアできます。</p>
+    <p class="small">🎬 遊び終わったら、結果画面で<b>自分のリプレイ</b>が見られます（前回の分はランキングの画面からも）。「👤」で見る人を切りかえたり、「🎥 3人称」で外から見たりできます。</p>
     <p class="small">スコア ＝ 集めた徳 ＋ 駅ごとのボーナス ＋ 完走ボーナス − カルマ</p>
     <p class="small">作者：ROBIT（<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">𝕏 @ROBITdesuyo</a>）　アップデート情報も X で<br>作者のほかのゲーム：<a class="dg-link" data-from="遊び方" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--accent)">🎮 デストロイ碁（石を壊す囲碁バトル）</a></p>
     <p class="small">ランキングには「乗客名」とスコアだけを記録します（ログインは不要。端末ごとに自動で番号がつきます）。遊ばれた回数を GoatCounter で数えています（Cookie なし・個人は分かりません）。</p>
@@ -1007,9 +1008,10 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h2 id="mpResT">🏁 オンライン対戦の結果</h2>
     <div id="mpResList"></div>
     <p class="small" id="mpResNote"></p>
+    <div id="mpNudge" class="hidden"></div>
     <p class="small"><a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">🔔 作者（𝕏 @ROBITdesuyo）をフォローして、アップデート情報を受け取る</a></p>
     <button class="btn sub2 hidden" id="mpKc" style="border-color:#ff7a7a;color:#ffd0d0"></button>
-    <button class="btn sub2 hidden" id="mpMyRp">🎬 この試合のリプレイを見る（動画にもできる）</button>
+    <button class="btn sub2 hidden" id="mpMyRp">🎬 この試合のリプレイを見る</button>
     <button class="btn main" id="mpAgain">もう一回（同じ部屋で）</button>
     <button class="btn sub2" id="mpLeave">部屋を出る</button>
   </div>
@@ -1049,10 +1051,10 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="rR">
     <div class="brk" id="rBrk"></div>
     <div class="stats" id="rStats"></div>
-    <div class="row"><button class="btn" id="bShare">📣 シェアする</button><a class="btn hidden" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn hidden" id="bShareImg">🖼 画像</button><a class="btn" id="bPlayVid" href="https://youtu.be/HlIpZ3c2qOo" target="_blank" rel="noopener" style="text-decoration:none">🎬 作者の実況</a></div>
+    <div class="row"><button class="btn hidden" id="bShare">📣 シェアする</button><a class="btn hidden" id="bShareX" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener" style="text-decoration:none">𝕏 でシェア</a><button class="btn hidden" id="bShareImg">🖼 画像</button><a class="btn" id="bPlayVid" href="https://youtu.be/HlIpZ3c2qOo" target="_blank" rel="noopener" style="text-decoration:none">🎬 作者の実況</a></div>
     <p class="small fbx" data-from="結果">🐛 不具合・要望・よかったところは <a class="fb-x" href="https://twitter.com/intent/tweet?text=%23%E3%82%B9%E3%83%AF%E3%83%AA%E3%82%BF%E3%82%A4%20" target="_blank" rel="noopener">#スワリタイ でつぶやいてね</a>！ 作者が見て直します</p>
     <p class="other-game"><a class="dg-link" data-from="結果" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener">🎮 作者の別ゲーム：デストロイ碁（囲碁バトル）›</a></p>
-    <button class="btn sub2 hidden" id="bMyRp">🎬 今の自分のリプレイを見る（動画にもできる）</button>
+    <button class="btn sub2 hidden" id="bMyRp">🎬 今の自分のリプレイを見る</button>
     <div class="row"><button class="btn main" id="bRetry">もう一回乗る</button></div>
     <button class="btn sub2" id="bToTitle">タイトルへ</button>
     </div>
@@ -1076,7 +1078,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261115182820"</script><script src="logic.js?v=20261115182820"></script>
-<script src="game.js?v=20261115182820"></script>
+<script>window.SW_VER="20261116010910"</script><script src="logic.js?v=20261116010910"></script>
+<script src="game.js?v=20261116010910"></script>
 </body>
 </html>
