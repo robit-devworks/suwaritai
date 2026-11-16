@@ -30,6 +30,10 @@
 #startBox .sbw>.btn{flex:1;min-width:0;padding-right:58px!important;padding-left:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #startBox .rq{position:absolute;right:7px;top:50%;transform:translateY(-50%);z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;width:48px;height:calc(100% - 12px);max-height:46px;min-height:30px;border-radius:10px;border:1px solid rgba(255,255,255,.45);background:rgba(10,12,18,.45);color:#fff;font-weight:900;font-size:15px;line-height:1;padding:0;cursor:pointer}
 #startBox .rq small{font-size:9px;font-weight:800;margin-top:2px}
+#startBox .sbw>.btn{text-align:left!important;justify-content:flex-start!important;padding-left:16px!important} /* 2026-11-16・本人：左揃え */
+#joinWait{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,8,14,.72);padding:16px}#joinWait .jwc{max-width:360px;width:100%;background:#171b24;border:2px solid #ff8a3d;border-radius:18px;padding:18px 16px;text-align:center;color:#fff}#joinWait b{font-size:19px;color:#ffd447}#joinWait p{margin:10px 0;font-size:15px;line-height:1.5}#joinWait small{color:#b8bdc8;font-size:12px}#joinWait .jwd{display:flex;gap:8px;justify-content:center;margin:6px 0 12px}#joinWait .jwd i{width:10px;height:10px;border-radius:50%;background:#ff8a3d;animation:jwb 1s infinite ease-in-out}#joinWait .jwd i:nth-child(2){animation-delay:.15s}#joinWait .jwd i:nth-child(3){animation-delay:.3s}@keyframes jwb{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-6px)}}
+#startBox small.md{display:block;font-size:.62em;font-weight:800;line-height:1.15;margin-top:2px;opacity:.92;overflow:hidden;text-overflow:ellipsis} /* かっこの中は名前の下の 2 行目に小さく（2026-11-16：長くて切れたため） */
+#title #startBox .sbw>.btn{line-height:1.15}
 #startBox .beta{display:inline-block;font-size:.62em;font-weight:900;background:#ffd447;color:#3a2600;border-radius:6px;padding:1px 5px;margin:0 2px;vertical-align:.2em}
 #ruleBox{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
 #ruleBox.hidden{display:none}
@@ -251,6 +255,7 @@ body.touch #pcHint{display:none}
 .logo .tag{display:inline-block;margin-top:6px;font-size:11px;color:var(--sub)}
 .btn{display:block;width:100%;margin:8px 0;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);font-size:16px;font-weight:800;text-align:center}
 .btn.main{background:linear-gradient(180deg,#ff9a4d,#e8661c);border-color:#ffb27a;color:#fff;font-size:19px;box-shadow:0 4px 0 #9a3a06}
+.btn.mainG{background:linear-gradient(180deg,#4fd08a,#1f9a5a);border-color:#8fe8b6;color:#fff;font-size:19px;box-shadow:0 4px 0 #0d5a32} /* たちっぱ線：環状線と同じ大きさで緑（電車の帯の色）2026-11-16・本人 */
 .btn.sub2{font-size:14px;padding:10px}
 .row{display:flex;gap:8px}.row .btn{flex:1}
 .small{font-size:12px;color:var(--sub);text-align:center;line-height:1.6}
@@ -450,7 +455,7 @@ html.pland #title .nmlbl{display:none}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;background:var(--bg);font-size:16px;color:var(--sub);text-align:center;padding:20px}
 .newb{display:inline-block;font-size:9px;font-weight:900;line-height:1;color:#fff;background:#e0303a;border-radius:5px;padding:2px 4px;margin-right:5px;vertical-align:2px;letter-spacing:.5px}
 .pill{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px;color:var(--sub)}
-@media (max-height:700px){ html:not(.pland) .logo h1{font-size:44px} html:not(.pland) .btn{padding:9px;margin:6px 0} html:not(.pland) .btn.main{font-size:17px} }
+@media (max-height:700px){ html:not(.pland) .logo h1{font-size:44px} html:not(.pland) .btn{padding:9px;margin:6px 0} html:not(.pland) .btn.main,html:not(.pland) .btn.mainG{font-size:17px} html:not(.pland) #startBox{gap:3px} html:not(.pland) #startBox .sbw>.btn{padding-top:7px;padding-bottom:7px} html:not(.pland) #dailyRow .btn,html:not(.pland) #modesRow .btn{padding-top:7px;padding-bottom:7px} }
 @media (max-height:700px) and (orientation: portrait){ html:not(.pland) #result .btn{margin:3px 0;padding:8px} html:not(.pland) #result .stats{margin-top:5px} html:not(.pland) .res-text{margin:2px 0 4px} html:not(.pland) #result .newach{margin-top:4px} html:not(.pland) #result .score{font-size:36px;line-height:1.05} html:not(.pland) #result .btn{padding:7px} }
 /* ---------- 縦向きのスマホ（タイトル）：横画面と同じく箱をなくして電車を見せる。上にロゴ、下（親指の届くところ）にボタン ---------- */
 @media (orientation: portrait) and (max-width: 600px) {
@@ -466,8 +471,8 @@ html.pland #title .nmlbl{display:none}
   html:not(.pland) #title #bLand{order:3}
   html:not(.pland) #title #bSaveResume{order:3}
   html:not(.pland) #title #startBox{order:4}
-  html:not(.pland) #title #bLoop{font-size:clamp(17px,5vw,20px);padding:14px}
-  html:not(.pland) #title #bStart{font-size:clamp(13px,3.8vw,15px)}
+  html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart{font-size:clamp(17px,5vw,20px);padding:14px}
+  
   html:not(.pland) #title #dailyRow{order:5}
   html:not(.pland) #title #modesRow{order:6}
   html:not(.pland) #title .row:not(#dailyRow):not(#modesRow){order:7}
@@ -476,9 +481,9 @@ html.pland #title .nmlbl{display:none}
   html:not(.pland) #title #bPort{order:9}
   html:not(.pland) #title .card>p.small:last-child{order:10}
   html:not(.pland) #title .btn{margin:0;padding:9px 6px}
-  html:not(.pland) #title #bLoop{padding:14px}
-  html:not(.pland) #title #bStart{padding:8px 6px}
-  html:not(.pland) #title .btn:not(.main), html:not(.pland) #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
+  html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart{padding:14px}
+  
+  html:not(.pland) #title .btn:not(.main):not(.mainG), html:not(.pland) #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
   html:not(.pland) #title .row .btn{white-space:nowrap;font-size:clamp(12px,3.6vw,15px);padding:9px 2px;min-width:0}
   html:not(.pland) #title .row:not(#dailyRow):not(#modesRow){gap:6px}
   html:not(.pland) #title .row:not(#dailyRow):not(#modesRow) .btn{flex:1 1 auto;min-width:auto;padding:9px 4px;font-size:clamp(11px,3.4vw,15px)}
@@ -528,8 +533,8 @@ html.pland #title .nmlbl{display:none}
   #title .logo p{font-size:clamp(13px,2.2vw,19px)}
   #title .logo .tag, #title #bestLine, #title #nameNote{display:none}
   #title #startBox{grid-row:3;align-self:end}
-  #title #bLoop{font-size:clamp(16px,2.6vw,21px);padding:clamp(8px,1.6vh,13px)}
-  #title #bStart{font-size:clamp(12px,2vw,15px);padding:clamp(4px,1vh,7px)}
+  #title #bLoop,#title #bStart{font-size:clamp(16px,2.6vw,21px);padding:clamp(8px,1.6vh,13px)}
+  
   #title #dailyRow{grid-row:4}
   #title #modesRow{grid-row:5}
   #title #bLand, #title #bPort{grid-column:1;grid-row:6;align-self:end;width:auto;justify-self:start;text-align:left}
@@ -537,7 +542,7 @@ html.pland #title .nmlbl{display:none}
   #title .card>p.small:last-child{grid-column:2;grid-row:6;align-self:end;text-align:right;margin:0}
   #title .row:not(#dailyRow):not(#modesRow){grid-column:1 / span 2;grid-row:7}
   #title .btn{margin:0;padding:7px}
-  #title .btn:not(.main), #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
+  #title .btn:not(.main):not(.mainG), #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
   #title .namebox .btn{padding:5px 9px}
   #title .namebox{flex-wrap:nowrap;white-space:nowrap;min-width:0}
   #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
@@ -607,8 +612,8 @@ html.pland #title .logo h1{font-size:clamp(40px,calc(var(--ph) * 8.4 / 100),72px
 html.pland #title .logo p{font-size:clamp(13px,calc(var(--ph) * 2.2 / 100),19px)}
 html.pland #title .logo .tag, html.pland #title #bestLine, html.pland #title #nameNote{display:none}
 html.pland #title #startBox{grid-row:3;align-self:end}
-html.pland #title #bLoop{font-size:clamp(16px,calc(var(--ph) * 2.6 / 100),21px);padding:clamp(8px,calc(var(--pw) * 1.6 / 100),13px)}
-html.pland #title #bStart{font-size:clamp(12px,calc(var(--ph) * 2 / 100),15px);padding:clamp(4px,calc(var(--pw) * 1 / 100),7px)}
+html.pland #title #bLoop,html.pland #title #bStart{font-size:clamp(16px,calc(var(--ph) * 2.6 / 100),21px);padding:clamp(8px,calc(var(--pw) * 1.6 / 100),13px)}
+
 html.pland #title #dailyRow{grid-row:4}
 html.pland #title #modesRow{grid-row:5}
 html.pland #title #bLand, html.pland #title #bPort{grid-column:1;grid-row:6;align-self:end;width:auto;justify-self:start;text-align:left}
@@ -616,7 +621,7 @@ html.pland #title #bPort{padding:4px 10px;font-size:12px}
 html.pland #title .card>p.small:last-child{grid-column:2;grid-row:6;align-self:end;text-align:right;margin:0}
 html.pland #title .row:not(#dailyRow):not(#modesRow){grid-column:1 / span 2;grid-row:7}
 html.pland #title .btn{margin:0;padding:7px}
-html.pland #title .btn:not(.main), html.pland #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
+html.pland #title .btn:not(.main):not(.mainG), html.pland #title .namebox input{background:rgba(16,20,28,.9);border-color:rgba(255,255,255,.22)}
 html.pland #title .namebox .btn{padding:5px 9px}
 html.pland #title .namebox{flex-wrap:nowrap;white-space:nowrap;min-width:0}
 html.pland #title .namebox input{flex:0 1 150px;min-width:60px;width:auto;padding:5px 8px}
@@ -642,6 +647,9 @@ html.pland .stats div{padding:3px}
 html.pland .stats b{font-size:14px}
 html.pland .brk{padding:6px 10px;font-size:12px}
 html.pland #result .btn{margin:3px 0;padding:7px}
+html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart{padding-top:9px;padding-bottom:9px}
+@media (max-height:700px){ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart{padding-top:4px;padding-bottom:3px} }
+@media (max-height:460px){ html.pland #title #bLoop,html.pland #title #bStart,html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart{padding-top:3px;padding-bottom:3px} } /* 横向きのスマホ */ /* 小さいスマホ：環状線・たちっぱ線の大きなボタンを少しつめて 1 画面に */
 </style>
 </head>
 <body>
@@ -722,7 +730,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
     <button class="btn sub2 hidden" id="bSaveResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
-    <div id="startBox"><div class="sbw"><button class="btn main" id="bLoop">🔄 出発する（環状線<span class="beta">β</span>）</button><button class="rq" data-rule="loop" aria-label="環状線のルール">？<small>ルール</small></button></div><div class="sbw"><button class="btn" id="bStart">🚃 たちっぱ線（一人モード）</button><button class="rq" data-rule="normal" aria-label="たちっぱ線のルール">？<small>ルール</small></button></div></div>
+    <div id="startBox"><div class="sbw"><button class="btn main" id="bLoop">🔄 環状線<span class="beta">β</span><small class="md">（CPU・プレイヤー乱入モード）</small></button><button class="rq" data-rule="loop" aria-label="環状線のルール">？<small>ルール</small></button></div><div class="sbw"><button class="btn mainG" id="bStart">🚃 たちっぱ線<small class="md">（一人モード）</small></button><button class="rq" data-rule="normal" aria-label="たちっぱ線のルール">？<small>ルール</small></button></div></div>
     <div id="ruleBox" class="hidden"><div class="rbc"><button class="rbx" aria-label="とじる">✕</button><h3 id="ruleT"></h3><ul id="ruleL"></ul><button class="btn main" id="ruleGo">出発する</button></div></div>
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
     <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る <span class="pill">PV・作者の実況プレイ</span></button></div>
@@ -782,7 +790,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
     <h3>🔄 環状線 β（ライバルと席の取り合い）</h3>
     <ul>
       <li>ホームからスタート。ドアが開いたら乗りこんで、空いている席を取り合う。12 駅で 1 周（駅の並びはその日みんな同じ）</li>
-      <li>駅ごとに <b>🤖 CPU</b> のライバルが乗ってくる（本物のプレイヤーの遊び方をまねている）。オンラインの対戦では友だちもライバル</li>
+      <li>🚉 <b>乱入</b>：環状線に乗ると、いま走っているほかのプレイヤーの電車をさがして、次の駅から乱入する（なければ自分の電車が走り出して、ほかの人の乱入を待つ）。空いた席には駅ごとに <b>🤖 CPU</b> のライバルが乗ってくる（本物のプレイヤーの遊び方をまねている）</li>
       <li>🕵 <b>だれがライバルか分からない</b>：ライバルもふつうの乗客と同じ見た目。狙ってもふつうの乗客にしか見えない。動きで見破ろう</li>
       <li>🎭 <b>しぐさ</b>：画面の右の「🎭 しぐさ」ボタン（PC は <b>8・9・0</b> キー）で「🪧 掲示板をチラ見・⌚ 時計を見る・🎒 荷物をまとめる（座っているときだけ）」の<b>ふり</b>ができる。乗客にまぎれたり、降りるふりでライバルを前で待たせたり（CPU もだまされる）</li>
       <li>👊 ライバルを殴ると体力 −8。<b>具合が悪そうな顔</b>（体力 20 以下）ならトドメでスコア +150（カルマもたまる）。落とし物を投げてもいい</li>
@@ -1078,7 +1086,7 @@ html.pland #result .btn{margin:3px 0;padding:7px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261116010910"</script><script src="logic.js?v=20261116010910"></script>
-<script src="game.js?v=20261116010910"></script>
+<script>window.SW_VER="20261116042113"</script><script src="logic.js?v=20261116042113"></script>
+<script src="game.js?v=20261116042113"></script>
 </body>
 </html>

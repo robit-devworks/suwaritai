@@ -1878,23 +1878,38 @@
     for (let t = 0; t < R.pool.length && !o; t++) { const c = R.pool[R.k++ % R.pool.length]; if (aboard.indexOf(c.n) < 0) o = c; }
     if (!o) o = { n: 'CPUの乗客' + (R.n + 1), y: '' };
     const L = styleLv(o.y), d = DOORS[R.r.int(0, DOORS.length - 1)], prev = g.pi;
-    P.name = o.n; P.uid = o.u || ''; P.L = L; P.lv = 2; P.rid = ++R.n; P.bot = null; P.leaving = null;
+    P.name = o.n; P.uid = o.u || ''; P.L = L; P.lv = 2; P.rid = ++R.n; P.bot = null; P.leaving = null; P.cpu = true; P.guest = false;
     P.pl = Object.assign(makePlayer(d + R.r.range(-0.3, 0.3), g.doorSide * 0.9), { toku: MP_TOKU, st: capStats(L.st, STAT_CAP_FAIR) });
     P.pl.yaw = g.doorSide > 0 ? 0 : Math.PI; P.stats = makeStats(); P.out = false; P.away = false; P.down = false; P.result = null; P.from = g.station;
     P.offAt = g.station + R.r.int(3, 8);
     if (g.platStart && g.station === 0 && !g.doorsOpen) { P.pl.plat = true; P.pl.z = g.doorSide * R.r.range(2.1, 2.9); P.pl.yaw = g.doorSide > 0 ? 0 : Math.PI; } // ホームスタート：CPU もホームから
     setCtx(g, prev);
-    g.players.forEach((Q) => { if (!Q.rider) Q.events.push({ type: 'toast', text: '🚃 ' + P.name + '（🤖）が乗ってきた！', kind: 'info' }); });
+    g.players.forEach((Q) => { if (!Q.cpu && !Q.away) Q.events.push({ type: 'toast', text: '🚃 ' + P.name + '（🤖）が乗ってきた！', kind: 'info' }); });
   }
   function riderOff(g, P) {
     const R = g.loopRide, pl = P.pl, prev = g.pi;
     if (pl.seat >= 0) { freeSeat(g, g.seats[pl.seat], -1); pl.seat = -1; }
     if (pl.carrying) { const it = pl.carrying; pl.carrying = null; [it.x, it.z] = aisleClamp(pl.x, pl.z); it.taken = false; it.t0 = g.t; g.items.push(it); }
     const sc = finalScoreOf(g, P.i).total, cause = P.result ? P.result.cause : 'off';
-    R.log.push({ n: P.name, u: P.uid, s: sc, from: P.from, to: g.station, cause });
+    R.log.push({ n: P.name, u: P.uid, s: sc, from: P.from, to: g.station, cause, g: P.guest ? 1 : 0 });
     P.away = true; P.out = true; P.leaving = null; pl.x = 999; pl.z = 0;
     setCtx(g, prev);
-    g.players.forEach((Q) => { if (!Q.rider) Q.events.push({ type: 'toast', text: (cause === 'off' ? '🚪 ' + P.name + ' が降りた（' : '💫 ' + P.name + ' は倒れて降ろされた（') + sc + '点）', kind: 'info' }); });
+    g.players.forEach((Q) => { if (Q !== P && !Q.cpu && !Q.away) Q.events.push({ type: 'toast', text: (cause === 'off' ? '🚪 ' + P.name + ' が降りた（' : cause === 'leave' ? '🚪 ' + P.name + ' が電車を降りた（' : '💫 ' + P.name + ' は倒れて降ろされた（') + sc + '点）', kind: 'info' }); });
+  }
+  // 🚉 乱入（2026-11-16・本人：環状線にほかのプレイヤーが途中の駅から乗ってくる）：i 番目の席（いないか CPU）に、本物のプレイヤーを乗せる。
+  //   CPU が乗っていたら先に降ろす。乗ったら倒れるまで（または 1 周まで）降りない。倒れたら次の駅で降ろす（CPU と同じ）
+  function guestOn(g, i, o) {
+    const R = g.loopRide, P = g.players[i]; if (!R || !P || !P.rider) return false;
+    if (!P.away) riderOff(g, P);
+    const d = DOORS[R.r.int(0, DOORS.length - 1)], prev = g.pi;
+    P.name = String(o.name || 'ライバル').slice(0, 14); P.uid = o.uid || ''; P.cpu = false; P.guest = true; P.L = null; P.lv = 0; P.rid = ++R.n; P.bot = null; P.leaving = null;
+    P.pl = Object.assign(makePlayer(d + R.r.range(-0.3, 0.3), g.doorSide * 0.9), { toku: MP_TOKU, st: capStats(o.stats || {}, STAT_CAP_FAIR) });
+    P.pl.yaw = g.doorSide > 0 ? 0 : Math.PI; P.stats = makeStats(); P.out = false; P.away = false; P.down = false; P.result = null; P.from = g.station; P.offAt = 1e9;
+    P.aim = -1; P.prompt = null; P.pko = 0; P.tricks = 0; P.ghost = false; P.events = [];
+    setCtx(g, prev);
+    P.events.push({ type: 'toast', text: '🚉 乱入！ ' + stationName(g, g.station) + 'から乗りこんだ。だれがライバルか分からない…席を取り合え（倒れたら終わり）', kind: 'good' });
+    g.players.forEach((Q) => { if (Q !== P && !Q.cpu && !Q.away) Q.events.push({ type: 'toast', text: '⚠ 本物のプレイヤーが乱入してきた！（だれかは分からない）', kind: 'warn' }); });
+    return true;
   }
   // i 人目の最終スコア
   function finalScoreOf(g, i) { const prev = g.pi; setCtx(g, i); const r = finalScore(g); setCtx(g, prev); return r; }
@@ -1938,9 +1953,9 @@
   function standings(g) {
     if (g.loopRide) { // 環状線：自分と、一緒に乗った CPU（降りた人も・いま乗っている人も）
       const me = g.players.find((P) => !P.rider), mi = g.players.indexOf(me), stn = (i) => stationName(g, i);
-      const rows = [{ i: mi, name: me.name, cpu: false, score: finalScoreOf(g, mi).total, cause: me.result ? me.result.cause : 'alive', ride: '' }];
-      g.loopRide.log.forEach((l, k) => rows.push({ i: 1 + (k % 3), name: l.n, cpu: true, score: l.s, cause: l.cause === 'off' ? '' : l.cause, ride: stn(l.from) + '〜' + stn(l.to) }));
-      g.players.forEach((P, i) => { if (P.rider && !P.away) rows.push({ i, name: P.name, cpu: true, score: finalScoreOf(g, i).total, cause: P.out && P.result ? P.result.cause : '', ride: stn(P.from) + '〜（乗車中）' }); });
+      const rows = [{ i: mi, name: me.name, cpu: false, score: finalScoreOf(g, mi).total, cause: me.result ? me.result.cause : 'alive', ride: '', st: me.stats.stations || 0 }];
+      g.loopRide.log.forEach((l, k) => rows.push({ i: 1 + (k % 3), name: l.n, cpu: !l.g, uid: l.g ? l.u : '', score: l.s, cause: l.cause === 'off' ? '' : l.cause, ride: stn(l.from) + '〜' + stn(l.to), st: l.to - l.from }));
+      g.players.forEach((P, i) => { if (P.rider && !P.away) rows.push({ i, name: P.name, cpu: !P.guest, uid: P.guest ? P.uid : '', score: finalScoreOf(g, i).total, cause: P.out && P.result ? P.result.cause : (P.guest ? 'alive' : ''), ride: stn(P.from) + '〜（乗車中）', st: g.station - P.from }); });
       const bad = (c) => (c && c !== 'clear' && c !== 'alive' ? 1 : 0);
       return rows.sort((a, b) => b.score - a.score || bad(a.cause) - bad(b.cause));
     }
@@ -3331,7 +3346,7 @@
     C, LINE, LOOP_N, loopPlan, styleOf, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     DAILY_RULES, dailyRule, hasRule, saveGame, loadGame,
     teamScore, reviveCost,
-    CPU_LV, styleLv, styleParse, create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
+    CPU_LV, styleLv, styleParse, guestOn, create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
     KO_PTS, REPORT_T, GOOD_MAX, BABY_P, strollerAt, GESTS, gestureNotes, _internal: { seatedPick,  punchPlayer, addKarma, bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, doThrow, throwRange, throwTarget, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });

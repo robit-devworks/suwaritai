@@ -2964,9 +2964,9 @@
   function loopLockUI() {
     const n = loopLeft(), L = n > 0;
     $('startBox').classList.toggle('lk', L);
-    $('bLoop').classList.toggle('main', !L); $('bLoop').classList.toggle('locked', L); $('bStart').classList.toggle('main', L);
-    $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β</span>（あと ' + n + ' 回で解放）' : '🔄 出発する（環状線<span class="beta">β</span>）';
-    $('bStart').innerHTML = L ? '🚃 出発する（たちっぱ線）<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span>' : '🚃 たちっぱ線（一人モード）';
+    $('bLoop').classList.toggle('main', !L); $('bLoop').classList.toggle('locked', L); // たちっぱ線はいつも緑の大きなボタン（mainG）
+    $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β</span><small class="md">（あと ' + n + ' 回で解放）</small>' : '🔄 環状線<span class="beta">β</span><small class="md">（CPU・プレイヤー乱入モード）</small>'; // 2026-11-16・本人：たちっぱ線（一人モード）と形をそろえる
+    $('bStart').innerHTML = L ? '🚃 たちっぱ線<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span><small class="md">（一人モード）</small>' : '🚃 たちっぱ線<small class="md">（一人モード）</small>';
   }
   $('bLoop').addEventListener('click', () => {
     const n = loopLeft();
@@ -2984,7 +2984,8 @@
     loop: ['🔄 環状線 β（テスト中）のルール', [
       '🚉 ホームからスタート。電車が来てドアが開いたら、乗りこんで空いている席を取り合う',
       '🔄 12 駅でちょうど 1 周。どの駅から乗っても全部の駅を 1 回ずつ通る（駅の並びはその日みんな同じ）',
-      '🤖 駅ごとに CPU の乗客が乗ってくる（本物のプレイヤーの遊び方をまねている）。見た目はふつうの乗客と同じ。動きで見破ろう',
+      '👤 ほかのプレイヤーが走っている電車に途中の駅から乱入してくる（自分もほかの人の電車に乱入できる）。🤖 空いた席には CPU が乗ってくる（本物のプレイヤーの遊び方をまねている）',
+      '🕵 ライバル（プレイヤーも CPU も）の見た目はふつうの乗客と同じ。動きで見破ろう',
       '🧍 立っていると体力が減る。降りそうな人（掲示板チラ見・時計・荷物をまとめる）の前で待って、空いたら座る',
       '🙏 席を譲る・落とし物を届ける・悪者を注意すると徳とスコア。徳はスキルに使える',
       '👊 弱ったライバルにトドメでスコア +150（カルマもたまる）。落とし物を投げてもいい',
@@ -3130,7 +3131,8 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
-    { d: '2026-11-16', t: 'シェアがワンタップに', items: [
+    { d: '2026-11-16', t: '環状線にプレイヤーが乱入！・シェアがワンタップに', items: [
+      '🚉 環状線に、ほかのプレイヤーが乱入できるように！ 乗ると、いま走っているだれかの電車をさがして次の駅から乗りこみます（なければ自分の電車が走り出して、乱入を待ちます）。CPU の席と入れかわるので、だれが本物のプレイヤーか分からない…',
       '📣 結果画面に、その回の出来事から作る「ツッコミの一言」が出るように（「6駅乗って、座れたのは0回。ずっと立ってた」など）。「𝕏 でシェア」を押すだけで、一言と写真と点数の画像つきで投稿できます（環状線・CPU 戦の結果からも）',
       '🎥 キルカメラは、やられる 10 秒前から見られるように',
     ] },
@@ -4851,16 +4853,136 @@
     if (out.length < 6) CPU_NAMES.forEach((n) => out.push({ n, y: '' }));
     return out;
   }
+  // 🚉 環状線（CPU・プレイヤー乱入・2026-11-16・本人：オンラインになっていなかった。すぐ乱入できるように）：
+  //   乗るとき、いま走っている環状線（suwaritai/loopq に出ている電車）をさがす。見つかれば次の駅で乱入（CPU の席と入れかわる）。
+  //   なければ自分がホストになって走り出し、loopq に「乗れます」を出す（8 秒ごと・終わりの手前で消す）。オンラインが使えないときは今までどおり CPU だけ
+  const LOOPQ = 'suwaritai/loopq', LOOP_JOIN_WAIT = 45000;
+  const loopOnline = () => !inClaude && (NET_LOCAL || fbAllowed);
+  const fairStr = () => SW.STATS.map((d) => SW.capStats(profile.st, SW.STAT_CAP_FAIR)[d.key]).join(',');
   async function loopRideStart() {
-    if (MP.active) return;
+    if (MP.active || MP.joining) return;
+    if (loopOnline()) {
+      try {
+        const N = await withTimeout(net(), 8000), code = await loopFind(N);
+        if (code && await loopJoin(N, code)) return;
+      } catch (e) { }
+    }
+    return loopHost(loopOnline());
+  }
+  async function loopFind(N) {
+    const v = (await N.get(LOOPQ)) || {}, now = Date.now(), day = todayKey();
+    const list = Object.entries(v).filter(([c, x]) => x && x.h !== N.uid && x.d === day && (x.c || 1) < 4 && now - (x.t || 0) < 40000 && /^[0-9]{4}$/.test(c));
+    list.sort((a, b) => (b[1].c || 1) - (a[1].c || 1) || (b[1].t || 0) - (a[1].t || 0)); // 人の多い電車から
+    return list.length ? list[0][0] : null;
+  }
+  async function loopHost(online) {
     const riders = await stylePool();
-    mpReset(); MP.cpuMode = true; MP.loopRide = true; MP.cpuLv = 2; cpuNet = true;
-    const N = await net(); MP.isHost = true; MP.code = 'CPU'; MP.uid = N.uid; MP.hostUid = N.uid;
-    MP.offs.push(N.on(roomP('CPU') + '/state', (v) => mpOnState(v)));
-    const st = SW.STATS.map((d) => SW.capStats(profile.st, SW.STAT_CAP_FAIR)[d.key]).join(',');
-    const players = [{ uid: N.uid, name: rankName().slice(0, 12), cpu: false, st }].concat([0, 1, 2].map((k) => ({ uid: 'cpu' + k, name: '…', cpu: true, lv: 2, st: '' })));
-    await N.update(roomP('CPU'), { host: N.uid, state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: true, mode: 'vs', survival: 0, lv: 2, rated: false, loop: { day: todayKey() }, riders, platStart: 1, t: Date.now() } });
-    track('環状線（CPU あり）：出発（くせ ' + riders.filter((r) => r.y).length + '人分）');
+    mpReset(); MP.cpuMode = true; MP.loopRide = true; MP.cpuLv = 2; cpuNet = !online;
+    let N = await net(), code = 'CPU';
+    if (online) {
+      code = null;
+      try {
+        for (let k = 0; k < 8 && !code; k++) {
+          const c = String(1000 + Math.floor(Math.random() * 9000)), ex = await N.get(roomP(c));
+          if (ex && !(ex.created && ex.created < Date.now() - 3600000)) continue;
+          if (ex) { try { await N.remove(roomP(c)); } catch (e) { continue; } }
+          code = c;
+        }
+      } catch (e) { code = null; }
+      if (!code) { mpReset(); MP.cpuMode = true; MP.loopRide = true; MP.cpuLv = 2; cpuNet = true; N = await net(); code = 'CPU'; online = false; } // つながらないときは CPU だけで
+    }
+    MP.isHost = true; MP.code = code; MP.uid = N.uid; MP.hostUid = N.uid; MP.loopNet = online;
+    MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
+    const players = [{ uid: N.uid, name: rankName().slice(0, 12), cpu: false, st: fairStr() }].concat([0, 1, 2].map((k) => ({ uid: 'cpu' + k, name: '…', cpu: true, lv: 2, st: '' })));
+    const state0 = { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: true, mode: 'vs', survival: 0, lv: 2, rated: false, loop: { day: todayKey() }, riders, platStart: 1, t: Date.now() };
+    try { await N.update(roomP(code), online ? { host: N.uid, created: N.TS, state: state0 } : { host: N.uid, state: state0 }); }
+    catch (e) { if (online) return loopHost(false); throw e; }
+    if (online) {
+      N.onDisconnectRemove(roomP(code)); N.onDisconnectRemove(LOOPQ + '/' + code);
+      MP.offs.push(N.on(roomP(code) + '/join', (v) => { MP.joinReq = v || {}; }));
+      MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; mpMembersChanged(); }));
+      MP.lqT = 0;
+    }
+    track('環状線（CPU あり）：出発（くせ ' + riders.filter((r) => r.y).length + '人分）' + (online ? '・乱入を待つ' : ''));
+  }
+  // 乱入する側：走っている電車の部屋に「乗せて」を出し、次の駅でホストが席をくれるのを待つ（来なければ自分がホストに）
+  async function loopJoin(N, code) {
+    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true });
+    const me = { n: rankName().slice(0, 12), t: N.TS, s: fairStr() };
+    try { await N.set(roomP(code) + '/members/' + N.uid, me); await N.set(roomP(code) + '/join/' + N.uid, me); }
+    catch (e) { mpReset(); return false; }
+    N.onDisconnectRemove(roomP(code) + '/members/' + N.uid); N.onDisconnectRemove(roomP(code) + '/inputs/' + N.uid); N.onDisconnectRemove(roomP(code) + '/join/' + N.uid);
+    joinWaitShow(true);
+    MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; }));
+    MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
+    MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code === code) { if (MP.active) loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです'); else if (MP.joining) loopJoinGiveUp(); } }));
+    clearTimeout(MP.joinTO); MP.joinTO = setTimeout(() => { if (MP.joining && !MP.active && MP.code === code) loopJoinGiveUp(); }, LOOP_JOIN_WAIT);
+    track('環状線：乱入しに行った');
+    return true;
+  }
+  async function loopJoinLeave() {
+    const code = MP.code, uid = MP.uid; clearTimeout(MP.joinTO);
+    for (const off of (MP.offs || [])) { try { off(); } catch (e) { } } MP.offs = [];
+    try { const N = await net(); await N.remove(roomP(code) + '/join/' + uid); await N.remove(roomP(code) + '/members/' + uid); await N.remove(roomP(code) + '/inputs/' + uid); } catch (e) { }
+  }
+  async function loopJoinGiveUp() { // 乗せてもらえなかった：自分で走り出す
+    if (!MP.joining) return; MP.joining = false; joinWaitShow(false);
+    await loopJoinLeave(); track('環状線：乱入できなかったので自分で出発');
+    loopHost(true);
+  }
+  function joinWaitShow(on) {
+    let el = $('joinWait');
+    if (!on) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'joinWait'; document.body.appendChild(el); }
+    el.innerHTML = '<div class="jwc"><b>🚉 走っている電車を見つけた！</b><p>次の駅で乱入します…<br><small>だれがライバルか分からない。CPU の席と入れかわって乗りこむよ</small></p><div class="jwd"><i></i><i></i><i></i></div><button class="btn sub2" id="jwX">やめる</button></div>';
+    $('jwX').onclick = async () => { MP.joining = false; joinWaitShow(false); await loopJoinLeave(); mpReset(); titleScreen(); };
+  }
+  // ホスト：8 秒ごとに「乗れます」を出す・駅に着いてドアが開いたら、待っている人を CPU の席と入れかえて乗せる・席の顔ぶれをみんなに知らせる
+  function loopHostTick(dt) {
+    const g = G, last = SW.lastStation(g), canBoard = !g.over && g.station < last - 1;
+    const humans = MP.players.filter((p) => !p.cpu).length;
+    MP.lqT -= dt;
+    if (MP.lqT <= 0) {
+      MP.lqT = 8;
+      net().then((N) => (canBoard && humans < 4 ? N.set(LOOPQ + '/' + MP.code, { h: MP.uid, n: rankName().slice(0, 12), t: N.TS, d: todayKey(), c: humans, st: g.station }) : N.remove(LOOPQ + '/' + MP.code))).catch(() => { });
+    }
+    const req = MP.joinReq || {};
+    if (g.phase === 'stop' && g.doorsOpen && canBoard && !(g.bossAt && g.bossAt[g.station]) && g.phaseT > 0.6) {
+      for (const uid of Object.keys(req)) {
+        if (MP.players.some((p) => p.uid === uid)) { net().then((N) => N.remove(roomP(MP.code) + '/join/' + uid)).catch(() => { }); delete req[uid]; continue; }
+        let slot = g.players.findIndex((P, i) => i !== MP.me && P.rider && P.away);
+        if (slot < 0) slot = g.players.findIndex((P, i) => i !== MP.me && P.rider && P.cpu);
+        if (slot < 0) break;
+        const r = req[uid] || {}, a = String(r.s || '').split(','), stats = {}; SW.STATS.forEach((d, k) => { stats[d.key] = +a[k] || 0; });
+        const name = dispName(r.n).slice(0, 12);
+        if (SW.guestOn(g, slot, { name, uid, stats })) {
+          MP.players[slot] = { uid, name, cpu: false, st: String(r.s || '') }; delete MP.last[uid]; delete req[uid];
+          net().then((N) => N.remove(roomP(MP.code) + '/join/' + uid)).catch(() => { });
+          track('環状線：乱入を受け入れた');
+        }
+      }
+      SW.setCtx(g, MP.me);
+    }
+    const sig = g.players.map((P) => (P.cpu ? 'c' : 'h') + P.name + (P.away ? '_' : '')).join('|');
+    if (sig !== MP.rosterSig) {
+      MP.rosterSig = sig;
+      MP.players = g.players.map((P, i) => (i === MP.me ? MP.players[i] : P.cpu ? { uid: 'cpu' + i, name: P.name, cpu: true, lv: 2, st: '' } : { uid: P.uid, name: P.name, cpu: false, st: (MP.players[i] && MP.players[i].st) || '' }));
+      net().then((N) => N.update(roomP(MP.code) + '/state', { players: MP.players })).catch(() => { });
+    }
+  }
+  // 乱入した側：席の顔ぶれが変わった（CPU が乗った・ほかのプレイヤーが乱入した）
+  function loopRoster(pl) {
+    MP.players = pl;
+    pl.forEach((p, i) => { const P = G && G.players[i]; if (P && i !== MP.me) { P.name = p.name; P.cpu = !!p.cpu; } });
+  }
+  // 乱入した側：倒れて「結果へ」・ホストがいなくなった：いま分かっている点数で結果を出して、部屋を出る
+  async function loopGuestEnd(msg) {
+    if (!G || !MP.loopNet || MP.isHost) return;
+    const res = G.players.map((P, i) => ({ i, name: P.name, cpu: !!P.cpu, uid: i === MP.me ? MP.uid : P.cpu ? 'cpu' : (MP.players[i] || {}).uid, score: MP.scores[i] || 0, cause: P.result ? P.result.cause : P.out ? '' : 'alive', ride: '', st: G.station - (MP.joinSt || 0) }))
+      .filter((r) => r.i === MP.me || !G.players[r.i].away).sort((a, b) => b.score - a.score);
+    await loopJoinLeave();
+    mpShowResult(res, {});
+    if (msg) $('mpResNote').insertAdjacentHTML('afterbegin', esc(msg) + '<br>');
   }
   function mpReset() {
     cpuNet = false;
@@ -4868,7 +4990,7 @@
     Object.assign(MP, {
       active: false, code: null, isHost: false, uid: null, hostUid: null, me: -1, offs: [], members: {}, state: null, players: [],
       remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, cnt: { a: 0, p: 0, bp: 0, fs: 0, sk: 0 }, skIdx: -1,
-      cpuMode: false, loopRide: false, cpuLv: 0, seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', mmRated: false, mmExpect: 0, mmT0: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
+      cpuMode: false, loopRide: false, loopNet: false, joining: false, joinReq: {}, rosterSig: '', lqT: 0, joinSt: 0, cpuLv: 0, seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', mmRated: false, mmExpect: 0, mmT0: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
     });
   }
   mpReset();
@@ -4926,7 +5048,7 @@
   $('bGest').addEventListener('click', (e) => { e.stopPropagation(); $('gestPop').classList.toggle('hidden'); });
   $('gestPop').querySelectorAll('[data-g]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); initAudio(); if (state === 'play') { inp.gesture = b.dataset.g; track('しぐさ：' + b.dataset.g); } $('gestPop').classList.add('hidden'); }));
   for (const ev of ['touchstart', 'touchend', 'mousedown']) $('gestW').addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
-  $('mpToRes').addEventListener('click', () => { $('mpOut').classList.add('hidden'); followEnd(); });
+  $('mpToRes').addEventListener('click', () => { $('mpOut').classList.add('hidden'); if (MP.loopNet && !MP.isHost) { followEnd(); loopGuestEnd(); return; } followEnd(); });
   $('mpQuit').addEventListener('click', () => mpLeave(false));
   $('mpAgain').addEventListener('click', () => mpAgain());
   $('mpLeave').addEventListener('click', () => mpLeave(false));
@@ -5009,7 +5131,8 @@
     if (!v) return;
     if (!MP.isHost && typeof v.cpu === 'boolean') $('olCpu').checked = v.cpu;
     if (!MP.isHost && v.mode) MP.modeSel = v.mode;
-    if (v.s === 'play' && !MP.active) mpBegin(v);
+    if (v.s === 'play' && !MP.active) { if (MP.loopNet && !MP.isHost && !(v.players || []).some((p) => p.uid === MP.uid)) return; mpBegin(v); } // 乱入：席をもらえるまで待つ
+    else if (v.s === 'play' && MP.active && MP.loopNet && !MP.isHost && v.players) loopRoster(v.players);
     else if (v.s === 'done' && MP.active) mpShowResult(v.res || [], v);
     else if (v.s === 'lobby') { if (state === 'result' && $('mpres').classList.contains('hidden') === false || MP.active) { MP.active = false; openOnline(); } mpRenderRoom(); }
   }
@@ -5049,7 +5172,8 @@
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (MP.spect) { document.body.classList.add('replay'); $('spBar').classList.remove('hidden'); spName(); addToast('👀 観戦中。「次の人」で見る人を切りかえ', 'good'); track('オンライン：観戦をはじめた'); }
     else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
-    if (st.loop) addToast('🚉 電車が来た！ ドアが開いたら乗りこんで、空いている席を取り合え（12 駅で 1 周・倒れたら終わり）', 'good');
+    if (MP.joining) { MP.joining = false; MP.joinSt = -1; clearTimeout(MP.joinTO); joinWaitShow(false); track('環状線：乱入した'); }
+    else if (st.loop) addToast('🚉 電車が来た！ ドアが開いたら乗りこんで、空いている席を取り合え（12 駅で 1 周・倒れたら終わり）' + (MP.loopNet ? '　途中の駅から、ほかのプレイヤーが乱入してくるかも…' : ''), 'good');
     else if (!MP.spect && G.survival) addToast(MP.cpuMode ? '🤖 CPU 戦（' + CPU_LVJ[st.lv || 0] + '）スタート！ 倒れたら即脱落。最後まで生き残れ' : '🏅 レート戦スタート！ 倒れたら即脱落。最後まで生き残った人の勝ち', 'good');
     else if (!MP.spect) addToast(G.coop ? '🤝 共闘スタート！ みんなの合計で勝負。倒れた仲間はそばで「復活させる」' : '🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
     net().then((N) => {
@@ -5134,7 +5258,7 @@
     });
     snap.ev = MP.evRing.slice(-60); snap.sc = MP.scores;
     snap.co = [g.coopRev || 0, g.coopPen || 0, g.players.reduce((m, P, i) => m | (P.down ? 1 << i : 0), 0)]; // 倒れている人（共闘・対戦とも） // 共闘：復活の回数・引かれた点・倒れている人
-    net().then((N) => N.set(roomP(MP.code) + '/snap', snap)).catch(() => { });
+    if (!MP.loopNet || MP.players.some((p, i) => i !== MP.me && !p.cpu)) net().then((N) => N.set(roomP(MP.code) + '/snap', snap)).catch(() => { }); // 環状線：乱入した人がいるときだけ送る
     mpRecPush(snap, g);
   }
   // ---- オンラインの試合を記録する（共闘・対戦とも。自分の見た様子を 0.2 秒ごと。終わったら「自分のリプレイ」になる）
@@ -5205,6 +5329,7 @@
     b.ganim = a[33] === 2 ? 'watch' : 'board'; b.ganimT = (a[34] || 0) / 10; b.gpack = a[35] ? g.t + 1 : 0; // 🎭 しぐさ（見た目だけ）
   }
   function mpApply(snap) {
+    if (MP.joinSt === -1 && G && snap.st != null) MP.joinSt = snap.st; // 乱入した駅（結果の駅数に使う）
     if (!G || RP.active || snap.k <= MP.lastK) return;
     MP.lastK = snap.k;
     const g = G;
@@ -5255,6 +5380,7 @@
     if (MP.isHost) {
       const inputs = MP.players.map((p, i) => p.cpu ? null : i === MP.me ? li : mpRemoteInput(i));
       if (!g.over) SW.updateMulti(g, dt, inputs);
+      if (MP.loopNet) loopHostTick(dt); // 🚉 乱入の受け入れ
       g.players.forEach((P, i) => { if (i !== MP.me && P.events.length) { for (const e of P.events) MP.evRing.push([++MP.seq, i, e]); P.events.length = 0; } });
       if (MP.evRing.length > 120) MP.evRing.splice(0, MP.evRing.length - 120);
       SW.setCtx(g, MP.me);
@@ -5266,7 +5392,8 @@
       if (!meP.out && MP.outShown) mpRevived();
       if (g.over && !MP.resSent) {
         MP.resSent = true; mpSendSnap();
-        const res = SW.standings(g).map((r) => Object.assign(r, { uid: r.cpu ? 'cpu' : MP.players[r.i].uid }));
+        const res = SW.standings(g).map((r) => Object.assign(r, { uid: r.uid || (r.cpu ? 'cpu' : MP.players[r.i].uid) }));
+        if (MP.loopNet) net().then((N) => N.remove(LOOPQ + '/' + MP.code)).catch(() => { });
         net().then((N) => N.update(roomP(MP.code) + '/state', Object.assign({ s: 'done', res }, g.coop ? { coop: 1, team: SW.teamScore(g), rv: g.coopRev, pen: g.coopPen } : {})));
       }
     } else {
@@ -5356,7 +5483,7 @@
     $('mpAgain').textContent = MP.loopRide ? 'もう一回（環状線）' : MP.cpuMode ? 'もう一回（' + CPU_LVJ[MP.cpuLv] + '）' : 'もう一回（同じ部屋で）'; $('mpLeave').textContent = MP.cpuMode ? 'タイトルへ' : '部屋を出る';
     if (MP.loopRide) {
       const meR = res.find((r) => r.uid === MP.uid) || {};
-      $('mpResNote').innerHTML = (meR.cause === 'clear' ? '🏁 1 周した！ ' : '💀 ' + (causeJa[meR.cause] || '脱落') + '… ') + '<b>' + (meR.score || 0) + ' 点</b><br>一緒に乗った 🤖 ' + (res.length - 1) + ' 人の中で ' + myRank + ' 位';
+      $('mpResNote').innerHTML = (meR.cause === 'clear' ? '🏁 1 周した！ ' : '💀 ' + (causeJa[meR.cause] || '脱落') + '… ') + '<b>' + (meR.score || 0) + ' 点</b><br>一緒に乗った ' + (res.length - 1) + ' 人（🤖 CPU ' + res.filter((r) => r.cpu).length + '・👤 プレイヤー ' + res.filter((r) => !r.cpu && r.uid !== MP.uid).length + '）の中で ' + myRank + ' 位';
       track('環状線（CPU あり）：' + (meR.cause === 'clear' ? '1 周' : '脱落') + '・' + myRank + '位');
     } else if (MP.cpuMode) {
       const meR = res.find((r) => r.uid === MP.uid) || {}, alive = res.filter((r) => r.alive).length;
@@ -5384,8 +5511,8 @@
       if (ok && MP.isHost && !NET_LOCAL) submitCoop(humans, v.team, v.rv || 0, rec).then((t) => { if (t && state === 'result') $('mpResNote').innerHTML += '<br>' + t; });
       track('オンライン：共闘の結果（' + MP.players.length + '人・' + (v.team >= 2000 ? '2000〜' : v.team >= 1000 ? '1000〜' : '〜999') + '）');
     }
-    $('mpAgain').classList.toggle('hidden', !MP.isHost);
-    if (!MP.isHost) $('mpResNote').insertAdjacentHTML('beforeend', '<br>（ホストが「もう一回」を押すと、同じ部屋で始まります）');
+    $('mpAgain').classList.toggle('hidden', !MP.isHost && !MP.loopRide);
+    if (!MP.isHost && !MP.loopRide) $('mpResNote').insertAdjacentHTML('beforeend', '<br>（ホストが「もう一回」を押すと、同じ部屋で始まります）');
     if (v.rated) mmRateUpdate(res).then((t) => { if (t && state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>' + t); return rateRpUpload(rec, res); }).then((t) => { if (t && state === 'result') $('mpResNote').insertAdjacentHTML('beforeend', '<br>' + t); });
     show('mpres');
     sfx(myRank === 1 || v.coop ? 'clear' : 'over');
@@ -5395,11 +5522,11 @@
   //   環状線は駅の並びがその日みんな同じなので「今日」で比べると公平。遊び方のくせ（style）もここで送る
   async function loopSubmit(meR, rec) {
     if (DB || !fbAllowed || !G || NET_LOCAL) return;
-    const sc = Math.max(0, Math.min(30000, Math.round(meR.score || 0))), st = G.players[MP.me] ? G.players[MP.me].stats.stations || 0 : 0;
+    const sc = Math.max(0, Math.min(30000, Math.round(meR.score || 0))), st = meR.st != null ? meR.st : G.players[MP.me] ? G.players[MP.me].stats.stations || 0 : 0;
     try {
       const F = await firebaseReady(); if (!F) return;
       SW.setCtx(G, MP.me); const y = SW.styleOf(G).slice(0, 200);
-      if (st >= 2) withTimeout(F.db.ref('suwaritai/style/' + F.uid).set({ n: rankName(), s: sc, y, m: 'loop', t: F.TS }), 10000).catch(() => { });
+      if (st >= 2 && MP.isHost) withTimeout(F.db.ref('suwaritai/style/' + F.uid).set({ n: rankName(), s: sc, y, m: 'loop', t: F.TS }), 10000).catch(() => { });
       if (st < 1) { $('mpResNote').insertAdjacentHTML('beforeend', '<br>（1 駅も進まなかったので、ランキングには載りません）'); return; }
       const R = { sc: { total: sc, title: SW.titleFor(sc, G.player.karma) } };
       const dk = todayKey(), name = rankName();
@@ -5498,8 +5625,8 @@
     } catch (e) { return ''; }
   }
   async function mpAgain() {
+    if (MP.loopRide) { await mpLeave(false); loopRideStart(); return; } // 環状線：乱入した人も「もう一回」
     if (!MP.isHost) return;
-    if (MP.loopRide) { await mpLeave(false); loopRideStart(); return; }
     if (MP.cpuMode) { const lv = MP.cpuLv; await mpLeave(false); cpuStart(lv); return; }
     const N = await net();
     await N.update(roomP(MP.code), { state: { s: 'lobby', cpu: $('olCpu').checked, mode: MP.modeSel || 'vs' } }); // 操作の記録は残っていても、次の試合で最初の値を基準にするので問題ない
@@ -5511,8 +5638,8 @@
     try {
       const N = await net();
       if (code) {
-        if (host) await N.remove(roomP(code));
-        else if (!MP.spect) { await N.remove(roomP(code) + '/members/' + MP.uid); await N.remove(roomP(code) + '/inputs/' + MP.uid); }
+        if (host) { await N.remove(roomP(code)); if (MP.loopNet) await N.remove(LOOPQ + '/' + code); }
+        else if (!MP.spect) { await N.remove(roomP(code) + '/members/' + MP.uid); await N.remove(roomP(code) + '/inputs/' + MP.uid); if (MP.loopNet) await N.remove(roomP(code) + '/join/' + MP.uid); }
       }
     } catch (e) { }
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); if (MP.avatars[k].HD) scene.remove(MP.avatars[k].HD.root); }
