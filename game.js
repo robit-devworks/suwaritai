@@ -20,7 +20,7 @@
     try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) { /* 無視 */ }
   }
   const NEW_UNTIL = '2026-11-25'; // この日まで、新しく入ったもの（今日のルール・練習乗車）に「NEW」の印
-  const MODE_JA = { rookie: '見習い乗車', online: 'オンライン', bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', loop: '環状線β', guidetest: '座り方の案内のお試し', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
+  const MODE_JA = { classic: 'たちっぱ線・旧ダイヤ', rookie: '見習い乗車', online: 'オンライン', bossrush: 'ボス駅ラッシュ', ranked: 'ランク線', mikiwame: '見極め線', ruletest: 'ルールのお試し', practice: '練習乗車', bosstest: 'ボス駅テスト', loop: '環状線β', guidetest: '座り方の案内のお試し', tutorial: 'チュートリアル', normal: 'たちっぱ線', daily: '今日のダイヤ', endless: '終点なし', hard: '満員地獄', jiji: '敬老の日' };
 
   // ================================================================ 保存
   const STORE_KEY = 'suwaritai.v1';
@@ -2535,7 +2535,7 @@
     const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, loop: loopSel ? { day: todayKey() } : null, seatGuide: guideTest || (mode === 'normal' && !rookieSel && !(profile.plays || 0)), ease: (mode === 'normal' || mode === 'daily') && !rookieSel && (profile.earlyFail || 0) >= 2, tells: (profile.plays || 0) < 3 || guideTest, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'hard' || mode === 'jiji' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' || mode === 'classic' ? 'normal' : mode, classic: mode === 'classic', bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, loop: loopSel ? { day: todayKey() } : null, seatGuide: guideTest || (mode === 'normal' && !rookieSel && !(profile.plays || 0)), ease: (mode === 'normal' || mode === 'daily') && !rookieSel && (profile.earlyFail || 0) >= 2, tells: (profile.plays || 0) < 3 || guideTest, stats: profile.st, statCap: mode === 'normal' || mode === 'classic' || mode === 'daily' || mode === 'hard' || mode === 'jiji' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : guideTest ? 'guidetest' : loopSel ? 'loop' : mode;
     G.rkTrain = rkTrain; G.rkWeek = resume ? resume.meta.rkWeek : weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
@@ -2968,7 +2968,7 @@
     $('startBox').classList.toggle('lk', L);
     $('bLoop').classList.toggle('main', !L); $('bLoop').classList.toggle('locked', L); // たちっぱ線はいつも緑の大きなボタン（mainG）
     $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β</span><small class="md">（あと ' + n + ' 回で解放）</small>' : '🔄 環状線<span class="beta">β</span><small class="md">（CPU・プレイヤー乱入モード）</small>'; // 2026-11-16・本人：たちっぱ線（一人モード）と形をそろえる
-    $('bStart').innerHTML = L ? '🚃 たちっぱ線<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span><small class="md">（一人モード）</small>' : '🚃 たちっぱ線<small class="md">（一人モード）</small>';
+    $('bStart').innerHTML = L ? '🚃 たちっぱ線<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span><small class="md">（新ダイヤ・一人モード）</small>' : '🚃 たちっぱ線<small class="md">（新ダイヤ・一人モード）</small>';
   }
   $('bLoop').addEventListener('click', () => {
     const n = loopLeft();
@@ -2980,7 +2980,8 @@
     }
     track('ホーム：環状線'); loopRideStart();
   }); // 🔄 環状線（CPU が乗ってくる）がいちばん上・たちっぱ線は一人モード（2026-11-15・本人）
-  $('bStart').addEventListener('click', () => startGame('normal')); // 最初はまず体験してもらう（チュートリアルは聞かない）
+  $('bStart').addEventListener('click', () => startGame('normal'));
+  $('bClassic').addEventListener('click', () => { track('ホーム：旧ダイヤ'); startGame('classic'); }); // 🕰 旧ダイヤ（大型アップデート前の遊び方・上級） // 最初はまず体験してもらう（チュートリアルは聞かない）
   // ？ルール（2026-11-15・本人）：ホームの環状線・たちっぱ線のボタンの右はしから、そのモードのルールを読める
   const RULES = {
     loop: ['🔄 環状線 β（テスト中）のルール', [
@@ -2997,7 +2998,14 @@
       '💀 体力か精神が 0、カルマがいっぱい（連行）で終わり。倒れたあとは相手の視点で見続けられる',
       '🏆 ランキング：今日・歴代（上位 10 人はリプレイが見られる）',
     ]],
-    normal: ['🚃 たちっぱ線（一人モード）のルール', [
+    classic: ['🕰 たちっぱ線・旧ダイヤ（上級）のルール', [
+      '🕰 大型アップデート（2026-11-16）の前の遊び方。落とし物がいっぱい落ちて、拾って届けると徳とスコア',
+      '👀 降りる合図（荷物をまとめる・掲示板チラ見・時計）は乗客のカードに出る',
+      '😵 1 駅目から体力がふつうに減る（慣らしなし）。座ったときの回復も前のまま。読み的中・答え合わせはなし',
+      '🙏 席を譲る・落とし物を届ける・悪者をこらしめると徳とスコア。徳はスキルに使える',
+      '🏢 ボス駅あり。🏆 ランキングはなし（自己ベストだけ）',
+    ]],
+    normal: ['🚃 たちっぱ線・新ダイヤ（一人モード）のルール', [
       '🚃 各駅停車で、終点「やっと座れ橋」をめざす。乗っているのは自分だけ',
       '🧍 立っていると体力が減る。降りそうな人（掲示板チラ見・時計・荷物をまとめる）を見極めて前に立ち、空いたら座る',
       '👀 降りる合図（荷物をまとめる・掲示板チラ見・時計）はカードに出ない。乗客のしぐさを見て読もう（はじめての 3 回と 👓 メガネのあいだは、カードにも出る）',
@@ -3144,6 +3152,7 @@
       '👜 落とし物は減らして脇役に（落とし物拾いのゲームにならないように）。座る・読み的中で増えるのはスコアだけ（徳は良いことをしたときだけ）',
       '🔰 1〜2 駅目は慣らし。立っていても体力があまり減らない。座ったときの回復も大きく',
       '🚉 環状線に、ほかのプレイヤーが乱入できるように！ 走っているだれかの電車に、次の駅から乗りこむ（なければ自分の電車で乱入を待つ）',
+      '🕰 前の遊び方（落とし物いっぱい・合図がカードに出る）も「たちっぱ線・旧ダイヤ（上級）」としてホームから遊べます。新ダイヤと旧ダイヤ、両方遊んだら結果画面のアンケートで教えてね',
       '🏆 ランキングは今日から新しい版（緑の「新」がつく記録）。📣 結果画面の「ツッコミの一言」と「𝕏 でシェア」ワンタップも',
     ] },
     { d: '2026-11-15', t: '大型アップデート：環状線・だれがライバルか分からない席取りバトル', items: [
@@ -3204,6 +3213,11 @@
   ];
   // 片手のお知らせのカード：2026-11-13 に一旦やめた（本人）。また出すときは true に
   var OH_ON = false;
+  // 🗳 新ダイヤ・旧ダイヤのアンケート（2026-11-16・本人：どっちがいいか聞く）：両方を 1 回以上遊んだ人に、結果画面で 1 回だけ。答えは GoatCounter
+  document.querySelectorAll('#dPoll [data-dp]').forEach((b) => b.addEventListener('click', () => {
+    profile.dPoll = b.dataset.dp; saveProfile(); track('アンケート：ダイヤ：' + b.textContent.trim());
+    $('dPoll').innerHTML = '<b>🙏 ありがとう！ 参考にします</b>';
+  }));
   const updClose = (go) => { profile.upd1116 = 1; saveProfile(); $('updCard').classList.add('hidden'); if (go) { track('大型アップデートのお知らせからたちっぱ線へ'); startGame('normal'); } };
   $('updGo').addEventListener('click', () => updClose(true)); $('updNo').addEventListener('click', () => updClose(false));
   const ohPick = (v) => { profile.joyFix = v; saveProfile(); applyJoy(); $('oneHand').classList.add('hidden'); if (v) titleToast(v === 'r' ? '✋ 右手で遊ぶ設定にしました' : '🤚 左手で遊ぶ設定にしました'); track('片手のお知らせ：' + (v === 'r' ? '右手' : v === 'L' ? '左手' : 'あとで')); };
@@ -3380,9 +3394,13 @@
       if (g.rookie) { track('見習い乗車：' + causeJa); track('見習い乗車：終わった駅：' + Math.min(g.stats.stations, SW.lastStation(g)) + '駅目'); }
       for (const a of newAch) { const ach = SW.ACHIEVEMENTS.find(x => x.id === a); if (ach) track('実績：' + ach.name); }
     }
+    if (mode === 'classic') profile.dN = Object.assign({ o: 0, n: 0 }, profile.dN, { o: ((profile.dN || {}).o || 0) + 1 });
+    else if (mode === 'normal') profile.dN = Object.assign({ o: 0, n: 0 }, profile.dN, { n: ((profile.dN || {}).n || 0) + 1 });
+    const askPoll = (mode === 'classic' || mode === 'normal') && profile.dN && profile.dN.o >= 1 && profile.dN.n >= 1 && !profile.dPoll;
     lastResult.moment = momentText(g);
     lastResult.punch = punchLine({ s, cause: r.cause, koText: r.text, loop: !!g.loop, st: s.stations, mode }); lastResult.photo = SHOT.raw || rawShot(); // 📣 ツッコミの一言と写真（2026-11-16）
     setShareHref(); showNudge(g);
+    $('dPoll').classList.toggle('hidden', !askPoll); if (askPoll) track('アンケート：ダイヤ：出した');
     $('bRetry').textContent = mode === 'practice' ? '🚃 本番に挑戦！' : 'もう一回乗る';
     // すぐ倒れた（3 駅目まで）はじめのころの人にだけ、見習い乗車をすすめる（2026-11-13：はじめの 3 回の見習い乗車をやめたかわり）
     const rkTip = mode === 'normal' && !g.rookie && r.cause !== 'clear' && Math.min(s.stations, SW.lastStation(g)) <= 3 && (profile.plays || 0) <= 10;
@@ -3641,7 +3659,7 @@
   const FB_VER = '10.12.2';
   const inClaude = !!(window.claude && window.claude.use);
   const fbAllowed = !inClaude && /^https?:$/.test(location.protocol) && !/[?&]rank=off/.test(location.search);
-  let DB = null, myId = null, rankTab = 'day', fbWait = null;
+  let DB = null, myId = null, rankTab = 'nday', fbWait = null;
   (async function initClaude() {
     try {
       if (!inClaude) return;
@@ -3745,7 +3763,8 @@
     if (R.mode === 'ranked') { const rec = REC && REC.done ? REC : null; REC = null; if (!DB && fbAllowed) submitRanked(R, rec); return; } // 見極め線は自分のランキング（今週・歴代）
     const hid = R.mode === 'hard' || R.mode === 'jiji'; // 隠しモード（🔥 満員地獄・👴 敬老の日）：歴代だけのランキング
     if (hid && DB) return; // 隠しモードのランキングは遊ぶサイトだけ
-    if (R.mode !== 'normal' && R.mode !== 'daily' && !hid) return;
+    if (R.mode === 'classic' && DB) return; // 旧ダイヤのランキングは遊ぶサイトだけ
+    if (R.mode !== 'normal' && R.mode !== 'daily' && R.mode !== 'classic' && !hid) return;
     if (!DB && !fbAllowed) return;
     if (DB && !myId) return;
     $('rRank').textContent = 'ランキングに記録中…';
@@ -3761,7 +3780,7 @@
         if (main && R === lastResult) { R.rk = { rank: main.rank, total: main.total }; setShareHref(); }
         if (state === 'result' && main) $('rRank').textContent = `🏆 ${R.mode === 'daily' ? '今日のダイヤ' : '今日'} ${rankTxt(main)}・今週 ${rk(res.week)}・歴代 ${rk(res.best)}${res.best && res.best.improved ? '（自己ベスト更新！）' : ''}` + (nameRefused ? '　※「ROBIT」「開発」が入った名前は使えないため、名無しの乗客で載せました' : '');
         else if (state === 'result') $('rRank').textContent = '';
-        if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : 'day');
+        if (state === 'result' && main) showMiniBoard(R.mode === 'daily' ? 'daily' : R.mode === 'classic' || DB ? 'day' : 'nday');
         if (!DB) claimGifts();
         if (!DB && res) hardTip(res.week);
       } catch (e) {
@@ -3815,11 +3834,13 @@
       return { rank: rt.rank, total: rt.total, improved: better && !!old, mine: better };
     };
     if (R.mode === 'hard' || R.mode === 'jiji') return { [R.mode]: await put('suwaritai/' + R.mode + '/' + F.uid) }; // 隠しモード（🔥 満員地獄・👴 敬老の日）：歴代だけ（2026-11-14）
-    const best = await put('suwaritai/best/' + F.uid);
-    const day = await put('suwaritai/day/' + dk + '/' + F.uid);
-    const week = await put('suwaritai/week/' + weekKey() + '/' + F.uid);
+    // 🕰 旧ダイヤは前のたちっぱ線のランキング（best・day・week）を引きつぐ。🚃 新ダイヤ・今日のダイヤは新しいランキング（nbest・nday・nweek）（2026-11-16・本人）
+    const pre = R.mode === 'classic' ? '' : 'n';
+    const best = await put('suwaritai/' + pre + 'best/' + F.uid);
+    const day = await put('suwaritai/' + pre + 'day/' + dk + '/' + F.uid);
+    const week = await put('suwaritai/' + pre + 'week/' + weekKey() + '/' + F.uid);
     const daily = R.mode === 'daily' ? await put('suwaritai/daily/' + dk + '/' + F.uid) : null;
-    return { best, day, week, daily };
+    return { best, day, week, daily, pre };
   }
   // ================================================================ ランク線（一人用のレート）
   // 今週の電車を RK_TRAINS 本用意する（週と番号で決まる＝みんな同じ電車）。遊び終わったら、同じ電車を走ったレートの近い人と点数で比べて、イロレートを上げ下げする
@@ -4074,6 +4095,7 @@
   async function fetchBoard(tab) {
     const dk = todayKey();
     if (DB) {
+      tab = { nday: 'day', nweek: 'week', nbest: 'normal' }[tab] || tab; // Claude 版は前からのしくみのまま（新旧で分けない）
       if (/^mk/.test(tab) || tab === 'hard' || tab === 'jiji' || /^loop/.test(tab)) return { list: [], me: myId, mine: null, total: 0 }; // Claude 版では見極め線・満員地獄のランキングは記録しない
       const all = await fetchClaude();
       const wk = weekKey();
@@ -4087,7 +4109,7 @@
       return { list: arr.slice(0, TOP_N), me: myId, mine: i >= 0 ? Object.assign({ rank: i + 1 }, arr[i]) : null, total: arr.length, near };
     }
     const F = await firebaseReady(); if (!F) return null;
-    const path = tab === 'hard' || tab === 'jiji' || tab === 'loop' ? 'suwaritai/' + tab : tab === 'loopd' ? 'suwaritai/loopd/' + dk : tab === 'mkweek' ? 'suwaritai/mk/week/' + weekKey() : tab === 'mkbest' ? 'suwaritai/mk/best' : tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : 'suwaritai/best';
+    const path = tab === 'hard' || tab === 'jiji' || tab === 'loop' ? 'suwaritai/' + tab : tab === 'loopd' ? 'suwaritai/loopd/' + dk : tab === 'mkweek' ? 'suwaritai/mk/week/' + weekKey() : tab === 'mkbest' ? 'suwaritai/mk/best' : tab === 'daily' ? 'suwaritai/daily/' + dk : tab === 'day' ? 'suwaritai/day/' + dk : tab === 'week' ? 'suwaritai/week/' + weekKey() : tab === 'nday' ? 'suwaritai/nday/' + dk : tab === 'nweek' ? 'suwaritai/nweek/' + weekKey() : tab === 'nbest' ? 'suwaritai/nbest' : 'suwaritai/best';
     const snap = await withTimeout(F.db.ref(path).orderByChild('s').limitToLast(TOP_N).get(), 10000);
     const arr = [];
     snap.forEach(c => { const v = c.val() || {}; arr.push({ id: c.key, name: dispName(v.n, c.key), score: v.s || 0, title: v.ti, v: v.v || 1 }); });
@@ -4112,7 +4134,8 @@
   }
   // ランキングの画面（2026-11-15・本人：項目が増えて見づらい）：上に「どのランキング」をアイコンで横に並べ（横にすべる）、下にその中の「今日・今週・歴代」などを出す
   const RANK_MODES = [
-    { k: 'tachi', ic: '🚃', l: 'たちっぱ線', subs: [['day', '今日'], ['week', '今週'], ['normal', '歴代']] },
+    { k: 'tachi', ic: '🚃', l: 'たちっぱ線', subs: [['nday', '今日'], ['nweek', '今週'], ['nbest', '歴代']] },
+    { k: 'old', ic: '🕰', l: '旧ダイヤ', subs: [['day', '今日'], ['week', '今週'], ['normal', '歴代']] },
     { k: 'loop', ic: '🔄', l: '環状線', subs: [['loopd', '今日'], ['loop', '歴代']] },
     { k: 'daily', ic: '📅', l: '今日のダイヤ', subs: [['daily', '']] },
     { k: 'mk', ic: '👀', l: '見極め線', subs: [['mkweek', '今週'], ['mkbest', '歴代']] },
@@ -4125,8 +4148,8 @@
   const rankModeOf = (tab) => RANK_MODES.find((m) => m.subs.some((x) => x[0] === tab)) || RANK_MODES[0];
   function setRankTab(tab) {
     if (tab === 'rk') tab = 'rkon';
-    if ((tab === 'hard' || tab === 'jiji') && !profile.unlock[tab]) tab = 'day';
-    if (!RANK_MODES.some((m) => m.subs.some((x) => x[0] === tab))) tab = 'day';
+    if ((tab === 'hard' || tab === 'jiji') && !profile.unlock[tab]) tab = 'nday';
+    if (!RANK_MODES.some((m) => m.subs.some((x) => x[0] === tab))) tab = 'nday';
     rankTab = tab;
     const M = rankModeOf(tab), modes = RANK_MODES.filter((m) => !m.need || profile.unlock[m.need]);
     $('rankModes').innerHTML = modes.map((m) => `<button data-rm="${m.k}" class="${m === M ? 'on' : ''}"><i>${m.ic}</i>${m.l}</button>`).join('');
@@ -4211,7 +4234,7 @@
       if (!b) throw new Error('none');
       if (rankTab !== tab) return;
       const wk = weekKey().slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/');
-      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', day: '今日のランキング（' + dk + '）・毎日 0 時にリセット', week: '今週のランキング（' + wk + '〜）・毎週月曜にリセット', mkweek: '👀 見極め線・今週（' + wk + '〜）', mkbest: '👀 見極め線・歴代', hard: '🔥 満員地獄・歴代（隠しモードを開けた人だけ）', jiji: '👴 敬老の日・歴代（隠しモードを開けた人だけ）' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
+      $('rankNote').textContent = ({ daily: '今日のダイヤ（' + dk + '）・全員同じ電車', nday: '🚃 たちっぱ線（新ダイヤ）・今日（' + dk + '）・毎日 0 時にリセット', nweek: '🚃 たちっぱ線（新ダイヤ）・今週（' + wk + '〜）・毎週月曜にリセット', nbest: '🚃 たちっぱ線（新ダイヤ）・歴代', day: '🕰 旧ダイヤ・今日（' + dk + '）', week: '🕰 旧ダイヤ・今週（' + wk + '〜）', normal: '🕰 旧ダイヤ・歴代（前のたちっぱ線の記録を引きつぎ）', mkweek: '👀 見極め線・今週（' + wk + '〜）', mkbest: '👀 見極め線・歴代', hard: '🔥 満員地獄・歴代（隠しモードを開けた人だけ）', jiji: '👴 敬老の日・歴代（隠しモードを開けた人だけ）' }[tab] || '歴代ランキング（みんなの自己ベスト）') + (b.total == null ? '・上位' + TOP_N + '人' : '・' + b.total + '人');
       listEl.innerHTML = b.list.length ? rankRows(b, TOP_N) : '<p class="small">まだだれもいません。一番乗りしよう！</p>';
       if (/^mk/.test(tab)) mkHof().then((h) => { if (h && rankTab === tab) listEl.insertAdjacentHTML('afterbegin', h); });
       // 自分が下のほうにいるときは「あなたの順位へ」ボタン（押すと自分の行まで動く）
@@ -4238,7 +4261,7 @@
   // 遊んでいるあいだ 0.2 秒ごとに様子（オンライン対戦と同じ形）を記録しておき、上位 10 位に入ったら gzip して Firebase に送る
   // suwaritai/rp/{種類}/{uid}：中身　rpi/{種類}/{uid}：目次（点数・日付）　rpv/{uid}：見られた数　rpl/{uid}/{見た人}：いいね
   const RP_TOP = 10, RP_MAXF = 6000; // 6000 コマ＝20 分まで
-  const RP_KIND = { day: 'day', week: 'week', normal: 'best', daily: 'daily', mkweek: 'mkweek', mkbest: 'mkbest', hard: 'hard', jiji: 'jiji', loop: 'loop', loopd: 'loopd' };
+  const RP_KIND = { nday: 'nday', nweek: 'nweek', nbest: 'nbest', day: 'day', week: 'week', normal: 'best', daily: 'daily', mkweek: 'mkweek', mkbest: 'mkbest', hard: 'hard', jiji: 'jiji', loop: 'loop', loopd: 'loopd' };
   let REC = null;
   const RP = { active: false };
   function recStart(mode) {
@@ -4273,7 +4296,8 @@
   // 上位 10 位に入ったランキングの種類ぶんだけ送る（res は submitFirebase の結果）
   async function recUpload(R, res, rec) {
     if (!rec || !rec.done || !res) return;
-    const kinds = [['best', res.best, 'all'], ['day', res.day, todayKey()], ['week', res.week, weekKey()], ['daily', res.daily, todayKey()], ['hard', res.hard, 'all'], ['jiji', res.jiji, 'all']]
+    const pre = res.pre || '';
+    const kinds = [[pre + 'best', res.best, 'all'], [pre + 'day', res.day, todayKey()], [pre + 'week', res.week, weekKey()], ['daily', res.daily, todayKey()], ['hard', res.hard, 'all'], ['jiji', res.jiji, 'all']]
       .filter(([, r]) => r && r.mine && r.rank != null && r.rank <= RP_TOP);
     if (!kinds.length) return;
     return rpPut(R, rec, kinds.map(([kind, , k]) => [kind, k]));
@@ -4297,7 +4321,7 @@
   // ランキングの表に出す：リプレイがある行（目次と点数・日付が合う）と、見られた数・いいね
   async function fetchRpInfo(F, tab) {
     const kind = RP_KIND[tab]; if (!kind) return null;
-    const key = kind === 'best' || kind === 'mkbest' || kind === 'hard' || kind === 'jiji' || kind === 'loop' ? 'all' : kind === 'week' || kind === 'mkweek' ? weekKey() : todayKey();
+    const key = kind === 'best' || kind === 'nbest' || kind === 'mkbest' || kind === 'hard' || kind === 'jiji' || kind === 'loop' ? 'all' : kind === 'week' || kind === 'nweek' || kind === 'mkweek' ? weekKey() : todayKey();
     const [idx, views, likes] = await Promise.all(['suwaritai/rpi/' + kind, 'suwaritai/rpv', 'suwaritai/rpl'].map((p) => withTimeout(F.db.ref(p).get(), 10000).then((s) => s.val() || {}).catch(() => ({}))));
     const out = { kind, has: {}, v: {}, l: {} };
     for (const uid in idx) if (idx[uid] && idx[uid].k === key) out.has[uid] = idx[uid].s;

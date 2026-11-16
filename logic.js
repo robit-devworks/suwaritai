@@ -334,13 +334,14 @@
     }
     if (opts.platStart) g.platStart = true; // 🚉 ホームスタート（PLAT の項）。populateStart のあとで並べる
     if (opts.seatGuide && !g.multi) g.guide = { st: 'wait', tries: 0 }; // はじめての 1 回目だけ：座り方の案内（GUIDE の項）
+    if (opts.classic) g.classic = true; // 🕰 旧ダイヤ（2026-11-16・本人：大型アップデート前の遊び方も残す。合図はカードに出る・落とし物いっぱい・読み的中／慣らしなし）
     if (opts.tells) g.tellsAll = true; // はじめての 3 回：降りる合図をカードに出す（練習）
     if (opts.ease) g.ease = true; // 続けて早く倒れた人：次の 1 回をこっそりやさしく（WARMUP の項）
     if (opts.practice) { g.practice = true; g.stats.saves = 0; } // 練習乗車：倒れても続けられる（gameOver の practiceSave）
     if (opts.bossRush) { g.bossRush = true; g.endless = true; g.villainKinds = []; g.noBoss = false; } // ボス駅ラッシュ（倒れるまで、毎駅がボス駅）
     if (opts.bossTest) { g.bossTest = opts.bossTest; g.endless = true; g.villainKinds = []; g.noBoss = false; }
     // 🎯 見極め（2026-11-16・本人：落とし物ゲームになっていた。見極めて座る体験を芯に）：一人用はどのモードでも、読み的中・答え合わせ（MIKIWAME の項）
-    g.readOn = !!(g.mikiwame || (!g.multi && !g.bossRush && !g.bossTest && !g.tutorial) || (g.multi && g.loop)); // 環状線も（2026-11-16・本人）
+    g.readOn = !!(g.mikiwame || (!g.multi && !g.bossRush && !g.bossTest && !g.tutorial && !g.classic) || (g.multi && g.loop)); // 環状線も（2026-11-16・本人）
     if (g.readOn && g.multi) g.players.forEach((P) => { for (const k of ['mkSits', 'mkHits', 'mkCombo', 'mkBest', 'mkGive']) P.stats[k] = P.stats[k] || 0; });
     if (g.readOn) { g.mkFree = g.mkFree || []; for (const k of ['mkSits', 'mkHits', 'mkCombo', 'mkBest', 'mkGive']) g.stats[k] = g.stats[k] || 0; }
     planBoss(g);
@@ -694,7 +695,7 @@
   //   立っているときの減りが 2 駅目に着くまで 0.35 倍、2 駅目は 0.7 倍。続けて早く倒れた人（g.ease）は 6 駅目まで さらに 0.75 倍（表には出さない）
   const WARM = [0.35, 0.35, 0.7];
   function warmup(g) {
-    if (g.multi || g.hard || g.mikiwame || g.bossRush || g.bossTest || g.loop) return 1;
+    if (g.multi || g.hard || g.mikiwame || g.bossRush || g.bossTest || g.loop || g.classic) return 1;
     let k = g.station < WARM.length ? WARM[g.station] : 1;
     if (g.ease && g.station < 6) k *= 0.75;
     return k;
@@ -1061,7 +1062,7 @@
           if (it.key === 'teeth') g.stats.teeth++;
           g.stats.delivered++;
           p.expr = 'happy'; p.exprT = 5; bubble(g, p, it.key === 'teeth' ? 'ふがふが！（ありがとう）' : 'あっ！ありがとうございます！');
-          const pts = Math.round(it.pts * 0.7) + (it.ownerLeaving ? 10 : 0); // 2026-11-16：落とし物は脇役に（前は it.pts そのまま・ギリギリ +15）
+          const pts = g.classic ? it.pts + (it.ownerLeaving ? 15 : 0) : Math.round(it.pts * 0.7) + (it.ownerLeaving ? 10 : 0); // 2026-11-16：落とし物は脇役に（前は it.pts そのまま・ギリギリ +15）
           deed(g, pts, it.name + 'を届けた' + (it.ownerLeaving ? '（ギリギリ！）' : ''));
         } else {
           p.expr = 'surprised'; p.exprT = 2; bubble(g, p, '…違いますけど？', 1.6);
@@ -1570,7 +1571,7 @@
 
     // 体力
     if (pl.seat >= 0) {
-      const regen = g.mikiwame ? MK_REGEN : C.SIT_REGEN * (pl.fakeSleep ? 1.35 : 1) * (1 + 0.03 * ST(g, 'hp')); // 見極め線は座ると一気に回復
+      const regen = g.mikiwame ? MK_REGEN : (g.classic ? 1.3 : C.SIT_REGEN) * (pl.fakeSleep ? 1.35 : 1) * (1 + 0.03 * ST(g, 'hp')); // 見極め線は座ると一気に回復
       pl.stamina = Math.min(C.MAX_STAMINA, pl.stamina + regen * dt);
       if (g.mikiwame) { pl.mind = Math.min(100, pl.mind + regen * dt); mkElder(g); }
       pl.mind = Math.min(C.MAX_MIND, pl.mind + C.MIND_REGEN * (pl.fakeSleep ? 1.6 : 1) * dt);
@@ -3196,9 +3197,9 @@
     if (!(g.guide && g.guide.st !== 'done')) g.nextItemCheck -= dt; // 座り方の案内のあいだは落とし物を出さない（アクションが「拾う」になってまぎらわしいので）
     if (g.nextItemCheck <= 0) {
       // 新バランス（お試し）：落とし物は 1 駅に 1 個くらい・同時に 1 個まで
-      g.nextItemCheck = g.r.range(30, 45); // 落とし物は 1 駅に 1 個くらい（2026-11-16：拾ってばかりのゲームにならないように。前は 20〜36 秒・2 個まで）
+      g.nextItemCheck = g.classic ? g.r.range(20, 36) : g.r.range(30, 45); // 落とし物は 1 駅に 1 個くらい（2026-11-16：拾ってばかりのゲームにならないように。前は 20〜36 秒・2 個まで）
       if (hasRule(g, 'items')) g.nextItemCheck /= 3; // 落とし物ラッシュ
-      if (g.items.length < (hasRule(g, 'items') ? 4 : 1) && g.r.chance(g.bal2 ? 0.85 : 0.6)) dropItem(g);
+      if (g.items.length < (hasRule(g, 'items') ? 4 : g.classic ? 2 : 1) && g.r.chance(g.bal2 ? 0.85 : 0.6)) dropItem(g);
     }
     for (const it of g.items) {
       const o = person(g, it.owner);
