@@ -536,7 +536,7 @@
     if (p.role === 'hog') hogClaim(g, p);
   }
   function releaseSlot(g, p) { if (p.slot >= 0) { if (g.slots[p.slot].occ === p.id) g.slots[p.slot].occ = -1; p.slot = -1; } }
-  function freeSeat(g, seat, by) { seat.occ = -1; seat.res = -1; seat.gift = false; seat.freedAt = g.t; seat.freedBy = by != null ? by : -1; if (by !== -1 && by != null) emit(g, { type: 'seatFree', id: seat.id }); if (g.readOn && by != null && by >= 0) mkFreed(g, seat, by); }
+  function freeSeat(g, seat, by) { seat.occ = -1; seat.res = -1; seat.gift = false; seat.freedAt = g.t; seat.freedBy = by != null ? by : -1; seat.selfBy = -1; if (by !== -1 && by != null) emit(g, { type: 'seatFree', id: seat.id }); if (g.readOn && by != null && by >= 0) mkFreed(g, seat, by); }
 
   function populateStart(g) {
     const r = g.r;
@@ -968,7 +968,8 @@
     seat.occ = 0; seat.res = -1; pl.seat = seat.id; pl.x = seat.x; pl.z = seat.z * 0.92; pl.sitT = g.t;
     pl.yaw = seat.side > 0 ? 0 : Math.PI; pl.pitch = 0;
     g.stats.sits++; pl.segSat = true;
-    if (g.readOn) mkSit(g, seat);
+    if (g.readOn && seat.selfBy !== (g.pi || 0)) mkSit(g, seat); // 自分で立った席に座り直しても点はなし（2026-11-16・本人：立って座ってでスコアが伸びた）
+    seat.selfBy = -1;
     if (g.t - seat.freedAt < 1.0 && seat.freedAt > 0) { g.stats.quickSits++; if (g.bal2) bonusPts(g, 15, '⚡ 秒速着席'); }
     if (seat.freedBy >= 0) { const q = person(g, seat.freedBy); if (q && q.oversleep) g.stats.oversleepSteal++; }
     emit(g, { type: 'sfx', name: 'sit' });
@@ -977,7 +978,7 @@
   function playerStand(g) {
     const pl = g.player; if (pl.seat < 0) return;
     const s = g.seats[pl.seat];
-    freeSeat(g, s, -1);
+    freeSeat(g, s, -1); s.selfBy = g.pi || 0; // 自分で空けた席（座り直しで「座れた」を稼げないように：mkSit）
     pl.seat = -1; pl.x = s.x; pl.z = s.fz * 1.15; pl.fakeSleep = false;
     pl.yaw = s.side > 0 ? 0 : Math.PI;
     emit(g, { type: 'stand' });
@@ -2141,6 +2142,12 @@
     // 落とし物の持ち主が降りる
     for (const b of bodies(g)) { const it = b.carrying; if (it && it.owner === p.id) it.ownerLeaving = true; }
   }
+  // 新ダイヤ（一人用の読むモード）だけ、駅の半分をすぎたら乗ってくる人を増やす（終点の手前で最大 +40%）。旧ダイヤ・見極め線・オンラインは前のまま
+  const LATE_K = 0.4;
+  function LATE_CROWD(g, frac) {
+    if (!g.readOn || g.multi || g.mikiwame || g.classic || g.endless || g.hard || frac <= 0.5) return 0;
+    return LATE_K * Math.min(1, (frac - 0.5) * 2);
+  }
   function startBoard(g) {
     const st = g.station;
     let range = g.loop ? loopBoard(g, st) : st < LINE.length && !g.endless ? LINE[st].board : [3, 9];
@@ -2150,10 +2157,11 @@
     // 終点に向かってどんどん混む：後半の駅ほど乗ってくる人が多く、終点のひとつ手前でどっと乗ってくる
     const last = lastStation(g), frac = g.endless ? 0 : g.loop ? 0.8 : Math.min(1, st / Math.max(1, last)); // 環状線は最初から混んでいる（どの駅も同じくらい）
     if (!g.endless && st > 0 && st < last) { n = Math.max(n, 4) ; n = Math.round(n * (0.7 + 1.3 * frac)); if (st === last - 1 && !g.loop) n += 8; }
+    const late = LATE_CROWD(g, frac); if (late) n = Math.round(n * (1 + late)); // 新ダイヤ：後半をもっと混ませる（2026-11-16・本人：メガネもビームもいらなかった）
     if (g.hard) n = Math.round(n * 1.4);
     if (g.tutorial) n = 0; // チュートリアル：乗ってくる人はいない
     const alive = g.people.filter(p => p.state !== 'gone' && p.state !== 'exit').length;
-    n = Math.max(0, Math.min(n, C.MAX_PEOPLE + Math.round(12 * frac) - alive));
+    n = Math.max(0, Math.min(n, C.MAX_PEOPLE + Math.round((12 + (late ? 4 : 0)) * frac) - alive));
     let i = 0;
     g.boardQueue = [];
     for (; i < n; i++) g.boardQueue.push({ at: g.phaseT + i * 0.32, type: pickType(g, st) });
