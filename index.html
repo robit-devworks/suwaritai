@@ -259,6 +259,7 @@ body.touch #pcHint{display:none}
 .btn.sub2{font-size:14px;padding:10px}
 .row{display:flex;gap:8px}.row .btn{flex:1}
 .small{font-size:12px;color:var(--sub);text-align:center;line-height:1.6}
+#updCard{position:fixed;inset:0;z-index:58;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:12px}#updCard.hidden{display:none}#updCard .card{max-width:400px;width:100%;max-height:calc(100% - 24px);overflow:auto;text-align:left}#updCard h3{margin:0 0 4px;font-size:21px;text-align:center;color:#ffd447}#updCard .uc1{text-align:center;font-weight:800;margin:0 0 8px;font-size:15px}#updCard ul{margin:0 0 10px;padding-left:4px;list-style:none;font-size:13.5px;line-height:1.5}#updCard li{margin:5px 0}#updCard b{color:#ffb27a}
 #oneHand{position:fixed;inset:0;z-index:57;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}#oneHand.hidden{display:none}#oneHand .card{max-width:380px;width:calc(100% - 28px);text-align:center}#oneHand h3{margin:0 0 4px;font-size:19px}#oneHand .row{display:flex;gap:8px}#oneHand .row .btn{flex:1;margin:4px 0}
 #newsDot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 0 2px #10131a}#newsDot.hidden{display:none}
 #newsList{max-height:62vh;overflow:auto;text-align:left}.nw{margin:0 0 10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line)}.nw.new{border-color:var(--toku)}.nw h4{margin:0 0 4px;font-size:14px}.nw h4 .pill{margin-left:6px}.nw ul{margin:0;padding-left:1.2em;font-size:13px;line-height:1.55}
@@ -908,6 +909,20 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart{padding-top:9px;p
 </div>
 
 <div id="layEdit" class="hidden"><div class="leBar"><b id="leTitle">🎛 感度・ボタン調整</b><button id="leXTop" class="leXTop" aria-label="とじる">✕</button><button id="leMin" class="leMin">▾ 小さく</button><div class="leTabs"><button id="leTabB" class="on">🖐 ボタンの位置・大きさ</button><button id="leTabS">👀 感度・操作</button></div><div id="lePaneB" class="lePane"><label class="leS leJoy"><span>🕹 移動スティック</span><select id="leJoy"><option value="">自由（さわった所に出る）</option><option value="l">固定・左下</option><option value="R">固定・右下（ボタンは左）</option><option value="O">片手モード（タップで移動・スティックは左下）</option></select></label><div class="leHint">👇 下の丸を<b>指で引っぱる</b>と位置が変わります。丸を<b>タップして選ぶ</b>と、その大きさを下のつまみで変えられます</div><label class="leS"><span>選んだもの：<span id="leSel" style="color:#ff8a8a;font-weight:800"></span> の大きさ</span><input type="range" id="leB" min="0.6" max="1.6" step="0.05"> <em id="leBv"></em></label></div><div id="lePaneS" class="lePane hidden"><label class="leS"><span>👀 視点の感度</span><input type="range" id="leSens" min="0.5" max="5" step="0.1"> <em id="leSensV"></em></label><label class="leS leChk"><input type="checkbox" id="leTap"> <span>👆 タップで移動（床をタップすると黄色い輪のところまで、人をタップするとその人の正面まで歩く／スティックをトントンでアクション）</span></label><label class="leS leChk"><input type="checkbox" id="leDbl"> <span>✌ 画面のどこでも 2 回タップでアクション（1 回タップの歩き出しだけ少し遅れる）</span></label><label class="leS leChk"><input type="checkbox" id="leAccel"> <span>🚀 速くなぞるほど大きく回る（ゆっくりなぞると細かく狙える）</span></label><label class="leS" id="leAKrow"><span>🚀 加速の強さ（右ほど、速くなぞったときに大きく回る・ゆっくりはより細かく）</span><input type="range" id="leAK" min="0.3" max="3" step="0.1"> <em id="leAKV"></em></label><label class="leS"><span>🔄 振り向く速さ（左ほど速い）</span><input type="range" id="leTurn" min="0.2" max="1" step="0.05"> <em id="leTurnV"></em></label><label class="leS" id="leRrow">👆 視点だけの範囲（点線の輪） <input type="range" id="leR" min="0.2" max="2" step="0.05"> <em id="leRv"></em></label><details class="leNote" id="leNote"><summary>❓ タップで移動の使い方</summary><b>👉 画面をタップ</b>：タップした床（黄色い輪）まで自動で歩く。人をタップするとその人の正面まで。座る・注意するはアクション（スティックのトントン・どこでも 2 回タップでも）<br><b>🕹 スティック</b>：歩く（タップで歩いているあいだは、行き先へ向かいながらスティックの向きに寄り道できる）<br><b>👀 画面をなぞる</b>：視点を回す（自動の歩きも止まる）<br><b>✋ スティックをトントン</b>：アクション</details></div><button id="leSave">✓ 保存</button><button id="leReset">↺ 元にもどす</button><button id="leX">✕ やめる</button></div><div id="leBox"></div></div>
+<div id="updCard" class="hidden"><div class="card">
+  <h3>🎯 大型アップデート</h3>
+  <p class="uc1">落とし物拾いより、<b>降りる人を見極めて座る</b>ゲームに！</p>
+  <ul>
+    <li>🎯 降りそうな人の前で待ってから座れたら<b>「読み的中」</b>。続けて当てるほど +30 → +60 → +90…</li>
+    <li>👀 降りる合図（荷物・掲示板・時計）は<b>カードに出ません</b>。乗客のしぐさを見て読もう（👓 メガネのあいだは見える）</li>
+    <li>📝 ドアが閉まると<b>答え合わせ</b>。だれがどんな合図で降りたか分かる</li>
+    <li>👜 落とし物は減って脇役に。🔰 1〜2 駅目は慣らし（体力があまり減らない）</li>
+    <li>🚉 環状線に<b>ほかのプレイヤーが乱入</b>できるように</li>
+  </ul>
+  <button class="btn main" id="updGo">🚃 たちっぱ線で試す</button>
+  <button class="btn sub2" id="updNo">あとで</button>
+  <p class="small" style="color:var(--sub);margin:6px 0 0">ランキングは今日から新しい版（緑の「新」）。くわしくはタイトルの 📰 お知らせ</p>
+</div></div>
 <div id="oneHand" class="hidden"><div class="card">
   <h3>🕹 片手で遊べるようになりました！</h3>
   <p class="small" style="margin:4px 0 10px">移動スティックを親指の下に固定して、ボタンもすぐ上に。電車でつり革を持ちながらでも遊びやすい</p>
@@ -1086,7 +1101,7 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart{padding-top:9px;p
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261116042113"</script><script src="logic.js?v=20261116042113"></script>
-<script src="game.js?v=20261116042113"></script>
+<script>window.SW_VER="20261116051828"</script><script src="logic.js?v=20261116051828"></script>
+<script src="game.js?v=20261116051828"></script>
 </body>
 </html>

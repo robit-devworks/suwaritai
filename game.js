@@ -2116,6 +2116,7 @@
         case 'lurch': lurchKick = 1; sfx('lurch'); break;
         case 'brace': if (e.ok) addPop('踏ん張った！'); else addToast('よろけた！ 体力-7', 'bad'); $('warn').classList.add('hidden'); break;
         case 'chikan': addToast('…どこかで困っている人がいる？（絡まれているかも）', 'warn'); break;
+        case 'moment': if (G) addMoment(e.p, e.text); break; // 🎯 読みの連続など（シェアの見せ場）
         case 'bossResult': if (e.ok && G) addMoment(80 + e.tier * 60, '🏆 ボス駅「' + e.name + '」をクリア'); if (!RP.active && !(MP.active && !MP.isHost)) track('ボス駅：' + e.name + '：' + (e.ok ? 'クリア' : '失敗') + (G.modeName === 'bossrush' ? '（ラッシュ）' : '')); break;
         case 'thiefSteal': if (!G.__thiefTold) { G.__thiefTold = true; addToast('…だれかが落とし物をこっそり持っていった？（泥棒かも）', 'warn'); } break;
         case 'rare': { const p = SW.person(g, e.id); if (p) addToast(p.type === 'ceo' ? '金のネクタイの紳士が乗ってきた…' : '…なにか様子のおかしい乗客が乗ってきた', 'warn'); break; }
@@ -2467,6 +2468,7 @@
     showResume();
     verCheck();
     // 片手で遊べるようになったお知らせ（スマホで、まだ選んでいない人に 1 回だけ。2026-11-13）
+    if (profile.plays > 0 && !profile.upd1116 && !$('updCard').dataset.shown) { $('updCard').dataset.shown = 1; setTimeout(() => { if (state === 'title') { $('updCard').classList.remove('hidden'); track('大型アップデートのお知らせを出した'); } }, 700); } // 🎯 2026-11-16 の大型アップデート（遊んだことのある人に 1 回だけ）
     if (OH_ON && isTouch && profile.plays > 0 && !profile.ohSeen && !profile.joyFix && !(window.claude && window.claude.use)) { profile.ohSeen = 1; saveProfile(); setTimeout(() => { if (state === 'title') { $('oneHand').classList.remove('hidden'); track('片手のお知らせを出した'); } }, 900); }
     else if (profile.plays > 0 && profile.newSkill !== 'transfer') { profile.newSkill = 'transfer'; saveProfile(); setTimeout(() => titleToast('🆕 新しいスキル「👴 変装」「🗣 ひとこと注意」「📱 乗換案内」！ Lv の画面の「🎒 スキルのセット」でつけかえられます'), 1200); }
     // 新しく入ったもの（今日のルール・練習乗車）に「NEW」の印（2 週間だけ）
@@ -2533,7 +2535,7 @@
     const mikiwame = mode === 'mikiwame'; // 見極め線：しぐさだけで降りる人を読む（カード・悪者・落とし物・スキルなし）
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
-    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, loop: loopSel ? { day: todayKey() } : null, seatGuide: guideTest || (mode === 'normal' && !rookieSel && !(profile.plays || 0)), stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'hard' || mode === 'jiji' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' ? 'normal' : mode, bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, loop: loopSel ? { day: todayKey() } : null, seatGuide: guideTest || (mode === 'normal' && !rookieSel && !(profile.plays || 0)), ease: (mode === 'normal' || mode === 'daily') && !rookieSel && (profile.earlyFail || 0) >= 2, tells: (profile.plays || 0) < 3 || guideTest, stats: profile.st, statCap: mode === 'normal' || mode === 'daily' || mode === 'hard' || mode === 'jiji' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : guideTest ? 'guidetest' : loopSel ? 'loop' : mode;
     G.rkTrain = rkTrain; G.rkWeek = resume ? resume.meta.rkWeek : weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
@@ -2986,6 +2988,7 @@
       '🔄 12 駅でちょうど 1 周。どの駅から乗っても全部の駅を 1 回ずつ通る（駅の並びはその日みんな同じ）',
       '👤 ほかのプレイヤーが走っている電車に途中の駅から乱入してくる（自分もほかの人の電車に乱入できる）。🤖 空いた席には CPU が乗ってくる（本物のプレイヤーの遊び方をまねている）',
       '🕵 ライバル（プレイヤーも CPU も）の見た目はふつうの乗客と同じ。動きで見破ろう',
+      '🎯 降りる人の前で 1.5 秒以上待ってから座れたら「読み的中」でスコア（続けて当てるほど大きく）。降りる合図（荷物・掲示板・時計）はカードに出ないので、しぐさで読む（👓 メガネのあいだは見える）',
       '🧍 立っていると体力が減る。降りそうな人（掲示板チラ見・時計・荷物をまとめる）の前で待って、空いたら座る',
       '🙏 席を譲る・落とし物を届ける・悪者を注意すると徳とスコア。徳はスキルに使える',
       '👊 弱ったライバルにトドメでスコア +150（カルマもたまる）。落とし物を投げてもいい',
@@ -2997,8 +3000,11 @@
     normal: ['🚃 たちっぱ線（一人モード）のルール', [
       '🚃 各駅停車で、終点「やっと座れ橋」をめざす。乗っているのは自分だけ',
       '🧍 立っていると体力が減る。降りそうな人（掲示板チラ見・時計・荷物をまとめる）を見極めて前に立ち、空いたら座る',
+      '👀 降りる合図（荷物をまとめる・掲示板チラ見・時計）はカードに出ない。乗客のしぐさを見て読もう（はじめての 3 回と 👓 メガネのあいだは、カードにも出る）',
+      '🎯 降りる人の前で 1.5 秒以上待ってから座れたら「読み的中」でスコア +30（続けて当てるほど +60・+90…）。座れただけでも +15。ドアが閉まると「答え合わせ」が出る',
+      '🔰 1〜2 駅目は慣らし（立っていても体力があまり減らない）',
       '😵 体力か精神が 0 で終わり。後半ほど混んでくる',
-      '🙏 席を譲る・落とし物を届ける・悪者をこらしめると徳とスコア。徳はスキルに使える',
+      '🙏 席を譲る・落とし物を届ける・悪者をこらしめると徳とスコア。徳はスキルに使える（座る・読み的中はスコアだけで、徳は増えない）',
       '⚠ 関係ない人を殴るとカルマがたまる。いっぱいになると連行',
       '🏢 ボス駅では「困った人たち」が乗ってくる。次の駅までに片付けるとボーナス',
       '🏆 ランキング：今日・今週・歴代（上位 10 人はリプレイが見られる）',
@@ -3131,10 +3137,14 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
-    { d: '2026-11-16', t: '環状線にプレイヤーが乱入！・シェアがワンタップに', items: [
-      '🚉 環状線に、ほかのプレイヤーが乱入できるように！ 乗ると、いま走っているだれかの電車をさがして次の駅から乗りこみます（なければ自分の電車が走り出して、乱入を待ちます）。CPU の席と入れかわるので、だれが本物のプレイヤーか分からない…',
-      '📣 結果画面に、その回の出来事から作る「ツッコミの一言」が出るように（「6駅乗って、座れたのは0回。ずっと立ってた」など）。「𝕏 でシェア」を押すだけで、一言と写真と点数の画像つきで投稿できます（環状線・CPU 戦の結果からも）',
-      '🎥 キルカメラは、やられる 10 秒前から見られるように',
+    { d: '2026-11-16', t: '大型アップデート：降りる人を見極めて座るゲームに！', items: [
+      '🎯 「降りる人を見極めて座る」が、いちばんスコアになるように！ 降りそうな人の前で待ってから座れたら「読み的中」。続けて当てるほど +30 → +60 → +90…と大きくなる（たちっぱ線・今日のダイヤ・環状線）',
+      '👀 降りる合図（荷物をまとめる・掲示板をチラ見・時計）は、乗客のカードに出なくなりました。しぐさを見て読もう（👓 メガネのあいだと、はじめての 3 回は見える）',
+      '📝 ドアが閉まると「答え合わせ」。だれが、どんな合図で降りたかが分かる',
+      '👜 落とし物は減らして脇役に（落とし物拾いのゲームにならないように）。座る・読み的中で増えるのはスコアだけ（徳は良いことをしたときだけ）',
+      '🔰 1〜2 駅目は慣らし。立っていても体力があまり減らない。座ったときの回復も大きく',
+      '🚉 環状線に、ほかのプレイヤーが乱入できるように！ 走っているだれかの電車に、次の駅から乗りこむ（なければ自分の電車で乱入を待つ）',
+      '🏆 ランキングは今日から新しい版（緑の「新」がつく記録）。📣 結果画面の「ツッコミの一言」と「𝕏 でシェア」ワンタップも',
     ] },
     { d: '2026-11-15', t: '大型アップデート：環状線・だれがライバルか分からない席取りバトル', items: [
       '🏆 環状線のランキング（今日・歴代）！ 上位 10 人はリプレイも。ランキングの画面も見やすくしました（上で種類を選ぶ）',
@@ -3194,6 +3204,8 @@
   ];
   // 片手のお知らせのカード：2026-11-13 に一旦やめた（本人）。また出すときは true に
   var OH_ON = false;
+  const updClose = (go) => { profile.upd1116 = 1; saveProfile(); $('updCard').classList.add('hidden'); if (go) { track('大型アップデートのお知らせからたちっぱ線へ'); startGame('normal'); } };
+  $('updGo').addEventListener('click', () => updClose(true)); $('updNo').addEventListener('click', () => updClose(false));
   const ohPick = (v) => { profile.joyFix = v; saveProfile(); applyJoy(); $('oneHand').classList.add('hidden'); if (v) titleToast(v === 'r' ? '✋ 右手で遊ぶ設定にしました' : '🤚 左手で遊ぶ設定にしました'); track('片手のお知らせ：' + (v === 'r' ? '右手' : v === 'L' ? '左手' : 'あとで')); };
   $('ohR').addEventListener('click', () => ohPick('r')); $('ohL').addEventListener('click', () => ohPick('L')); $('ohNo').addEventListener('click', () => ohPick(profile.joyFix || null));
   function newsDot() { $('newsDot').classList.toggle('hidden', !NEWS.length || (profile.newsSeen || '') >= NEWS[0].d); }
@@ -3313,6 +3325,10 @@
     const sc = SW.finalScore(g), r = g.result, s = g.stats;
     const newAch = g.modeName === 'practice' || g.modeName === 'mikiwame' ? [] : SW.checkAchievements(g, profile); // 練習・見極め線では実績なし
     profile.plays = (profile.plays || 0) + 1;
+    if (mode === 'normal' || mode === 'daily') { // 続けて 3 駅目までに倒れた回数（2 回で、次の回をこっそりやさしく：logic.js の WARMUP）
+      if (g.ease) track('こっそりやさしく：' + (r.cause === 'clear' ? '終点到着' : (s.stations || 0) + 1 + '駅目で終わった'));
+      if (r.cause !== 'clear' && (s.stations || 0) <= 2) profile.earlyFail = (profile.earlyFail || 0) + 1; else if ((s.stations || 0) >= 4 || r.cause === 'clear') profile.earlyFail = 0;
+    }
     profile.chikanTotal = (profile.chikanTotal || 0) + s.chikanKO;
     for (const a of newAch) profile.ach[a] = Date.now();
     const mode = g.modeName;
@@ -3342,7 +3358,7 @@
     $('rScore').textContent = sc.total;
     $('rTitle').textContent = '称号「' + sc.title + '」' + (newBest ? ' 🆕自己ベスト！' : '');
     $('rBrk').innerHTML = `<span>集めた徳</span><span>${sc.earned}</span><span>駅ボーナス（${s.stations}駅）</span><span>+${sc.stationBonus}</span><span>完走ボーナス</span><span>+${sc.clearBonus}</span><span>カルマ</span><span>−${sc.karmaPen}</span>`;
-    const statsArr = [['🪑', '譲った席', s.gives], ['👊', '撃退した悪者', s.chikanKO + s.thiefKO + (s.suriKO || 0) + (s.henchKO || 0) + (s.emperorKO || 0) + (s.brawlKO || 0)], ['👛', '届けた落とし物', s.delivered], ['💺', '座れた回数', s.sits], ['💥', 'カウンター', s.counters], ['😈', '洗脳・どかし', s.brainwash + s.force]];
+    const statsArr = [['🪑', '譲った席', s.gives], ['👊', '撃退した悪者', s.chikanKO + s.thiefKO + (s.suriKO || 0) + (s.henchKO || 0) + (s.emperorKO || 0) + (s.brawlKO || 0)], ['👛', '届けた落とし物', s.delivered], ['💺', '座れた回数', s.sits], g.readOn && !g.mikiwame ? ['🎯', '読み的中（最大 ' + (s.mkBest || 0) + ' 連続）', s.mkHits || 0] : ['💥', 'カウンター', s.counters], ['😈', '洗脳・どかし', s.brainwash + s.force]];
     $('rStats').innerHTML = statsArr.map(([i, n, v]) => `<div><b>${i} ${v}</b>${n}</div>`).join('');
     const achNames = newAch.map(id => (SW.ACHIEVEMENTS.find(a => a.id === id) || {}).name).filter(Boolean);
     $('rAch').innerHTML = (achNames.length ? '🎖 実績：' + achNames.join('、') : '') + (unlockMsg ? '<br>' + unlockMsg : '') + (s.bestDeed ? `<br><span style="color:var(--sub)">最大の善行：${s.bestDeed.label}（+${s.bestDeed.pts}）</span>` : '');
@@ -3467,12 +3483,13 @@
     if (by && wp) add(96, `🥊 ライバルを探して関係ない人を${wp}人殴った。本物には背後から沈められた`);
     if (by && gv) add(95, `😇 席を${gv}回ゆずった善人なのに、背後から${by}に沈められた`);
     if (pko >= 2) add(93, `🕵 乗客のふりをして、ライバルを${pko}人沈めた。電車でやることじゃない`);
+    if ((s.mkBest || 0) >= 3) add(92, `🎯 降りる人を${s.mkBest}連続で当てた。もう見えてる`);
+    else if ((s.mkHits || 0) >= 3) add(71, `🎯 降りる人を${s.mkHits}回見破って座った`);
     if (s.alien) add(91, '👽 宇宙人に席をゆずった。地球はたぶん守られた');
     if (s.babySmile) add(90, '👶 赤ちゃんを笑わせたら、カルマが全部消えた。人生やり直せた');
     if (wp >= 3 && !vk) add(89, `🤦 関係ない乗客を${wp}人殴った。悪者はひとりも倒せてない`);
     if ((s.disguiseSits || 0) >= 2) add(88, `👴 お年寄りに変装して、${s.disguiseSits}回も席をゆずってもらった。最低`);
     if (s.ceo) add(87, '🎩 席をゆずったおじさんが、謎の紳士だった');
-    if ((s.mkBest || 0) >= 5) add(87, `🎯 降りる人を${s.mkBest}連続で当てた。もう見えてる`);
     if (s.reports) add(86, '🚨 殴ってきたライバルを、駅員に突き出した。スッキリ');
     if (s.disguiseCaught) add(85, '👴 お年寄りに変装したら、一瞬でバレた');
     if (by) add(84, `🕵 ふつうの乗客だと思ってたら、${by}だった。床に沈んだ`);
@@ -3541,7 +3558,7 @@
     }
     const modeTxt = R.mode === 'normal' ? '' : '【' + ({ endless: '終点なし', hard: '満員地獄', jiji: '敬老の日', practice: '練習乗車', mikiwame: '見極め線', ranked: 'ランク線', bossrush: 'ボス駅ラッシュ' }[R.mode] || '') + '】';
     const how = R.cause === 'clear' ? (R.mode === 'loop' ? '環状線を 1 周した！' : '終点に到着！') : R.cause === 'collapse' ? R.stName + 'の手前で膝が笑った…' : R.cause === 'ko' ? (R.koText || '絡み屋に返り討ちにされた…') : R.cause === 'broken' ? '心が折れて途中下車…' : '駅員に連行された…';
-    const stats = R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `譲った席${s.gives}・撃退した悪者${SW.villainKO(s)}・落とし物${s.delivered}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`;
+    const stats = R.mode === 'mikiwame' ? '座れた' + s.mkSits + '回・🎯読み的中' + s.mkHits + '回（最大' + s.mkBest + '連続）' : `💺座れた${s.sits}・🎯読み的中${s.mkHits || 0}${s.mkBest > 1 ? '（最大' + s.mkBest + '連続）' : ''}・譲った席${s.gives}${s.brainwash + s.force ? '・悪事' + (s.brainwash + s.force) : ''}`;
     return xFit([ // 2026-11-16：いちばん上にツッコミの一言（タイプ診断の文はやめた。画像の下に小さく残す）
       [mom ? mom + '\n' : '', 3],
       [`${modeTxt}スワリタイ！で ${R.sc.total}点・${how}`, 0],
@@ -3775,7 +3792,7 @@
   }
   const rankTxt = (x) => x && x.rank ? x.rank + '位' + (x.total ? '/' + x.total.toLocaleString() + '人（上位' + Math.max(1, Math.ceil(x.rank / x.total * 100)) + '%）' : '') : x ? '100位より下' : '-';
   // ランキングの記録に「どの版で出した点か」の印 v をつける（1 = 印なし＝2026-11-11 のアップデート前。ボス駅などを入れた版が 2）
-  const SCORE_VER = 3; // 3：ボス駅の調整（2026-11-12）
+  const SCORE_VER = 4; // 3：ボス駅の調整（2026-11-12）・4：1〜2 駅目の慣らし・座ったときの回復を大きく・座る／読み的中でスコア・落とし物を減らす（2026-11-16）
   const verTag = (x) => x && x.v >= SCORE_VER ? '<span class="vtag" title="いちばん新しい版（ボス駅の調整後）の記録">新</span>' : '';
   async function submitFirebase(R) {
     const F = await firebaseReady(); if (!F) return null;
@@ -5252,7 +5269,7 @@
       let obs = 0;
       if (!MP.players[i].cpu && i !== MP.me) {
         if (P.aim >= SW.PID) obs = playerObs(g, P.aim - SW.PID, P.pl);
-        else if (P.aim >= 0) { const q = SW.person(g, P.aim); if (q) obs = SW.observe(g, q); }
+        else if (P.aim >= 0) { const q = SW.person(g, P.aim); if (q) { SW.setCtx(g, i); obs = SW.observe(g, q); SW.setCtx(g, MP.me); } } // その人のメガネ・場所で見る
       }
       return plArr(g, P, obs);
     });
