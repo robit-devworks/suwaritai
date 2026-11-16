@@ -874,13 +874,13 @@
     if (ap && ap.type === 'sick' && (ap.state === 'stand' || ap.state === 'walk') && ap.role !== 'faked' && !ap.checked && apd < 1.8) return { act: 'expose', label: '「…仮病じゃない？」と指摘する', id: ap.id };
     { const sp = stealPrompt(g, aimId); if (sp) return sp; }
     for (const it of g.items) if (!it.taken && dist2(it.x, it.z, pl.x, pl.z) < 1.15 && !pl.carrying && !(it.dropBy === g.pi && g.t - it.dropT < 4)) return { act: 'pick', label: it.name + 'を拾う', id: it.id };
-    for (const s of g.seats) if (s.hog && dist2(s.x, s.fz, pl.x, pl.z) < 0.95) {
+    for (const s of g.seats) if (s.hog && !pl.plat && dist2(s.x, s.fz, pl.x, pl.z) < 0.95) {
       const q = person(g, s.hog); if (!q) continue;
       if (q.hogKind === 'bag' && pl.pitch < -0.45) return { act: 'throw', label: '👜 かばんをぶん投げて座る（カルマ+）', id: s.id };
       if (!q.asked) return { act: 'ask', label: q.hogKind === 'bag' ? '「かばん、どけてもらえますか？」と頼む' : '「詰めてもらえますか？」と頼む', id: s.id };
     }
     if (pl.carrying && pl.pitch < -0.55 && !(ap && apd < 1.8 && ap.state !== 'ko')) return { act: 'putdown', label: pl.carrying.name + 'をそこに置く' };
-    const fs = nearestFreeSeat(g);
+    const fs = pl.plat ? null : nearestFreeSeat(g); // ホームにいるあいだは座れない（ホームの縁から壁ごしに車内の席に座れていた：2026-11-16・本人）
     if (fs) return { act: 'sit', label: fs.pri ? '優先席に座る' : '座る', id: fs.id };
     if (pl.carrying && ap && apd < 1.8 && ap.state !== 'ko') return { act: 'deliver', label: pl.carrying.name + 'を渡す', id: ap.id };
     if (g.runner && g.runner.active && !g.runner.held) {
