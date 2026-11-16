@@ -1268,6 +1268,7 @@
       L.far.material.map.offset.x = sgn * trainPos * 0.0016;
       L.near.material.map.offset.x = sgn * trainPos * 0.075;
     }
+    car.visible = !g.platWait; // 🚉 乱入を待つあいだは電車がいない
     // ホーム
     const T = SW.C.T_TRAVEL;
     let px = null, pside = g.doorSide;
@@ -1420,12 +1421,14 @@
     locked = document.pointerLockElement === canvas;
     if (!locked && state === 'play' && !isTouch && !noLock) pause();
   });
-  document.addEventListener('pointerlockerror', () => { noLock = true; });
+  // クリックしたときのお願いが断られたときだけ「固定できない」にする（環状線などは電車をさがしてから始まるので、始めたときのお願いはブラウザに断られる。それで noLock になり、長押しでしか視点が動かなくなっていた：2026-11-16・本人）
+  let lockGesture = false;
+  document.addEventListener('pointerlockerror', () => { if (lockGesture) noLock = true; lockGesture = false; });
   let drag = null;
   canvas.addEventListener('mousedown', e => {
     if (isTouch || state !== 'play') return;
     initAudio();
-    if (!locked && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { noLock = true; }); } catch (err) { noLock = true; } drag = { x: e.clientX, y: e.clientY, moved: 0, btn: e.button }; return; }
+    if (!locked && !noLock) { lockGesture = true; try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { noLock = true; }); } catch (err) { noLock = true; } drag = { x: e.clientX, y: e.clientY, moved: 0, btn: e.button }; return; }
     if (locked) { if (e.button === 0) inp.action = true; else if (e.button === 2) punchDown(); return; }
     drag = { x: e.clientX, y: e.clientY, moved: 0, btn: e.button };
   });
@@ -1963,7 +1966,7 @@
     const total = g.endless ? '∞' : last;
     let sName, sSub, prog;
     if (g.phase === 'travel') { sName = '次は ' + SW.stationName(g, g.station + 1); sSub = (g.station + 1) + ' / ' + total + ' 駅目' + (g.station + 1 === last ? (g.loop ? '（ここで 1 周）' : '（終点）') : '') + '・出口 ' + ((g.nextDoorSide || 1) > 0 ? '右' : '左') + '側'; prog = g.phaseT / SW.C.T_TRAVEL; }
-    else { sName = SW.stationName(g, g.station) + ' 停車中'; sSub = (g.doorsOpen ? 'ドアが開いています' : 'まもなく発車') + '（' + ((g.doorSide > 0) ? '右' : '左') + '側）'; prog = 1; }
+    else { sName = g.platWait ? '環状線のホーム' : SW.stationName(g, g.station) + ' 停車中'; sSub = g.platWait ? '🚉 電車を待っています' : (g.doorsOpen ? 'ドアが開いています' : 'まもなく発車') + '（' + ((g.doorSide > 0) ? '右' : '左') + '側）'; prog = 1; }
     if (sName !== hud.st) { hud.st = sName; $('stName').textContent = sName; }
     if (sSub !== hud.sub) { hud.sub = sSub; $('stSub').textContent = sSub; }
     $('stProg').firstChild.style.width = (prog * 100).toFixed(1) + '%';
@@ -2455,6 +2458,7 @@
   $('bSnd').addEventListener('click', () => { AU.on = !AU.on; profile.sound = AU.on; saveProfile(); $('bSnd').textContent = AU.on ? '🔊' : '🔇'; initAudio(); if (AU.master) AU.master.gain.value = AU.on ? 0.6 : 0; if (!AU.on && speechOK) try { speechSynthesis.cancel(); } catch (e) { } });
   function titleScreen() {
     state = 'title'; backTo = 'title';
+    if (MP.joining) { MP.joining = false; clearTimeout(MP.joinTO); joinWaitShow(false); loopJoinLeave().then(() => mpReset()); } // 乱入を待っている途中でタイトルへ
     if (TUT) tutClose();
     $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('mpOut').classList.add('hidden');
     if (RP.active) { RP.active = false; RP.fr = null; } document.body.classList.remove('replay'); $('rpBar').classList.add('hidden'); $('rpEnd').classList.add('hidden');
@@ -3151,6 +3155,7 @@
       '📝 ドアが閉まると「答え合わせ」。だれが、どんな合図で降りたかが分かる',
       '🚃 新ダイヤは後半ほど混んで、席の取り合いがきつく。たまった徳で 👓 メガネや 🌀 洗脳ビームを使いどき',
       '🐛 立って座ってをくり返すと点が増える不具合を直しました（その点で載った記録はランキングから消しました）',
+      '🚉 環状線の乱入は、駅のホームで電車を待って、ドアが開いたらホームから乗りこむように。PC で環状線のときマウスで見回せなかったのも直しました',
       '👫 フレンド戦は、部屋をつくる前にルール（⚔ 対戦／🤝 共闘・🔒 友だちだけ／🌐 だれでも）を決めるように。友だちだけの部屋には知らない人が入ってきません',
       '👜 落とし物は減らして脇役に（落とし物拾いのゲームにならないように）。座る・読み的中で増えるのはスコアだけ（徳は良いことをしたときだけ）',
       '🔰 1〜2 駅目は慣らし。立っていても体力があまり減らない。座ったときの回復も大きく',
@@ -4957,7 +4962,7 @@
     try { await N.set(roomP(code) + '/members/' + N.uid, me); await N.set(roomP(code) + '/join/' + N.uid, me); }
     catch (e) { mpReset(); return false; }
     N.onDisconnectRemove(roomP(code) + '/members/' + N.uid); N.onDisconnectRemove(roomP(code) + '/inputs/' + N.uid); N.onDisconnectRemove(roomP(code) + '/join/' + N.uid);
-    joinWaitShow(true);
+    loopPlatWait(); joinWaitShow(true);
     MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; }));
     MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
     MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code === code) { if (MP.active) loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです'); else if (MP.joining) loopJoinGiveUp(); } }));
@@ -4975,11 +4980,33 @@
     await loopJoinLeave(); track('環状線：乱入できなかったので自分で出発');
     loopHost(true);
   }
+  // 🚉 乱入を待つあいだは、駅のホームで電車を待つ（2026-11-16・本人：ホーム画面で待つのではなく、駅のホームで）
+  // PC：クリックしないとマウスが固定されないとき（電車をさがしてから始まるモード）は、案内を出す
+  function pcClickHint() {
+    if (isTouch) return;
+    setTimeout(() => { if (state === 'play' && !locked && !noLock) { $('pcHint').innerHTML = '<b>画面をクリック</b>するとマウスで見回せます（Esc でメニュー）'; $('pcHint').classList.remove('hidden'); setTimeout(() => $('pcHint').classList.add('hidden'), 6000); } }, 300);
+  }
+  function loopPlatWait() {
+    G = SW.create({ seed: (Math.random() * 1e9) | 0, mode: 'normal', loop: { day: todayKey() }, platStart: true, stats: profile.st, statCap: SW.STAT_CAP_FAIR });
+    G.people = []; G.platWait = true; G.modeName = 'loopwait'; G.moments = [];
+    for (const s of G.seats) { s.occ = -1; s.res = -1; }
+    REC = null; inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
+    state = 'play'; show(null); showInapp(false);
+    $('hud').classList.remove('hidden'); if (isTouch) $('touch').classList.remove('hidden');
+    hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.wallet = hud.mind = -1;
+    $('toasts').innerHTML = ''; $('pops').innerHTML = ''; $('ruleTag').classList.add('hidden');
+    showAnn('まもなく、電車がまいります。黄色い線の内側でお待ちください。');
+    pcClickHint();
+  }
   function joinWaitShow(on) {
     let el = $('joinWait');
+    clearInterval(MP.jwIv);
     if (!on) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('div'); el.id = 'joinWait'; document.body.appendChild(el); }
-    el.innerHTML = '<div class="jwc"><b>🚉 走っている電車を見つけた！</b><p>次の駅で乱入します…<br><small>だれがライバルか分からない。CPU の席と入れかわって乗りこむよ</small></p><div class="jwd"><i></i><i></i><i></i></div><button class="btn sub2" id="jwX">やめる</button></div>';
+    el.className = 'plat';
+    el.innerHTML = '<div class="jwc"><b>🚉 走っている電車がこの駅に来ます</b><p>ドアが開いたら乗りこもう（だれがライバルか分からない）<br><small id="jwT"></small></p><button class="btn sub2" id="jwX">やめる</button></div>';
+    const t0 = Date.now(), tick = () => { const n = Math.max(0, Math.ceil((LOOP_JOIN_WAIT - (Date.now() - t0)) / 1000)); const e = $('jwT'); if (e) e.textContent = '来なければ ' + n + ' 秒後に、自分の電車で出発します'; };
+    tick(); MP.jwIv = setInterval(tick, 500);
     $('jwX').onclick = async () => { MP.joining = false; joinWaitShow(false); await loopJoinLeave(); mpReset(); titleScreen(); };
   }
   // ホスト：8 秒ごとに「乗れます」を出す・駅に着いてドアが開いたら、待っている人を CPU の席と入れかえて乗せる・席の顔ぶれをみんなに知らせる
@@ -5204,6 +5231,7 @@
     } catch (e) { olNote('スタートできませんでした（' + (e && e.message || e) + '）'); }
   }
   function mpBegin(st) {
+    if (G && G.platWait && MP.loopNet) { addToast('🚃 電車が来た！ ドアが開いている…乗りこめ！（だれがライバルか分からない）', 'good'); sfx('whoosh'); }
     let idx = (st.players || []).findIndex((p) => p.uid === MP.uid);
     if (MP.spect) idx = Math.max(0, (st.players || []).findIndex((p) => !p.cpu)); // 観戦：まず人間のプレイヤーを追いかける
     if (idx < 0) { olNote('始まった試合に入れませんでした'); return; }
@@ -5227,7 +5255,7 @@
     hud.st = hud.sub = hud.prompt = hud.target = hud.buffs = ''; hud.stam = hud.karma = hud.toku = hud.wallet = hud.mind = -1;
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (MP.spect) { document.body.classList.add('replay'); $('spBar').classList.remove('hidden'); spName(); addToast('👀 観戦中。「次の人」で見る人を切りかえ', 'good'); track('オンライン：観戦をはじめた'); }
-    else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
+    else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } pcClickHint(); }
     if (MP.joining) { MP.joining = false; MP.joinSt = -1; clearTimeout(MP.joinTO); joinWaitShow(false); track('環状線：乱入した'); }
     else if (st.loop) addToast('🚉 電車が来た！ ドアが開いたら乗りこんで、空いている席を取り合え（12 駅で 1 周・倒れたら終わり）' + (MP.loopNet ? '　途中の駅から、ほかのプレイヤーが乱入してくるかも…' : ''), 'good');
     else if (!MP.spect && G.survival) addToast(MP.cpuMode ? '🤖 CPU 戦（' + CPU_LVJ[st.lv || 0] + '）スタート！ 倒れたら即脱落。最後まで生き残れ' : '🏅 レート戦スタート！ 倒れたら即脱落。最後まで生き残った人の勝ち', 'good');

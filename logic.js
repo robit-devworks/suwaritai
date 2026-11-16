@@ -1510,6 +1510,7 @@
     g.t += dt;
     const keepUp = () => { if (g.practice && !g.over) { g.player.stamina = C.MAX_STAMINA; g.player.mind = 100; } }; // 練習乗車：体力・精神は減らない（操作を試しやすいように。2026-11-13）
     keepUp();
+    if (g.platWait) { g.player.stamina = C.MAX_STAMINA; g.player.mind = 100; playerStep(g, dt, input); return; } // 🚉 乱入を待つあいだ：電車の来ないホームで歩けるだけ（2026-11-16・本人）
     if (!playerStep(g, dt, input)) return;
     updatePhase(g, dt);
     updatePeople(g, dt);
@@ -1923,7 +1924,8 @@
     if (!P.away) riderOff(g, P);
     const d = DOORS[R.r.int(0, DOORS.length - 1)], prev = g.pi;
     P.name = String(o.name || 'ライバル').slice(0, 14); P.uid = o.uid || ''; P.cpu = false; P.guest = true; P.L = null; P.lv = 0; P.rid = ++R.n; P.bot = null; P.leaving = null;
-    P.pl = Object.assign(makePlayer(d + R.r.range(-0.3, 0.3), g.doorSide * 0.9), { toku: MP_TOKU, st: capStats(o.stats || {}, STAT_CAP_FAIR) });
+    P.pl = Object.assign(makePlayer(d + R.r.range(-0.5, 0.5), g.doorSide * R.r.range(2.2, 2.7)), { toku: MP_TOKU, st: capStats(o.stats || {}, STAT_CAP_FAIR) });
+    P.pl.plat = true; // 🚉 乱入はホームから乗りこむ（ドアが閉まるまでにホームにいれば駆け込む：platBoardAll。2026-11-16・本人）
     P.pl.yaw = g.doorSide > 0 ? 0 : Math.PI; P.stats = makeStats(); P.out = false; P.away = false; P.down = false; P.result = null; P.from = g.station; P.offAt = 1e9;
     P.aim = -1; P.prompt = null; P.pko = 0; P.tricks = 0; P.ghost = false; P.events = [];
     setCtx(g, prev);
