@@ -2825,10 +2825,11 @@
       newVer = j.v;
       if ($('updBan')) return;
       const el = document.createElement('div'); el.id = 'updBan';
-      el.innerHTML = '<span>🆕 新しい版が出ています</span><button id="updGo">更新する</button><button id="updX">✕</button>';
+      el.innerHTML = '<span>🆕 新しい版が出ています</span><button id="verGo">更新する</button><button id="verX">✕</button>';
       document.body.appendChild(el);
-      $('updX').onclick = () => el.remove();
-      $('updGo').onclick = () => { track('新しい版に更新した'); const u = new URL(location.href); u.searchParams.set('u', j.v); location.replace(u.toString()); };
+      // 大型アップデートのカードの #updGo と名前がかぶって押せなかった（2026-11-16）ので、この中のボタンを直接さがす
+      el.querySelector('#verX').onclick = () => el.remove();
+      el.querySelector('#verGo').onclick = () => { track('新しい版に更新した'); const u = new URL(location.href); u.searchParams.set('u', j.v); location.replace(u.toString()); };
       track('新しい版のお知らせを出した');
     }).catch(() => { });
   }
