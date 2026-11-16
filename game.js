@@ -3325,13 +3325,14 @@
     const sc = SW.finalScore(g), r = g.result, s = g.stats;
     const newAch = g.modeName === 'practice' || g.modeName === 'mikiwame' ? [] : SW.checkAchievements(g, profile); // 練習・見極め線では実績なし
     profile.plays = (profile.plays || 0) + 1;
+    profile.chikanTotal = (profile.chikanTotal || 0) + s.chikanKO;
+    for (const a of newAch) profile.ach[a] = Date.now();
+    const mode = g.modeName;
+    // 2026-11-16 の夜に直した：前は mode を決める前にここを書いていて、結果画面がエラーで止まっていた
     if (mode === 'normal' || mode === 'daily') { // 続けて 3 駅目までに倒れた回数（2 回で、次の回をこっそりやさしく：logic.js の WARMUP）
       if (g.ease) track('こっそりやさしく：' + (r.cause === 'clear' ? '終点到着' : (s.stations || 0) + 1 + '駅目で終わった'));
       if (r.cause !== 'clear' && (s.stations || 0) <= 2) profile.earlyFail = (profile.earlyFail || 0) + 1; else if ((s.stations || 0) >= 4 || r.cause === 'clear') profile.earlyFail = 0;
     }
-    profile.chikanTotal = (profile.chikanTotal || 0) + s.chikanKO;
-    for (const a of newAch) profile.ach[a] = Date.now();
-    const mode = g.modeName;
     let newBest = false;
     if (mode === 'normal' || mode === 'daily') {
       if (sc.total > (profile.best || 0)) { profile.best = sc.total; profile.bestTitle = sc.title; newBest = true; }
