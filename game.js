@@ -2655,7 +2655,7 @@
     MM.on = false; await N.remove('suwaritai/mm/q/' + me0).catch(() => { });
     for (const [u] of others) await N.set('suwaritai/mm/q/' + u + '/room', code).catch(() => { });
     MP.isHost = true; await mpEnter(code);
-    $('olPub').checked = false; $('olCpu').checked = false; MP.modeSel = 'vs';
+    MP.pubSel = false; MP.openSel = false; $('olCpu').checked = false; MP.modeSel = 'vs';
     MP.mmRated = MM.kind === 'rate'; MP.mmExpect = others.length + 1; MP.mmT0 = Date.now();
     track('オンライン：マッチした（ホスト・' + (others.length + 1) + '人）');
   }
@@ -2766,7 +2766,7 @@
   function lobbyTick(dt) {
     if (DB || !fbAllowed) return;
     // ホスト側
-    const pubOn = MP.code && MP.isHost && !MP.active && $('olPub') && $('olPub').checked && MP.state && MP.state.s === 'lobby';
+    const pubOn = MP.code && MP.isHost && !MP.active && MP.openSel && MP.state && MP.state.s === 'lobby'; // 🌐 だれでも入れる部屋だけ募集を出す
     if (pubOn) {
       LOBBY.pubT -= dt;
       if (LOBBY.pubT <= 0) {
@@ -3151,6 +3151,7 @@
       '📝 ドアが閉まると「答え合わせ」。だれが、どんな合図で降りたかが分かる',
       '🚃 新ダイヤは後半ほど混んで、席の取り合いがきつく。たまった徳で 👓 メガネや 🌀 洗脳ビームを使いどき',
       '🐛 立って座ってをくり返すと点が増える不具合を直しました（その点で載った記録はランキングから消しました）',
+      '👫 フレンド戦は、部屋をつくる前にルール（⚔ 対戦／🤝 共闘・🔒 友だちだけ／🌐 だれでも）を決めるように。友だちだけの部屋には知らない人が入ってきません',
       '👜 落とし物は減らして脇役に（落とし物拾いのゲームにならないように）。座る・読み的中で増えるのはスコアだけ（徳は良いことをしたときだけ）',
       '🔰 1〜2 駅目は慣らし。立っていても体力があまり減らない。座ったときの回復も大きく',
       '🚉 環状線に、ほかのプレイヤーが乱入できるように！ 走っているだれかの電車に、次の駅から乗りこむ（なければ自分の電車で乱入を待つ）',
@@ -5034,7 +5035,7 @@
     Object.assign(MP, {
       active: false, code: null, isHost: false, uid: null, hostUid: null, me: -1, offs: [], members: {}, state: null, players: [],
       remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, cnt: { a: 0, p: 0, bp: 0, fs: 0, sk: 0 }, skIdx: -1,
-      cpuMode: false, loopRide: false, loopNet: false, joining: false, joinReq: {}, rosterSig: '', lqT: 0, joinSt: 0, cpuLv: 0, seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', mmRated: false, mmExpect: 0, mmT0: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
+      cpuMode: false, loopRide: false, loopNet: false, joining: false, joinReq: {}, rosterSig: '', lqT: 0, joinSt: 0, cpuLv: 0, seen: 0, looks: {}, newIds: [], sentMax: 0, base: 0, modeSel: 'vs', openSel: false, pubSel: true, mmRated: false, mmExpect: 0, mmT0: 0, spect: false, ghost: false, watching: false, outShown: false, resSent: false, scoreT: 0, scores: [], myObs: null, avatars: {},
     });
   }
   mpReset();
@@ -5043,12 +5044,25 @@
   function openOnline() {
     backTo = 'title'; show('online'); olNote(''); mmRender(); MM.pollT = 0;
     showName();
-    $('olMenu').classList.toggle('hidden', !!MP.code); $('olRoom').classList.toggle('hidden', !MP.code);
+    $('olMenu').classList.toggle('hidden', !!MP.code); $('olSetup').classList.add('hidden'); $('olRoom').classList.toggle('hidden', !MP.code);
     track('オンライン：画面を開いた');
   }
   $('bOnline').classList.toggle('hidden', !onlineAvailable());
   $('bOnline').addEventListener('click', openOnline);
-  $('olCreate').addEventListener('click', () => mpCreate());
+  // 🚪 部屋をつくる前にルールを決める（2026-11-16・本人：部屋を作ってから変えるのではなく、先に決めてから作る）
+  const OLSET = { m: 'vs', o: 0 };
+  function olSetRender() {
+    document.querySelectorAll('[data-olsm]').forEach((b) => b.classList.toggle('on', b.dataset.olsm === OLSET.m));
+    document.querySelectorAll('[data-olso]').forEach((b) => b.classList.toggle('on', +b.dataset.olso === OLSET.o));
+    $('olSmNote').textContent = OLSET.m === 'coop' ? '🤝 みんなの合計がチームのスコア。倒れた仲間は徳で復活。人数ごとのランキングに載ります' : '⚔ いちばんスコアが高い人の勝ち。倒れたらスコア半分からやり直し';
+    $('olSoNote').textContent = OLSET.o ? '🌐 合言葉を知らない人にも「募集中」が届いて、だれでも入れます' : '🔒 合言葉を知っている人だけ入れます（募集は出しません）';
+  }
+  function olSetOpen(on) { $('olSetup').classList.toggle('hidden', !on); $('olMenu').classList.toggle('hidden', on); if (on) { olNote(''); olSetRender(); } }
+  $('olCreate').addEventListener('click', () => { if (!profile.name) { olNote('タイトルの「乗客名」から名前を引いてください'); return; } olSetOpen(true); });
+  document.querySelectorAll('[data-olsm]').forEach((b) => b.addEventListener('click', () => { OLSET.m = b.dataset.olsm; olSetRender(); }));
+  document.querySelectorAll('[data-olso]').forEach((b) => b.addEventListener('click', () => { OLSET.o = +b.dataset.olso; olSetRender(); }));
+  $('olSetBack').addEventListener('click', () => olSetOpen(false));
+  $('olSetGo').addEventListener('click', async () => { $('olSetGo').disabled = true; await mpCreate({ mode: OLSET.m, open: !!OLSET.o, pub: $('olSetPub').checked }); $('olSetGo').disabled = false; });
   $('olJoin').addEventListener('click', () => mpJoin());
   $('olWatch').addEventListener('click', () => mpSpectate());
   $('spNext').addEventListener('click', () => {
@@ -5079,12 +5093,6 @@
   $('olBack').addEventListener('click', () => { if (MP.code) mpLeave(true); else { if (MM.on) mmCancel(true); titleScreen(); } });
   $('olStart').addEventListener('click', () => mpStart());
   $('olCopy').addEventListener('click', () => { try { const p = navigator.clipboard.writeText('スワリタイ！のオンライン対戦で遊ぼう。合言葉は ' + MP.code + '\n' + SHARE_URL.split('?')[0]); if (p && p.catch) p.catch(() => { }); olNote('合言葉をコピーしました'); } catch (e) { } });
-  // 対戦／共闘の切りかえ（ホストだけ）
-  document.querySelectorAll('[data-olmode]').forEach((b) => b.addEventListener('click', () => {
-    if (!MP.isHost || !MP.code) return;
-    MP.modeSel = b.dataset.olmode; mpRenderRoom();
-    net().then((N) => N.update(roomP(MP.code) + '/state', { mode: MP.modeSel }));
-  }));
   $('olCpu').addEventListener('change', () => { if (MP.isHost && MP.code) net().then((N) => N.update(roomP(MP.code) + '/state', { cpu: $('olCpu').checked })); mpRenderRoom(); });
   $('mpGhost').addEventListener('click', () => { MP.ghost = true; MP.watching = false; $('mpOut').classList.add('hidden'); if (MP.isHost) G.players[MP.me].ghost = true; addToast('👻 ニセ乗客になった。座っている人を狙ってアクション', 'good'); track('オンライン：ニセ乗客になった'); });
   $('mpWatch').addEventListener('click', () => { if (G && G.loopRide && MP.active) { track('環状線：倒れたあと見続けた'); followSet(MP.outBy >= 0 ? MP.outBy : -1); return; } MP.watching = true; $('mpOut').classList.add('hidden'); });
@@ -5097,7 +5105,8 @@
   $('mpAgain').addEventListener('click', () => mpAgain());
   $('mpLeave').addEventListener('click', () => mpLeave(false));
 
-  async function mpCreate() {
+  async function mpCreate(o) {
+    o = o || {};
     if (!profile.name) { olNote('タイトルの「乗客名」から名前を引いてください'); return; }
     try {
       const N = await net(); olNote('部屋をつくっています…');
@@ -5108,10 +5117,12 @@
           if (ex.created && ex.created < Date.now() - 3600000) { try { await N.remove(roomP(code)); } catch (e) { continue; } }
           else continue;
         }
-        await N.update(roomP(code), { host: N.uid, created: N.TS, state: { s: 'lobby', cpu: false } }); // オンラインは CPU なし（人間だけ）
+        MP.modeSel = o.mode === 'coop' ? 'coop' : 'vs'; MP.openSel = !!o.open; MP.pubSel = o.pub !== false;
+        await N.update(roomP(code), { host: N.uid, created: N.TS, state: { s: 'lobby', cpu: false, mode: MP.modeSel, open: MP.openSel ? 1 : 0, pub: MP.pubSel ? 1 : 0 } }); // オンラインは CPU なし（人間だけ）
         MP.isHost = true;
         await mpEnter(code);
-        track('オンライン：部屋をつくった');
+        $('olSetup').classList.add('hidden');
+        track('オンライン：部屋をつくった（' + (MP.modeSel === 'coop' ? '共闘' : '対戦') + '・' + (MP.openSel ? 'だれでも' : '友だちだけ') + '）');
         return;
       }
       olNote('部屋をつくれませんでした。もう一度ためしてください');
@@ -5140,7 +5151,7 @@
     catch (e) { olNote('この乗客名は使えません。名前を変えてください'); MP.code = null; return; }
     N.onDisconnectRemove(roomP(code) + '/members/' + N.uid);
     N.onDisconnectRemove(roomP(code) + '/inputs/' + N.uid);
-    $('olMenu').classList.add('hidden'); $('olRoom').classList.remove('hidden'); $('olCodeShow').textContent = code; olNote('');
+    $('olMenu').classList.add('hidden'); $('olSetup').classList.add('hidden'); $('olRoom').classList.remove('hidden'); $('olCodeShow').textContent = code; olNote('');
     MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; mpRenderRoom(); mpMembersChanged(); }));
     MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
     MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code) mpAbort('部屋がなくなりました'); }));
@@ -5158,9 +5169,10 @@
     $('olMembers').innerHTML = html;
     $('olCpu').disabled = !MP.isHost; $('olCpu').checked = cpu;
     const md = MP.modeSel || 'vs';
-    document.querySelectorAll('[data-olmode]').forEach((b) => { b.classList.toggle('on', b.dataset.olmode === md); b.disabled = !MP.isHost; });
+    const st0 = MP.state || {}, opn = MP.isHost ? MP.openSel : !!st0.open, pb = MP.isHost ? MP.pubSel : st0.pub !== 0;
+    $('olRule').textContent = (md === 'coop' ? '🤝 共闘' : '⚔ 対戦') + '・' + (opn ? '🌐 だれでも入れる' : '🔒 友だちだけ') + (pb ? '・🎬 公開' : '');
     $('olModeNote').textContent = md === 'coop' ? '🤝 共闘：みんなの合計がチームのスコア。倒れた仲間は徳で復活。人数ごとのランキングに載ります' : '⚔ 対戦：いちばんスコアが高い人の勝ち（脱落なし・倒れたらスコア半分からやり直し）';
-    $('olStart').classList.toggle('hidden', !MP.isHost); $('olPubL').classList.toggle('hidden', !MP.isHost);
+    $('olStart').classList.toggle('hidden', !MP.isHost);
     $('olWait').textContent = MP.spect ? '👀 観戦で入っています。試合が始まると見られます' : MP.isHost ? (mem.length < 2 ? 'ほかの人が入るのを待っています（合言葉を送ってね）' : '') : 'ホストがスタートするのを待っています…';
   }
   function mpMembersChanged() {
@@ -5188,7 +5200,7 @@
     if (players.length < 2) { olNote('2 人そろったら始められます（合言葉を友だちに送ってね）'); return; }
     try {
       await N.remove(roomP(MP.code) + '/snap');
-      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', rated: !!MP.mmRated, survival: MP.mmRated && MP.modeSel !== 'coop' ? 1 : 0, platStart: 1, pub: $('olPub').checked ? 1 : 0, t: N.TS } }); // 🚉 オンラインもホームスタート（2026-11-15・本人）・🎬 みんなの試合に公開するか // レート戦は生き残り（倒れたら即脱落・2026-11-13・本人）。フレンド戦は今までどおり何度でもやり直し
+      await N.update(roomP(MP.code), { state: { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', rated: !!MP.mmRated, survival: MP.mmRated && MP.modeSel !== 'coop' ? 1 : 0, platStart: 1, pub: MP.pubSel ? 1 : 0, t: N.TS } }); // 🚉 オンラインもホームスタート（2026-11-15・本人）・🎬 みんなの試合に公開するか // レート戦は生き残り（倒れたら即脱落・2026-11-13・本人）。フレンド戦は今までどおり何度でもやり直し
     } catch (e) { olNote('スタートできませんでした（' + (e && e.message || e) + '）'); }
   }
   function mpBegin(st) {
@@ -5673,7 +5685,7 @@
     if (!MP.isHost) return;
     if (MP.cpuMode) { const lv = MP.cpuLv; await mpLeave(false); cpuStart(lv); return; }
     const N = await net();
-    await N.update(roomP(MP.code), { state: { s: 'lobby', cpu: $('olCpu').checked, mode: MP.modeSel || 'vs' } }); // 操作の記録は残っていても、次の試合で最初の値を基準にするので問題ない
+    await N.update(roomP(MP.code), { state: { s: 'lobby', cpu: $('olCpu').checked, mode: MP.modeSel || 'vs', open: MP.openSel ? 1 : 0, pub: MP.pubSel ? 1 : 0 } }); // 操作の記録は残っていても、次の試合で最初の値を基準にするので問題ない
   }
   async function mpLeave(toMenu) {
     const code = MP.code, host = MP.isHost;
