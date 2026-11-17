@@ -3056,15 +3056,28 @@
   // 🔒 環状線はむずかしいので、はじめての人は乗れない（2026-11-15・本人）：たちっぱ線などを LOOP_UNLOCK 回遊ぶと乗れる。それまではたちっぱ線をおすすめ（上に・オレンジ）
   const LOOP_UNLOCK = 3;
   const loopLeft = () => (profile.name === DEV_NAME || (typeof inClaude !== 'undefined' && inClaude)) ? 0 : Math.max(0, LOOP_UNLOCK - (profile.plays || 0));
+  // 🟢 いま環状線に乗っている人数（2026-11-17・本人：だれかが乗っていると分かるように・環状線も育てる）：ホームにいるあいだ 20 秒ごとに
+  //   suwaritai/loopq（走っている環状線の一覧・ホストが 8 秒ごとに書く。一人で乗っていても書く）を読み、今日の・40 秒以内の電車の人間の数（c）を足す
+  const LN = { t: 0, n: 0 };
+  function loopNowTick(dt) {
+    if (state !== 'title' || !loopOnline() || loopLeft() > 0) return;
+    LN.t -= dt; if (LN.t > 0) return; LN.t = 20;
+    net().then((N) => N.get(LOOPQ)).then((v) => {
+      const now = Date.now(), day = todayKey();
+      const n = Object.values(v || {}).filter((x) => x && x.d === day && now - (x.t || 0) < 40000).reduce((a, x) => a + Math.max(1, x.c || 1), 0);
+      if (n !== LN.n) { LN.n = n; if (state === 'title') loopLockUI(); }
+    }).catch(() => { });
+  }
   function loopLockUI() {
     const n = loopLeft(), L = n > 0;
     $('startBox').classList.toggle('lk', L);
     $('bLoop').classList.toggle('main', !L); $('bLoop').classList.toggle('locked', L); // たちっぱ線はいつも緑の大きなボタン（mainG）
-    $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β</span><small class="md">（あと ' + n + ' 回で解放）</small>' : '🔄 環状線<span class="beta">β</span><small class="md">（CPU・プレイヤー乱入モード）</small>'; // 2026-11-16・本人：たちっぱ線（一人モード）と形をそろえる
+    $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β</span><small class="md">（あと ' + n + ' 回で解放）</small>' : LN.n > 0 ? '🔄 環状線<span class="beta">β</span><small class="md lnow">🟢 いま ' + LN.n + ' 人が乗っています</small>' : '🔄 環状線<span class="beta">β</span><small class="md">（CPU・プレイヤー乱入モード）</small>'; // 2026-11-16・本人：たちっぱ線（一人モード）と形をそろえる
     $('bStart').innerHTML = L ? '🚃 たちっぱ線<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span><small class="md">（新ダイヤ・一人モード）</small>' : '🚃 たちっぱ線<small class="md">（新ダイヤ・一人モード）</small>';
   }
   $('bLoop').addEventListener('click', () => {
     const n = loopLeft();
+    if (n <= 0 && LN.n > 0) track('環状線：乗っている人がいるときに押した');
     if (n > 0) { // まだ乗れない：理由とおすすめ
       ruleMode = 'normal'; $('ruleT').textContent = '🔒 環状線 β は、まだ乗れません';
       $('ruleL').innerHTML = ['🔄 環状線は、ライバル（ほかのプレイヤー・CPU）と席を取り合う、むずかしめのモード', '🚃 まずは「たちっぱ線（一人モード）」で、降りる人の見分け方と座り方に慣れよう', '🔓 たちっぱ線などを、あと ' + n + ' 回遊ぶと乗れるようになる'].map((t) => '<li>' + esc(t) + '</li>').join('');
@@ -3242,6 +3255,7 @@
       '🛡 絡み屋や帝王の一味のパンチが当たる直前にガードすると「パリィ」！ ダメージなしで、相手がよろめく',
       '💥 パリィのあとのパンチは、下から突き上げる「一撃」。どんな相手も一撃で倒せる',
       '✨ 悪者を倒した瞬間に、ヒットストップ・火花・「K.O.!」が出るように。オンラインのライバルどうしでもパリィできる',
+      '🟢 ホームの環状線のボタンに「いま N 人が乗っています」。だれかが乗っていたら、乱入しに行こう',
     ] },
     { d: '2026-11-16', t: '大型アップデート：降りる人を見極めて座るゲームに！', items: [
       '🎯 「降りる人を見極めて座る」が、いちばんスコアになるように！ 降りそうな人の前で待ってから座れたら「読み的中」。続けて当てるほど +30 → +60 → +90…と大きくなる（たちっぱ線・今日のダイヤ・環状線）',
@@ -5973,6 +5987,7 @@
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
     try { lobbyTick(dt); } catch (e) { }
+    try { loopNowTick(dt); } catch (e) { }
     mmTick(dt).catch(() => { });
     const t = now / 1000;
     if (RP.active && G && (state === 'play' || state === 'pause')) {
