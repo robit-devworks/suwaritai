@@ -25,7 +25,7 @@
 <style>
 #startBox{display:flex;flex-direction:column;gap:5px}
 #startBox .sbw{position:relative;display:flex}
-#startBox.lk .sbw:first-child{order:2}#startBox.lk .sbw:last-child{order:1}
+#startBox.lk .sbLoop{order:2} /* 環状線がロック中は、いちばん下（2026-11-18・本人：ふだんはたちっぱ線が 1 番目・環状線が 2 番目） */
 #startBox .btn.locked{opacity:.75;font-size:.85em!important}
 #startBox .sbw>.btn{flex:1;min-width:0;padding-right:58px!important;padding-left:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #startBox .rq{position:absolute;right:7px;top:50%;transform:translateY(-50%);z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;width:48px;height:calc(100% - 12px);max-height:46px;min-height:30px;border-radius:10px;border:1px solid rgba(255,255,255,.45);background:rgba(10,12,18,.45);color:#fff;font-weight:900;font-size:15px;line-height:1;padding:0;cursor:pointer}
@@ -40,6 +40,7 @@
 #startBox small.md{display:block;font-size:.62em;font-weight:800;line-height:1.15;margin-top:2px;opacity:.92;overflow:hidden;text-overflow:ellipsis} /* かっこの中は名前の下の 2 行目に小さく（2026-11-16：長くて切れたため） */
 #title #startBox .sbw>.btn{line-height:1.15}
 #startBox .beta{display:inline-block;font-size:.62em;font-weight:900;background:#ffd447;color:#3a2600;border-radius:6px;padding:1px 5px;margin:0 2px;vertical-align:.2em}
+#bLoop .beta{font-size:.6em;background:#2a1200;color:#ffd447;border:1.5px solid #ffd447;padding:1px 6px;letter-spacing:.02em} /* 環状線の β をはっきり：まだバランス調整中（2026-11-18・本人） */
 #ruleBox{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
 #ruleBox.hidden{display:none}
 #ruleBox .rbc{position:relative;width:min(440px,100%);max-height:86vh;overflow:auto;background:var(--panel,#1b1f29);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:16px 16px 14px;color:#fff;text-align:left}
@@ -747,7 +748,7 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart,html:not(.pland) 
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
     <button class="btn sub2 hidden" id="bSaveResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
-    <div id="startBox"><div class="sbw"><button class="btn main" id="bLoop">🔄 環状線<span class="beta">β</span><small class="md">（CPU・プレイヤー乱入モード）</small></button><button class="rq" data-rule="loop" aria-label="環状線のルール">？<small>ルール</small></button></div><div class="sbw"><button class="btn mainG" id="bStart">🚃 たちっぱ線<small class="md">（新ダイヤ・一人モード）</small></button><button class="rq" data-rule="normal" aria-label="たちっぱ線のルール">？<small>ルール</small></button></div><div class="sbw"><button class="btn mainB" id="bClassic">🕰 旧ダイヤ<small class="md">（前の遊び方）</small></button><button class="rq" data-rule="classic" aria-label="旧ダイヤのルール">？<small>ルール</small></button></div></div>
+    <div id="startBox"><div class="sbw"><button class="btn mainG" id="bStart">🚃 たちっぱ線<small class="md">（新ダイヤ・一人モード）</small></button><button class="rq" data-rule="normal" aria-label="たちっぱ線のルール">？<small>ルール</small></button></div><div class="sbw sbLoop"><button class="btn main" id="bLoop">🔄 環状線<span class="beta">β 調整中</span><small class="md">（CPU・プレイヤー乱入モード）</small></button><button class="rq" data-rule="loop" aria-label="環状線のルール">？<small>ルール</small></button></div><div class="sbw"><button class="btn mainB" id="bClassic">🕰 旧ダイヤ<small class="md">（前の遊び方）</small></button><button class="rq" data-rule="classic" aria-label="旧ダイヤのルール">？<small>ルール</small></button></div></div>
     <div id="ruleBox" class="hidden"><div class="rbc"><button class="rbx" aria-label="とじる">✕</button><h3 id="ruleT"></h3><ul id="ruleL"></ul><button class="btn main" id="ruleGo">出発する</button></div></div>
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
     <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る <span class="pill">PV・作者の実況プレイ</span></button></div>
@@ -1128,7 +1129,7 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart,html:not(.pland) 
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261117225152"</script><script src="logic.js?v=20261117225152"></script>
-<script src="game.js?v=20261117225152"></script>
+<script>window.SW_VER="20261117225632"</script><script src="logic.js?v=20261117225632"></script>
+<script src="game.js?v=20261117225632"></script>
 </body>
 </html>
