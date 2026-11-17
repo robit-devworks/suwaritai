@@ -65,12 +65,13 @@
   }
   // 画面の点（指の位置）を、回した画面の中の座標にする
   const tp = (t) => pland ? { x: t.clientY, y: window.innerWidth - t.clientX } : { x: t.clientX, y: t.clientY };
+  let baseFov = 80;
   function resize() {
     applyPland();
     const w = pland ? window.innerHeight : window.innerWidth, h = pland ? window.innerWidth : window.innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = w < h ? 80 : 70;
+    camera.fov = baseFov = w < h ? 80 : 70;
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize); resize();
@@ -961,6 +962,7 @@
       if (fs === 'windup') { tgt.shRx = -0.15; tgt.shRz = 0.55; tgt.elR = -2.3; tgt.lean = -0.12; }
       if (fs === 'recover' && ft > 0.4) { tgt.shRx = -1.55; tgt.shRz = 0; tgt.elR = -0.1; tgt.lean = 0.22; }
       if (p.stunned > 0) tgt.lean = -0.3;
+      if (p.parryT > 0) { tgt.lean = -0.38 + Math.sin(now * 9) * 0.12; tgt.hr = Math.sin(now * 7) * 0.35; tgt.shLx = tgt.shRx = -0.4; tgt.shLz = 0.9; tgt.shRz = -0.9; tgt.elL = tgt.elR = -0.3; } // 🛡 パリィでよろめく（腕がひらく）
       faceRy = p.ry;
     } else {
       // 立っている
@@ -1302,10 +1304,59 @@
     for (const s of straps) s.rotation.z = sw;
     updateAvatars(g, dt, now);
     updateSelfFig(g, dt, now);
+    sparksTick(dt);
     // ビーム
     for (let i = beams.length - 1; i >= 0; i--) { const b = beams[i]; b.t -= dt; b.m.material.opacity = Math.max(0, b.t / 0.6); b.m.rotation.y += dt * 20; if (b.t <= 0) { scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose(); beams.splice(i, 1); } }
   }
   let lurchKick = 0, shakeAmt = 0, bobT = 0;
+  // 💥 悪者を倒したときの演出（2026-11-17・本人：倒したときに気持ちよく）：ヒットストップ（一瞬止める）→ 火花・衝撃の輪・白い光・画面のズーム・揺れ・重い音・振動
+  let finAnim = 0; const FIN_A = 0.5; // 💥 パリィのあとの一撃のモーション（下から突き上げる大きなアッパー）
+  let hitStop = 0, slowT = 0, frozenT = 0, fovKick = 0, koFlashV = 0;
+  const sparks = [], SPARK_G = new T3.BoxGeometry(0.05, 0.05, 0.05), RING_G = new T3.RingGeometry(0.15, 0.24, 32);
+  function koFx(g, e) {
+    const p = fxAt(g, e), big = !!e.big;
+    hitStop = big ? 0.2 : 0.11; slowT = big ? 0.45 : 0; // 止めたあと、強い相手のときは少しスローに
+    shakeAmt = Math.max(shakeAmt, big ? 1.4 : 1); fovKick = big ? 1.4 : 1; koFlashV = big ? 0.7 : 0.45;
+    if (!e.fin) sfx('koHit'); if (navigator.vibrate) try { navigator.vibrate(big ? [40, 30, 90] : 50); } catch (er) { }
+    addPop(e.fin ? '一撃！！' : big ? 'K.O.!!' : 'K.O.!', 'ko');
+    if (p) burst(p, big ? 26 : 16, ['#fff6a8', '#ffd23f', '#ff8a3d', '#ffffff'], big ? 2 : 1);
+  }
+  // 🛡 パリィ（はじき返した）：短く止めて、青白い火花と金属音
+  function parryFx(g, e) {
+    const p = fxAt(g, e);
+    hitStop = Math.max(hitStop, 0.08); shakeAmt = Math.max(shakeAmt, 0.5); fovKick = Math.max(fovKick, 0.5);
+    if (navigator.vibrate) try { navigator.vibrate(30); } catch (er) { }
+    addPop('パリィ！', 'parry'); $('warn').classList.add('hidden');
+    if (p) burst(p, 12, ['#ffffff', '#bfe9ff', '#6cc8ff', '#ffffff'], 1, 0.5);
+  }
+  // 演出の場所：乗客（id）かプレイヤー（pi）
+  function fxAt(g, e) {
+    if (e.pi != null) { const P = g.players && g.players[e.pi]; return P && P.pl ? { x: P.pl.x, z: P.pl.z, hy: P.pl.seat >= 0 ? 1.15 : 1.55 } : null; }
+    return SW.person(g, e.id);
+  }
+  function burst(p, n, cols, rings, y) {
+    const at = new T3.Vector3(p.x, (p.hy || SW._internal.headY(p)) - (y || 0.1), p.z);
+    for (let i = 0; i < n; i++) {
+      const m = new T3.Mesh(SPARK_G, new T3.MeshBasicMaterial({ color: cols[i % 4], transparent: true }));
+      m.position.copy(at); scene.add(m);
+      const a = Math.random() * Math.PI * 2, u = Math.random() * 2 - 1, sp = 2.5 + Math.random() * 3.5, r = Math.sqrt(1 - u * u);
+      sparks.push({ m, t: 0, life: 0.45 + Math.random() * 0.3, v: new T3.Vector3(Math.cos(a) * r * sp, u * sp + 1.5, Math.sin(a) * r * sp) });
+    }
+    for (let k = 0; k < rings; k++) { // 衝撃の輪（こちらを向いて広がる）
+      const m = new T3.Mesh(RING_G, new T3.MeshBasicMaterial({ color: k ? cols[2] : cols[0], transparent: true, side: T3.DoubleSide, depthWrite: false }));
+      m.position.copy(at); m.lookAt(camera.position); scene.add(m);
+      sparks.push({ m, t: -k * 0.08, life: 0.35, ring: 1 });
+    }
+  }
+  function sparksTick(dt) {
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i]; s.t += dt; const k = Math.max(0, s.t / s.life);
+      if (s.ring) { s.m.scale.setScalar(1 + k * 9); s.m.lookAt(camera.position); }
+      else { s.v.y -= 9.8 * dt; s.m.position.addScaledVector(s.v, dt); s.m.rotation.x += dt * 12; s.m.scale.setScalar(Math.max(0.2, 1 - k)); }
+      s.m.material.opacity = s.t < 0 ? 0 : Math.max(0, 1 - k);
+      if (s.t >= s.life) { scene.remove(s.m); s.m.material.dispose(); sparks.splice(i, 1); }
+    }
+  }
 
   // ================================================================ 音
   const AU = { ctx: null, master: null, rumbleGain: null, nextThump: 0, on: profile.sound !== false };
@@ -1322,7 +1373,21 @@
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220;
       AU.rumbleGain = ctx.createGain(); AU.rumbleGain.gain.value = 0;
       src.connect(lp); lp.connect(AU.rumbleGain); AU.rumbleGain.connect(AU.master); src.start();
+      loadSnd('bigPunch', 'punch-big.mp3'); // sounds/punch-mid.mp3（中パンチ）はハリセン・傘など、これから作る物のためにとってある（2026-11-17・本人）
     } catch (e) { AU.ctx = null; }
+  }
+  // 🔊 音のファイル（2026-11-17・本人：中パンチ＝ふつうのパンチが当たった・大パンチ＝パリィのあとの一撃）。sounds/ に置く。Artifact 版は build.py が window.SW_SOUNDS に埋めこむ
+  AU.buf = {};
+  function loadSnd(key, file) {
+    const url = (window.SW_SOUNDS && window.SW_SOUNDS[file]) || 'sounds/' + file;
+    // data: URL（Artifact 版）は fetch が止められることがあるので、自分で読む
+    const get = url.startsWith('data:') ? Promise.resolve().then(() => { const bin = atob(url.slice(url.indexOf(',') + 1)), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }) : fetch(url).then(r => r.arrayBuffer());
+    get.then(ab => new Promise((ok, ng) => AU.ctx.decodeAudioData(ab, ok, ng))).then(b => { AU.buf[key] = b; }).catch(() => { });
+  }
+  function playSnd(key, vol) {
+    const ctx = AU.ctx, b = AU.buf[key]; if (!ctx || !AU.on || !b) return false;
+    const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = b; g.gain.value = vol || 1;
+    s.connect(g); g.connect(AU.master); s.start(ctx.currentTime + (AU.tOff || 0)); return true;
   }
   function tone(freq, dur, type, vol, when, slideTo) {
     const ctx = AU.ctx; if (!ctx || !AU.on) return;
@@ -1351,6 +1416,10 @@
       case 'whoosh': noise(0.12, 2500, 0.15, 'highpass'); break;
       case 'block': tone(1400, 0.06, 'triangle', 0.2); noise(0.08, 3000, 0.2); break;
       case 'ko': tone(500, 0.6, 'sawtooth', 0.15, 0, 80); break;
+      case 'parry': tone(2200, 0.18, 'square', 0.09); tone(3300, 0.25, 'triangle', 0.08, 0.02, 2600); noise(0.1, 4000, 0.25, 'highpass'); break; // キィン
+      case 'punch': noise(0.15, 600, 0.7, 'lowpass'); tone(110, 0.15, 'sine', 0.5, 0, 50); break; // ふつうのパンチが当たった（前の音のまま・2026-11-17・本人）
+      case 'bigPunch': if (!playSnd('bigPunch', 1.3)) { noise(0.35, 380, 1, 'lowpass'); tone(95, 0.4, 'sine', 0.8, 0, 32); } break; // 大パンチ
+      case 'koHit': noise(0.35, 380, 1, 'lowpass'); tone(95, 0.4, 'sine', 0.8, 0, 32); tone(1900, 0.09, 'square', 0.07); noise(0.5, 3200, 0.12, 'highpass', 0.12); break; // ドゴォン（倒した）
       case 'beam': tone(300, 0.5, 'sine', 0.2, 0, 1800); tone(310, 0.5, 'triangle', 0.1, 0, 1500); break;
       case 'buzzer': tone(160, 0.5, 'square', 0.15); break;
       case 'drink': for (let i = 0; i < 5; i++) tone(500 + i * 120, 0.06, 'sine', 0.15, i * 0.05); break;
@@ -2137,10 +2206,14 @@
         case 'seatFree': { const s = g.seats[e.id]; if (s && Math.hypot(s.x - g.player.x, s.fz - g.player.z) < 3.5) sfx('free'); break; }
         case 'bagThrow': { const m = new T3.Mesh(box(0.34, 0.26, 0.2), lam('#8a3b5c')); m.position.set(e.x, 0.62, e.z); scene.add(m); flyBags.push({ m, t: 0, v: new T3.Vector3((Math.random() - 0.5) * 2.5, 3.2, -e.side * 2.2) }); shakeAmt = Math.max(shakeAmt, 0.5); addPop('ぶん投げた！', 'k'); break; }
         case 'speakerHit': addPop('バキッ！'); break;
+        case 'koFx': koFx(g, e); break;
+        case 'parry': parryFx(g, e); break;
+        case 'finisher': finAnim = FIN_A; break;
+        case 'parried': fovKick = Math.max(fovKick, 0.4); break; // パリィされた（よろめく。知らせは toast）
         case 'crit': addPop('クリティカル！'); shakeAmt = Math.max(shakeAmt, 0.5); break;
         case 'suriSteal': { const p = SW.person(g, e.id); if (p && Math.hypot(p.x - g.player.x, p.z - g.player.z) < 3.5) sfx('pick'); break; }
         case 'counter': addPop('カウンター！'); shakeAmt = Math.max(shakeAmt, 0.6); break;
-        case 'windup': sfx('warn'); if (Math.hypot((SW.person(g, e.id) || g.player).x - g.player.x, (SW.person(g, e.id) || g.player).z - g.player.z) < 2.5) { $('warn').classList.remove('hidden'); $('warn').firstChild.textContent = '👊 構えた！ '; $('warnSub').textContent = isTouch ? '今パンチでカウンター／🛡でガード' : '今 F でカウンター／Space でガード'; warnT = 0.6; } break;
+        case 'windup': sfx('warn'); if (Math.hypot((SW.person(g, e.id) || g.player).x - g.player.x, (SW.person(g, e.id) || g.player).z - g.player.z) < 2.5) { $('warn').classList.remove('hidden'); $('warn').firstChild.textContent = '👊 構えた！ '; $('warnSub').textContent = isTouch ? '今パンチでカウンター／当たる瞬間に🛡でパリィ' : '今 F でカウンター／当たる瞬間に Space でパリィ'; warnT = 0.6; } break;
         case 'guarded': addPop('ガードされた！', 'k'); break;
         case 'beam': { const p = SW.person(g, e.id); if (p) addBeam(camera.getWorldPosition(new T3.Vector3()).add(new T3.Vector3(0, -0.15, 0)), new T3.Vector3(p.x, SW._internal.headY(p), p.z)); break; }
         case 'sit': case 'stand': inp.yaw = g.player.yaw; inp.pitch = 0; break;
@@ -2176,13 +2249,23 @@
     }
     camera.position.set(pl.x + ox, y + oy, pl.z);
     camera.rotation.set(pitch, yaw, roll);
+    if (fovKick > 0 || camera.fov !== baseFov) { fovKick = Math.max(0, fovKick - dt * 5); camera.fov = baseFov - 7 * fovKick * fovKick; camera.updateProjectionMatrix(); } // 💥 倒した瞬間にぐっと寄る
+    if (koFlashV > 0 || $('koFlash').style.opacity !== '0') { koFlashV = Math.max(0, koFlashV - dt * 3.5); $('koFlash').style.opacity = koFlashV.toFixed(2); }
     if (tpvOn()) { tpvCamera(g, dt); fpR.visible = fpL.visible = false; return; }
     // 手
     const guard = pl.seat < 0 && (pl.braceHeld) && !g.over;
     const pa = pl.punchAnim > 0 ? 1 - pl.punchAnim / 0.3 : 0;
-    fpR.visible = !!(pl.seat < 0 && !g.over && (guard || pa > 0 || (g.chikan && g.chikan.stage === 'fight'))) || (pl.waveT > 0 && !g.over);
-    fpR.rotation.z = 0;
-    if (pl.waveT > 0 && pa <= 0) { const w = performance.now() / 1000; fpR.position.set(0.17 + Math.sin(w * 13) * 0.05, -0.06, -0.42); fpR.rotation.z = Math.sin(w * 13) * 0.35; } // 👋 赤ちゃんに手を振る
+    finAnim = Math.max(0, finAnim - dt);
+    const fa = finAnim > 0 ? 1 - finAnim / FIN_A : 0;
+    fpR.visible = !!(pl.seat < 0 && (fa > 0 || !g.over && (guard || pa > 0 || (g.chikan && g.chikan.stage === 'fight')))) || (pl.waveT > 0 && !g.over);
+    fpR.rotation.z = 0; fpR.rotation.x = 0; fpR.scale.setScalar(1);
+    if (fa > 0) { // ためて（下に引く）→ 突き上げる → 戻す
+      const up = fa < 0.25 ? 0 : Math.min(1, (fa - 0.25) / 0.25), back = fa > 0.75 ? (fa - 0.75) / 0.25 : 0;
+      const k = up * (1 - back);
+      fpR.position.set(0.17 - k * 0.07, -0.4 + k * 0.3 - (fa < 0.25 ? fa * 0.2 : 0), -0.4 - k * 0.35);
+      fpR.rotation.x = 0.35 * k - (fa < 0.25 ? fa * 0.8 : 0); fpR.rotation.z = -0.2 * k; fpR.scale.setScalar(1 + 0.2 * k);
+    }
+    else if (pl.waveT > 0 && pa <= 0) { const w = performance.now() / 1000; fpR.position.set(0.17 + Math.sin(w * 13) * 0.05, -0.06, -0.42); fpR.rotation.z = Math.sin(w * 13) * 0.35; } // 👋 赤ちゃんに手を振る
     else if (pa > 0) fpR.position.set(0.12, -0.2, -0.45 - Math.sin(pa * Math.PI) * 0.35);
     else if (guard || (g.chikan && g.chikan.stage === 'fight')) fpR.position.set(0.14, -0.17, -0.36);
     fpL.visible = !!((guard || pl.carrying || (g.chikan && g.chikan.stage === 'fight' && pl.seat < 0)) && !g.over);
@@ -2462,7 +2545,7 @@
     if (TUT) tutClose();
     $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden'); $('mpOut').classList.add('hidden');
     if (RP.active) { RP.active = false; RP.fr = null; } document.body.classList.remove('replay'); $('rpBar').classList.add('hidden'); $('rpEnd').classList.add('hidden');
-    $('sleepFx').style.opacity = 0; $('hitFlash').style.opacity = 0; $('lowFx').style.boxShadow = 'none';
+    $('sleepFx').style.opacity = 0; $('hitFlash').style.opacity = 0; $('lowFx').style.boxShadow = 'none'; koFlashV = 0; $('koFlash').style.opacity = 0;
     if (document.pointerLockElement) document.exitPointerLock();
     if (!demo || demo.over) demo = SW.create({ seed: (Math.random() * 1e9) | 0 });
     G = null; clearWorld();
@@ -2540,6 +2623,11 @@
     const ruleTest = mode.startsWith('ruletest:') ? SW.DAILY_RULES.find((r) => r.key === mode.slice(9)) : null; // ルールのお試し（開発者用・ランキングなし）
     const rule = mode === 'daily' ? SW.dailyRule(todayKey()) : ruleTest; // 今日のダイヤの特別ルール
     G = resume ? SW.loadGame(resume.d) : SW.create({ seed, mode: bossTest || bossRush ? 'endless' : practice || ruleTest || mikiwame || mode === 'ranked' || mode === 'classic' ? 'normal' : mode, classic: mode === 'classic', bossTest, bossRush, practice, mikiwame, rules: rule ? [rule.key] : [], bal2: BAL2, loop: loopSel ? { day: todayKey() } : null, seatGuide: guideTest || (mode === 'normal' && !rookieSel && !(profile.plays || 0)), ease: (mode === 'normal' || mode === 'daily') && !rookieSel && (profile.earlyFail || 0) >= 2, tells: (profile.plays || 0) < 3 || guideTest, stats: profile.st, statCap: mode === 'normal' || mode === 'classic' || mode === 'daily' || mode === 'hard' || mode === 'jiji' || mode === 'mikiwame' || mode === 'ranked' ? SW.STAT_CAP_FAIR : SW.STAT_CAP_TOTAL });
+    if (bossTest && !resume) { // 🧪 ボス駅テスト：最初の駅の分を早送りして、ボス駅に着く 5 秒前から（2026-11-17・本人）。予告（着く 9 秒前）の知らせは残す
+      const T = SW.C.T_TRAVEL;
+      for (let i = 0; i < 30 * 120 && !(G.phase === 'travel' && G.phaseT >= T - 5); i++) { SW.update(G, 1 / 30, {}); if (!(G.phase === 'travel' && G.phaseT > T - 10)) G.events.length = 0; }
+      G.player.stamina = SW.C.MAX_STAMINA; G.player.mind = 100;
+    }
     G.modeName = bossTest ? 'bosstest' : ruleTest ? 'ruletest' : guideTest ? 'guidetest' : loopSel ? 'loop' : mode;
     G.rkTrain = rkTrain; G.rkWeek = resume ? resume.meta.rkWeek : weekKey();
     // 見習い乗車：はじめての 1 回だけ体力がへりにくい（ランキング・リプレイには載らない）
@@ -3150,6 +3238,11 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
+    { d: '2026-11-17', t: 'パリィと一撃！ 悪者を倒すのが気持ちよく', items: [
+      '🛡 絡み屋や帝王の一味のパンチが当たる直前にガードすると「パリィ」！ ダメージなしで、相手がよろめく',
+      '💥 パリィのあとのパンチは、下から突き上げる「一撃」。どんな相手も一撃で倒せる',
+      '✨ 悪者を倒した瞬間に、ヒットストップ・火花・「K.O.!」が出るように。オンラインのライバルどうしでもパリィできる',
+    ] },
     { d: '2026-11-16', t: '大型アップデート：降りる人を見極めて座るゲームに！', items: [
       '🎯 「降りる人を見極めて座る」が、いちばんスコアになるように！ 降りそうな人の前で待ってから座れたら「読み的中」。続けて当てるほど +30 → +60 → +90…と大きくなる（たちっぱ線・今日のダイヤ・環状線）',
       '👀 降りる合図（荷物をまとめる・掲示板をチラ見・時計）は、乗客のカードに出なくなりました。しぐさを見て読もう（👓 メガネのあいだと、はじめての 3 回は見える）',
@@ -4907,7 +5000,9 @@
   // 🚉 環状線（CPU・プレイヤー乱入・2026-11-16・本人：オンラインになっていなかった。すぐ乱入できるように）：
   //   乗るとき、いま走っている環状線（suwaritai/loopq に出ている電車）をさがす。見つかれば次の駅で乱入（CPU の席と入れかわる）。
   //   なければ自分がホストになって走り出し、loopq に「乗れます」を出す（8 秒ごと・終わりの手前で消す）。オンラインが使えないときは今までどおり CPU だけ
-  const LOOPQ = 'suwaritai/loopq', LOOP_JOIN_WAIT = 45000;
+  // 乱入を待つ時間（2026-11-16・本人）：ホストが loopq に「次に乗れる駅でドアが開くまでの秒数」（e）を書くので、それ＋ゆとり 15 秒だけ待つ
+  //   （前は 45 秒で決め打ち：次がボス駅だと 2 駅先まで約 60 秒かかり、乗れる電車をあきらめていた）。e を書かない古い版のホストは 45 秒・どんなときも 2 分まで
+  const LOOPQ = 'suwaritai/loopq', LOOP_JOIN_WAIT = 45000, LOOP_JOIN_PAD = 15000, LOOP_JOIN_MAX = 120000;
   const loopOnline = () => !inClaude && (NET_LOCAL || fbAllowed);
   const fairStr = () => SW.STATS.map((d) => SW.capStats(profile.st, SW.STAT_CAP_FAIR)[d.key]).join(',');
   async function loopRideStart() {
@@ -4920,12 +5015,20 @@
     }
     return loopHost(loopOnline());
   }
+  // 待ちが長い電車には乱入しない（2026-11-16 の夜・本人：60 秒もホームで待ってくれない）：次に乗れる駅まで LOOP_JOIN_MAXETA 秒より長い電車（次がボス駅など）は選ばない
+  //   e は書いた時点の秒数なので、書いてからたった分を引く（端末の時計のずれは気にしない）。e がない古い版のホストの電車は、e のある電車のあと
+  const LOOP_JOIN_MAXETA = 35;
   async function loopFind(N) {
     const v = (await N.get(LOOPQ)) || {}, now = Date.now(), day = todayKey();
-    const list = Object.entries(v).filter(([c, x]) => x && x.h !== N.uid && x.d === day && (x.c || 1) < 4 && now - (x.t || 0) < 40000 && /^[0-9]{4}$/.test(c));
-    list.sort((a, b) => (b[1].c || 1) - (a[1].c || 1) || (b[1].t || 0) - (a[1].t || 0)); // 人の多い電車から
+    const eNow = (x) => (typeof x.e === 'number' ? x.e - Math.max(0, now - (x.t || now)) / 1000 : null);
+    const all = Object.entries(v).filter(([c, x]) => x && x.h !== N.uid && x.d === day && (x.c || 1) < 4 && now - (x.t || 0) < 40000 && /^[0-9]{4}$/.test(c));
+    const list = all.filter(([c, x]) => { const e = eNow(x); return e === null || (e >= -2 && e <= LOOP_JOIN_MAXETA); });
+    if (all.length && !list.length) track('環状線：待ちが長いので乱入しなかった');
+    const k = (x) => { const e = eNow(x); return e === null ? 999 : Math.max(0, e); };
+    list.sort((a, b) => k(a[1]) - k(b[1]) || (b[1].c || 1) - (a[1].c || 1)); // 早く乗れる電車から（同じくらいなら人の多い電車）
     return list.length ? list[0][0] : null;
   }
+  const waitSec = () => { const s = (Date.now() - (MP.joinT0 || Date.now())) / 1000; return s < 10 ? '〜10秒' : s < 20 ? '10〜20秒' : s < 30 ? '20〜30秒' : s < 40 ? '30〜40秒' : '40秒〜'; };
   async function loopHost(online) {
     const riders = await stylePool();
     mpReset(); MP.cpuMode = true; MP.loopRide = true; MP.cpuLv = 2; cpuNet = !online;
@@ -4958,7 +5061,7 @@
   }
   // 乱入する側：走っている電車の部屋に「乗せて」を出し、次の駅でホストが席をくれるのを待つ（来なければ自分がホストに）
   async function loopJoin(N, code) {
-    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true });
+    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true, joinDl: 0, joinEta: 0 });
     const me = { n: rankName().slice(0, 12), t: N.TS, s: fairStr() };
     try { await N.set(roomP(code) + '/members/' + N.uid, me); await N.set(roomP(code) + '/join/' + N.uid, me); }
     catch (e) { mpReset(); return false; }
@@ -4967,9 +5070,18 @@
     MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; }));
     MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
     MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code === code) { if (MP.active) loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです'); else if (MP.joining) loopJoinGiveUp(); } }));
-    clearTimeout(MP.joinTO); MP.joinTO = setTimeout(() => { if (MP.joining && !MP.active && MP.code === code) loopJoinGiveUp(); }, LOOP_JOIN_WAIT);
+    MP.joinT0 = Date.now(); MP.joinEta = 0; loopJoinArm(Date.now() + LOOP_JOIN_WAIT);
+    MP.offs.push(N.on(LOOPQ + '/' + code, (v) => { // ホストの「次に乗れる駅まで あと e 秒」
+      if (!MP.joining || MP.code !== code) return;
+      if (!v || (typeof v.e === 'number' && v.e < 0)) { loopJoinArm(Date.now() + 4000); return; } // 満員（自分が乗れた知らせが先に届くことがあるので少し待つ）・終わりの手前・終わった：もう乗れない
+      if (typeof v.e === 'number') { MP.joinEta = Date.now() + v.e * 1000; loopJoinArm(MP.joinEta + LOOP_JOIN_PAD); }
+    }));
     track('環状線：乱入しに行った');
     return true;
+  }
+  function loopJoinArm(at) { // この時刻までに乗れなければ、自分の電車で出発
+    const code = MP.code; MP.joinDl = Math.min(at, MP.joinT0 + LOOP_JOIN_MAX);
+    clearTimeout(MP.joinTO); MP.joinTO = setTimeout(() => { if (MP.joining && !MP.active && MP.code === code) loopJoinGiveUp(); }, Math.max(0, MP.joinDl - Date.now()));
   }
   async function loopJoinLeave() {
     const code = MP.code, uid = MP.uid; clearTimeout(MP.joinTO);
@@ -4978,7 +5090,7 @@
   }
   async function loopJoinGiveUp() { // 乗せてもらえなかった：自分で走り出す
     if (!MP.joining) return; MP.joining = false; joinWaitShow(false);
-    await loopJoinLeave(); track('環状線：乱入できなかったので自分で出発');
+    await loopJoinLeave(); track('環状線：乱入できなかったので自分で出発'); track('環状線：乱入をあきらめるまで待った：' + waitSec());
     loopHost(true);
   }
   // 🚉 乱入を待つあいだは、駅のホームで電車を待つ（2026-11-16・本人：ホーム画面で待つのではなく、駅のホームで）
@@ -5006,9 +5118,13 @@
     if (!el) { el = document.createElement('div'); el.id = 'joinWait'; document.body.appendChild(el); }
     el.className = 'plat';
     el.innerHTML = '<div class="jwc"><b>🚉 走っている電車がこの駅に来ます</b><p>ドアが開いたら乗りこもう（だれがライバルか分からない）<br><small id="jwT"></small></p><button class="btn sub2" id="jwX">やめる</button></div>';
-    const t0 = Date.now(), tick = () => { const n = Math.max(0, Math.ceil((LOOP_JOIN_WAIT - (Date.now() - t0)) / 1000)); const e = $('jwT'); if (e) e.textContent = '来なければ ' + n + ' 秒後に、自分の電車で出発します'; };
+    const tick = () => {
+      const e = $('jwT'); if (!e) return;
+      const now = Date.now(), n = Math.max(0, Math.ceil(((MP.joinDl || now) - now) / 1000)), a = MP.joinEta ? Math.ceil((MP.joinEta - now) / 1000) : -1;
+      e.textContent = a > 0 ? '電車が来るまで あと約 ' + a + ' 秒' : a > -6 && MP.joinEta ? 'まもなく電車が来ます…' : '来なければ ' + n + ' 秒後に、自分の電車で出発します';
+    };
     tick(); MP.jwIv = setInterval(tick, 500);
-    $('jwX').onclick = async () => { MP.joining = false; joinWaitShow(false); await loopJoinLeave(); mpReset(); titleScreen(); };
+    $('jwX').onclick = async () => { track('環状線：乱入を待つのをやめた：' + waitSec()); MP.joining = false; joinWaitShow(false); await loopJoinLeave(); mpReset(); titleScreen(); };
   }
   // ホスト：8 秒ごとに「乗れます」を出す・駅に着いてドアが開いたら、待っている人を CPU の席と入れかえて乗せる・席の顔ぶれをみんなに知らせる
   function loopHostTick(dt) {
@@ -5017,7 +5133,7 @@
     MP.lqT -= dt;
     if (MP.lqT <= 0) {
       MP.lqT = 8;
-      net().then((N) => (canBoard && humans < 4 ? N.set(LOOPQ + '/' + MP.code, { h: MP.uid, n: rankName().slice(0, 12), t: N.TS, d: todayKey(), c: humans, st: g.station }) : N.remove(LOOPQ + '/' + MP.code))).catch(() => { });
+      net().then((N) => (canBoard && humans < 4 ? N.set(LOOPQ + '/' + MP.code, { h: MP.uid, n: rankName().slice(0, 12), t: N.TS, d: todayKey(), c: humans, st: g.station, e: Math.round(SW.boardEta(g) * 10) / 10 }) : N.remove(LOOPQ + '/' + MP.code))).catch(() => { });
     }
     const req = MP.joinReq || {};
     if (g.phase === 'stop' && g.doorsOpen && canBoard && !(g.bossAt && g.bossAt[g.station]) && g.phaseT > 0.6) {
@@ -5257,7 +5373,7 @@
     $('toasts').innerHTML = ''; $('pops').innerHTML = '';
     if (MP.spect) { document.body.classList.add('replay'); $('spBar').classList.remove('hidden'); spName(); addToast('👀 観戦中。「次の人」で見る人を切りかえ', 'good'); track('オンライン：観戦をはじめた'); }
     else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } pcClickHint(); }
-    if (MP.joining) { MP.joining = false; MP.joinSt = -1; clearTimeout(MP.joinTO); joinWaitShow(false); track('環状線：乱入した'); }
+    if (MP.joining) { MP.joining = false; MP.joinSt = -1; clearTimeout(MP.joinTO); joinWaitShow(false); track('環状線：乱入した'); track('環状線：乱入まで待った：' + waitSec()); }
     else if (st.loop) addToast('🚉 電車が来た！ ドアが開いたら乗りこんで、空いている席を取り合え（12 駅で 1 周・倒れたら終わり）' + (MP.loopNet ? '　途中の駅から、ほかのプレイヤーが乱入してくるかも…' : ''), 'good');
     else if (!MP.spect && G.survival) addToast(MP.cpuMode ? '🤖 CPU 戦（' + CPU_LVJ[st.lv || 0] + '）スタート！ 倒れたら即脱落。最後まで生き残れ' : '🏅 レート戦スタート！ 倒れたら即脱落。最後まで生き残った人の勝ち', 'good');
     else if (!MP.spect) addToast(G.coop ? '🤝 共闘スタート！ みんなの合計で勝負。倒れた仲間はそばで「復活させる」' : '🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');
@@ -5861,7 +5977,7 @@
     const t = now / 1000;
     if (RP.active && G && (state === 'play' || state === 'pause')) {
       rpTick(dt);
-      handleEvents(G);
+      handleEvents(G); if (hitStop > 0) hitStop -= dt; // リプレイは止めない（演出だけ）
       if (RP.mp) updateMpBoard(G);
       updateHUD(G, dt);
       updateWorld(G, dt, t);
@@ -5880,7 +5996,8 @@
         if (MP.isHost) inp.pitch = G.player.pitch;
         if (state === 'play') updateHUD(G, dt);
         updateMpBoard(G);
-        updateWorld(G, dt, t);
+        const stop = hitStop > 0; if (stop) hitStop -= dt; else frozenT = t; // 💥 オンラインは見た目だけ止める
+        updateWorld(G, stop ? 0 : dt, frozenT);
         updateCamera(G, dt, t);
         updateAudio(G, dt);
       }
@@ -5889,14 +6006,20 @@
       const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.joyX;
       const mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - inp.joyY;
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill, throwPow: inp.throwPow, gesture: inp.gesture };
-      inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1; inp.throwPow = null; inp.gesture = null;
-      if (!G.over) SW.update(G, dt, li);
+      const stop = hitStop > 0; // 💥 ヒットストップ：止めているあいだは決まりを進めない（押したボタンはとっておく）
+      if (stop) hitStop -= dt;
+      else {
+        inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1; inp.throwPow = null; inp.gesture = null;
+        const sd = slowT > 0 ? (slowT -= dt, dt * 0.35) : dt;
+        if (!G.over) SW.update(G, sd, li);
+      }
       if (REC) recTick(G, dt);
       if (G.tutorial) tutTick(G, dt);
       handleEvents(G);
       inp.pitch = G.player.pitch;
       updateHUD(G, dt);
-      updateWorld(G, dt, t);
+      if (!stop) frozenT = t;
+      updateWorld(G, stop ? 0 : dt, frozenT);
       updateCamera(G, dt, t);
       updateAudio(G, dt);
       if (G.over && !pendingResult) { pendingResult = true; setTimeout(finishGame, 2200); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); }

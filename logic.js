@@ -1368,8 +1368,24 @@
     pl.punchCD = 0.42; pl.punchAnim = 0.3;
     pl.stamina = Math.max(0.1, pl.stamina - 1);
     emit(g, { type: 'sfx', name: 'whoosh' });
+    if (pl.finT > 0 && finisher(g)) return;
     if (speakerNear(g)) { hitSpeaker(g, pl.buffs.protein > 0 ? 2 : 1); return; }
     punchHit(g, aimTarget(g, 1.6), 1, false);
+  }
+  // 💥 パリィのあとの一撃（2026-11-17・本人：パリィのメリットを大きく）：パリィしてから FIN_T 秒のあいだのパンチは、モーションが変わって一撃で倒す。
+  //   相手が 2.2m 以内なら照準がずれていても当たる（よろめいて体がずれるため）。プレイヤー同士はトドメ
+  function finisher(g) {
+    const pl = g.player, R = 2.2;
+    let id = -1;
+    if (pl.finPi >= 0) { const P = g.players && g.players[pl.finPi]; if (P && !P.out && !P.down && Math.hypot(P.pl.x - pl.x, P.pl.z - pl.z) < R) id = PID + pl.finPi; }
+    else { const p = person(g, pl.finId); if (p && p.state !== 'ko' && p.state !== 'gone' && p.state !== 'exit' && Math.hypot(p.x - pl.x, p.z - pl.z) < R) id = p.id; }
+    if (id < 0) return false;
+    pl.finT = 0; pl.punchCD = 0.6; pl.punchAnim = 0;
+    emit(g, { type: 'finisher' }); emit(g, { type: 'sfx', name: 'bigPunch' });
+    if (id >= PID) { const T = g.players[id - PID]; T.pl.stamina = Math.min(T.pl.stamina, 20); punchPlayer(g, id - PID, 1, false, true); }
+    else { const p = person(g, id); p.finHit = true; punchHit(g, id, 999, false); p.finHit = false; }
+    g.stats.finishers = (g.stats.finishers || 0) + 1;
+    return true;
   }
   // 🎯 落とし物を投げる（2026-11-13・本人）：パンチ長押しのため具合（pow 0〜1）で飛ぶ距離が 2〜7m。照準の向きへ飛んで、途中の人（悪者・乗客・ほかのプレイヤー）に当たる
   //   悪者はパンチ 1 発分（入れ歯は 3 発分・謎の巻物は 5 発分）、ふつうの乗客はカルマ（殴ったときと同じ）、座っているプレイヤーには効かない。当たった・落ちた所に落とし物が残る（また拾って届けられる）
@@ -1420,16 +1436,16 @@
         p.state = 'fight'; releaseSlot(g, p);
         bubble(g, p, ch.kind === 'boxer' ? 'ほう…やる気か' : 'な、なにを！', 1.8);
         const v = person(g, ch.victimId); if (v) { v.expr = 'surprised'; v.exprT = 3; }
-        toast(g, '絡み屋との戦闘！ ' + (ch.kind === 'boxer' ? '（元ボクサーだ！）' : '') + ' 構えたらパンチでカウンター、ガードで防御', 'warn');
+        toast(g, '絡み屋との戦闘！ ' + (ch.kind === 'boxer' ? '（元ボクサーだ！）' : '') + ' 構えたらパンチでカウンター、当たる直前にガードでパリィ', 'warn');
       }
       let dmg = dmgMul;
-      if (ch.fstate !== 'windup' && g.r() < (ch.kind === 'boxer' ? 0.6 : ch.kind === 'small' ? 0.2 : 0.4)) {
+      if (ch.fstate !== 'windup' && !(p.parryT > 0) && !p.finHit && g.r() < (ch.kind === 'boxer' ? 0.6 : ch.kind === 'small' ? 0.2 : 0.4)) {
         emit(g, { type: 'sfx', name: 'block' }); bubble(g, p, 'ガード！', 0.6); emit(g, { type: 'guarded', id: p.id });
         return;
       }
       if (ch.fstate === 'windup') { dmg += 1; ch.fstate = 'recover'; ch.ft = 0.9; g.stats.counters++; ch.counters++; emit(g, { type: 'counter' }); toast(g, 'カウンター！', 'good'); }
       ch.hp -= dmg; p.stunned = 0.25; p.expr = 'pain'; p.exprT = 0.6;
-      emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
+      emit(g, { type: 'sfx', name: p.finHit ? 'none' : 'punch' }); emit(g, { type: 'hit', id: p.id });
       if (ch.hp <= 0) {
         ch.stage = 'done'; p.state = 'ko'; p.expr = 'ko'; p.exprT = 999;
         const base = { small: 60, normal: 100, boxer: 180 }[ch.kind] + ch.counters * 10;
@@ -1438,7 +1454,7 @@
         if (v) { v.expr = 'happy'; v.exprT = 6; v.role = null; bubble(g, v, '助かりました…！', 2.5); }
         deed(g, base, '絡み屋を撃退した！');
         p.koT = 0;
-        emit(g, { type: 'sfx', name: 'ko' });
+        emit(g, { type: 'sfx', name: 'ko' }); emit(g, { type: 'koFx', id: p.id, big: ch.kind === 'boxer' || p.finHit ? 1 : 0, fin: p.finHit ? 1 : 0 }); // 💥 倒した演出（ヒットストップ・火花）
       }
       return;
     }
@@ -1448,13 +1464,13 @@
     if (p.brute) { punchBrute(g, p, dmgMul); return; }
     if (p.role === 'thief' && p.state !== 'ko') {
       p.thiefHp -= dmgMul; p.stunned = 0.3; p.expr = 'pain'; p.exprT = 0.6; p.pickT = 0; p.thiefGoal = null;
-      emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
+      emit(g, { type: 'sfx', name: 'punch' }); emit(g, { type: 'hit', id: p.id });
       if (p.thiefHp <= 0) {
         releaseSlot(g, p); p.state = 'ko'; p.expr = 'ko'; p.exprT = 999; p.koT = 0; p.fleeing = false; p.role = 'thiefKO';
         g.stats.thiefKO++;
         const n = p.stolen || 0;
         deed(g, 50 + 20 * n, n ? '泥棒を撃退！盗まれた物×' + n + 'を取り返した' : '泥棒を撃退！');
-        emit(g, { type: 'sfx', name: 'ko' });
+        emit(g, { type: 'sfx', name: 'ko' }); emit(g, { type: 'koFx', id: p.id, big: 0 });
         return;
       }
       if (!p.fleeing) {
@@ -1471,26 +1487,36 @@
     g.stats.wrongPunch++;
     p.expr = 'angry'; p.exprT = 5; p.angry = 8; bubble(g, p, p.type === 'alien' ? 'ピギャッ!?' : thrown ? '痛っ！なに投げてるんですか！' : '痛っ！なにするんですか！', 2);
     if (p.sleep) { p.sleep = 0; p.oversleep = false; }
-    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
+    emit(g, { type: 'sfx', name: thrown ? 'hit' : 'punch' }); emit(g, { type: 'hit', id: p.id });
     addKarma(g, thrown === 'head' ? 30 : 20, thrown === 'head' ? '無関係の人の頭に物をぶつけた' : thrown ? '無関係の人に物をぶつけた' : '無関係の人を殴った');
     if (p.tough) { hurt(g, 18, 'ko'); bubble(g, p, 'やんのかコラァ！', 2); emit(g, { type: 'shake', amount: 1 }); }
   }
 
   // プレイヤー同士のパンチ：元気な相手はよろけるだけ。具合が悪そう（体力 20 以下）ならトドメで脱落
-  function punchPlayer(g, j, base, thrown) {
+  function punchPlayer(g, j, base, thrown, fin) {
     const me = g.pi, T = g.players[j];
     if (!T || T.out || T.down) return;
     if (g.coop) return; // 共闘：仲間はなぐれない
     const tp = T.pl;
     if (tp.seat >= 0) { toast(g, '座っている人には効かない…', 'info'); return; } // 座っているプレイヤーはパンチ・投げた物でダメージを受けない（2026-11-13・本人）
     const mul = (base || 1) * (g.player.buffs.protein > 0 ? 2 : 1);
-    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hitPlayer', i: j });
+    if (!thrown && !fin && parryOk(g, tp)) { // 🛡 プレイヤー同士のパリィ（2026-11-17・本人）：殴った人がよろめいて、しばらく殴れない・パリィもできない
+      const A = g.player; A.parryT = PARRY_T; A.stagger = PARRY_T; A.punchCD = Math.max(A.punchCD, PARRY_T);
+      emit(g, { type: 'parried', i: j }); emit(g, { type: 'sfx', name: 'parry' }); emit(g, { type: 'shake', amount: 0.8 });
+      toast(g, T.name + ' にパリィされた！ よろめいた…', 'bad');
+      T.events.push({ type: 'parry', pi: me }); T.events.push({ type: 'sfx', name: 'parry' });
+      T.stats.parries = (T.stats.parries || 0) + 1;
+      tp.finT = FIN_T; tp.finPi = me; tp.finId = -1; // パリィした人の次のパンチはトドメ
+      return;
+    }
+    if (!fin) emit(g, { type: 'sfx', name: thrown ? 'hit' : 'punch' }); emit(g, { type: 'hitPlayer', i: j });
     T.stats.hitByP = (T.stats.hitByP || 0) + 1; // ほかのプレイヤーに殴られた回数（シェアの一言用）
     if (tp.stamina <= 20) {
       g.players[me].pko++;
       addKarma(g, 25, T.name + 'にトドメ');
       scorePts(g, KO_PTS, '👊 ' + T.name + ' を KO（スコアだけ・徳は増えない）');
       toast(g, T.name + ' にトドメを刺した！（スコア +' + KO_PTS + '）', 'warn');
+      emit(g, { type: 'sfx', name: 'ko' }); emit(g, { type: 'koFx', pi: j, big: fin ? 1 : 0, fin: fin ? 1 : 0 }); // 💥 トドメの演出
       setCtx(g, j); emit(g, { type: 'killed', by: me, name: g.players[me].name }); gameOver(g, 'pko', { by: g.players[me].name, byI: me, text: g.players[me].name + ' のパンチで床に沈んだ…' }); setCtx(g, me); // killed：キルカメラ用（だれに・いつ）
     } else {
       addKarma(g, 15, T.name + (thrown ? 'に物をぶつけた' : 'を殴った'));
@@ -1551,7 +1577,7 @@
     if (input.gesture) doGesture(g, input.gesture);
     if (pl.ganimT) pl.ganimT = Math.max(0, pl.ganimT - dt);
     if (pl.gpack && (pl.seat < 0 || g.t > pl.gpack)) pl.gpack = 0;
-    pl.hitFlash = Math.max(0, pl.hitFlash - dt); pl.confessCD = Math.max(0, pl.confessCD - dt); pl.stagger = Math.max(0, pl.stagger - dt);
+    pl.hitFlash = Math.max(0, pl.hitFlash - dt); pl.confessCD = Math.max(0, pl.confessCD - dt); pl.stagger = Math.max(0, pl.stagger - dt); if (pl.parryT > 0) pl.parryT -= dt; if (pl.finT > 0) pl.finT -= dt;
     for (const k in pl.buffs) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { delete pl.buffs[k]; toast(g, (SKILLS.find(s => s.key === k) || {}).name + 'の効果が切れた', 'info'); } }
     if (pl.buffs.disguise && pl.seat < 0) disguiseStep(g, dt);
     if (pl.buffs.transfer) { // 乗換案内：座ったら終わり。案内した人が席を立ったら、あと 8 秒だけ光らせる
@@ -1563,7 +1589,7 @@
     if (g.guide) guideTick(g);
     if (pl.mode) { pl.modeT -= dt; if (pl.modeT <= 0) pl.mode = null; }
     pl.braceHeld = !!input.brace;
-    if (input.bracePressed) pl.lastBraceT = g.t;
+    if (input.bracePressed) { pl.prevBraceT = pl.lastBraceT; pl.lastBraceT = g.t; }
 
     // 移動（オンラインの参加者は自分の端末で動かして、場所だけ送ってくる）
     let moving = false;
@@ -1919,6 +1945,26 @@
   }
   // 🚉 乱入（2026-11-16・本人：環状線にほかのプレイヤーが途中の駅から乗ってくる）：i 番目の席（いないか CPU）に、本物のプレイヤーを乗せる。
   //   CPU が乗っていたら先に降ろす。乗ったら倒れるまで（または 1 周まで）降りない。倒れたら次の駅で降ろす（CPU と同じ）
+  // 🚉 乱入の待ち時間（2026-11-16・本人）：次に乱入を受け入れる駅でドアが開くまでの秒数。もう乗れない（終わりの手前・終わった）なら -1
+  //   受け入れるのは、ドアが開いている・ボス駅でない・終わりの 2 駅手前より前の駅（game.js の loopHostTick と同じ条件）
+  function boardEta(g) {
+    if (!g || g.over) return -1;
+    const last = lastStation(g), ok = (st) => st < last - 1 && !(g.bossAt && g.bossAt[st]);
+    const stopLen = C.T_STOP + 0.8, cycle = stopLen + C.T_TRAVEL;
+    let t, st = g.station;
+    if (g.phase === 'stop') {
+      const close = g.doorClose || C.T_STOP;
+      if (ok(st) && g.phaseT < close) return Math.max(0, C.DOOR_OPEN - g.phaseT);
+      t = Math.max(0, close + 0.8 - g.phaseT) + C.T_TRAVEL;
+    } else t = Math.max(0, C.T_TRAVEL - g.phaseT);
+    for (let k = 0; k < 400; k++) {
+      st++;
+      if (!ok(st) && st >= last - 1) return -1;
+      if (ok(st)) return t + C.DOOR_OPEN;
+      t += cycle;
+    }
+    return -1;
+  }
   function guestOn(g, i, o) {
     const R = g.loopRide, P = g.players[i]; if (!R || !P || !P.rider) return false;
     if (!P.away) riderOff(g, P);
@@ -2848,7 +2894,7 @@
     p.state = 'walk'; p.tx = dd + (g.r() - 0.5) * 0.6; p.tz = (p.z >= 0 ? 1 : -1) * 0.95; p.then = 'stand';
   }
   function punchSuri(g, p, dmgMul) {
-    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
+    emit(g, { type: 'sfx', name: 'punch' }); emit(g, { type: 'hit', id: p.id });
     if (!p.loot) { // まだ何もしていない：冤罪
       g.stats.falseAccuse++; g.stats.wrongPunch++;
       p.expr = 'angry'; p.exprT = 5; p.angry = 8; bubble(g, p, '痛っ！なにするんですか！', 2);
@@ -2863,7 +2909,7 @@
       releaseSlot(g, p); p.state = 'ko'; p.expr = 'ko'; p.exprT = 999; p.koT = 0; p.leaving = false; p.role = 'suriKO';
       g.stats.suriKO++; deed(g, 80, 'スリを現行犯で撃退！');
       returnLoot(g, p);
-      emit(g, { type: 'sfx', name: 'ko' });
+      emit(g, { type: 'sfx', name: 'ko' }); emit(g, { type: 'koFx', id: p.id, big: 0 });
       return;
     }
     if (!p.caught) { p.caught = true; bubble(g, p, 'ちっ！', 1.2); toast(g, 'スリだ！ 逃がすな！ もう一発', 'warn'); p.speed = 1.6; }
@@ -3036,7 +3082,7 @@
     p.brute = { hp: p.type === 'yankee' ? 4 : 3, dmg: p.type === 'yankee' ? 12 : 10, guard: 0.3 };
     p.angryFight = true; p.expr = 'angry'; p.exprT = 5;
     setAggro(g, p, g.multi ? g.pi : 0);
-    toast(g, '逆ギレして向かってきた！ 構えたらパンチでカウンター、ガードで防御', 'warn');
+    toast(g, '逆ギレして向かってきた！ 構えたらパンチでカウンター、当たる直前にガードでパリィ', 'warn');
   }
   function punchBrute(g, p, dmgMul) {
     const pi = g.multi ? g.pi : 0, isGang = p.role === 'hench' || p.role === 'emperor', bossId = p.role === 'emperor' ? p.id : p.boss;
@@ -3047,15 +3093,15 @@
       for (const q of hench) if (!q.aggro) setAggro(g, q, pi);
       return;
     }
-    if (!p.aggro) { if (p.role === 'emperor' || !isGang) setAggro(g, p, pi); else { for (const q of hench) if (!q.aggro) setAggro(g, q, pi); } toast(g, p.role === 'emperor' ? '👑 帝王との決戦！' : '帝王の子分とケンカだ！ 構えたらパンチでカウンター、ガードで防御', 'warn'); }
-    if (p.bfs !== 'windup' && g.r() < p.brute.guard) { emit(g, { type: 'sfx', name: 'block' }); bubble(g, p, 'ガード！', 0.6); emit(g, { type: 'guarded', id: p.id }); return; }
+    if (!p.aggro) { if (p.role === 'emperor' || !isGang) setAggro(g, p, pi); else { for (const q of hench) if (!q.aggro) setAggro(g, q, pi); } toast(g, p.role === 'emperor' ? '👑 帝王との決戦！' : '帝王の子分とケンカだ！ 構えたらパンチでカウンター、当たる直前にガードでパリィ', 'warn'); }
+    if (p.bfs !== 'windup' && !(p.parryT > 0) && !p.finHit && g.r() < p.brute.guard) { emit(g, { type: 'sfx', name: 'block' }); bubble(g, p, 'ガード！', 0.6); emit(g, { type: 'guarded', id: p.id }); return; }
     let dmg = dmgMul;
     if (p.bfs === 'windup') { dmg += 1; p.bfs = 'recover'; p.bft = 0.9; g.stats.counters++; emit(g, { type: 'counter' }); toast(g, 'カウンター！', 'good'); }
     p.brute.hp -= dmg; p.stunned = 0.25; p.expr = 'pain'; p.exprT = 0.6;
-    emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'hit', id: p.id });
+    emit(g, { type: 'sfx', name: p.finHit ? 'none' : 'punch' }); emit(g, { type: 'hit', id: p.id });
     if (p.brute.hp > 0) return;
     releaseSlot(g, p); p.state = 'ko'; p.expr = 'ko'; p.exprT = 999; p.koT = 0; p.aggro = false;
-    emit(g, { type: 'sfx', name: 'ko' });
+    emit(g, { type: 'sfx', name: 'ko' }); emit(g, { type: 'koFx', id: p.id, big: p.role === 'emperor' || p.finHit ? 1 : 0, fin: p.finHit ? 1 : 0 });
     if (!isGang) { g.stats.brawlKO++; p.role = null; deed(g, 45, '逆ギレした人を返り討ちにした'); }
     else if (p.role === 'hench') {
       g.stats.henchKO++; deed(g, 50, '帝王の子分を倒した！');
@@ -3082,17 +3128,29 @@
     const d = dist2(p.x, p.z, pl.x, pl.z);
     p.ry = Math.atan2(pl.x - p.x, pl.z - p.z);
     if (d > 0.8) { [p.x, p.z] = aisleClamp(p.x + (pl.x - p.x) / d * 1.3 * dt, p.z + (pl.z - p.z) / d * 1.3 * dt); }
-    p.bft -= dt * (p.stunned > 0 ? 0.5 : 1);
+    p.bft -= dt * (p.stunned > 0 ? 0.5 : 1); if (p.parryT > 0) p.parryT -= dt;
     if (p.bfs === 'idle' && p.bft <= 0) { p.bfs = 'windup'; p.bft = p.role === 'emperor' ? 0.5 : 0.65; emit(g, { type: 'windup', id: p.id }); p.expr = 'angry'; p.exprT = 1; }
     else if (p.bfs === 'windup' && p.bft <= 0) {
       p.bfs = 'recover'; p.bft = 0.6;
       if (d < 1.5) {
-        if (pl.braceHeld) { const chip = pl.buffs.protein > 0 ? 0 : 2; if (chip) hurt(g, chip, 'ko', { text: '帝王の一味にのされた…' }); emit(g, { type: 'sfx', name: 'block' }); emit(g, { type: 'block' }); }
+        if (parryOk(g)) { doParry(g, p); p.bft = 0.7; } // よろめき（stunned で半分の速さ＝約 1.4 秒は打ってこない）
+        else if (pl.braceHeld) { const chip = pl.buffs.protein > 0 ? 0 : 2; if (chip) hurt(g, chip, 'ko', { text: '帝王の一味にのされた…' }); emit(g, { type: 'sfx', name: 'block' }); emit(g, { type: 'block' }); }
         else { hurt(g, Math.round(p.brute.dmg * (1 - 0.03 * ST(g, 'def'))), 'ko', { text: p.angryFight ? '逆ギレした人にのされた…' : '帝王の一味にのされた…' }); emit(g, { type: 'shake', amount: 1.2 }); emit(g, { type: 'sfx', name: 'hit' }); pl.stagger = 0.4; }
       }
     } else if (p.bfs === 'recover' && p.bft <= 0) { p.bfs = 'idle'; p.bft = g.r.range(0.9, 1.8); }
   }
 
+  // 🛡 パリィ（2026-11-17・本人）：相手のパンチが当たる直前（PARRY_WIN 秒以内）にガードを押すと、はじき返す。ダメージなし・相手はよろめいて（PARRY_T 秒）、そのあいだのパンチは必ず通る（ガードされない）。
+  // 連打では取れない（その前の押しから 0.5 秒あいていること）
+  const PARRY_WIN = 0.25, PARRY_T = 1.2, FIN_T = 1.5; // FIN_T：パリィのあと、一撃で倒せるあいだ
+  function parryOk(g, pl) { pl = pl || g.player; if (pl.parryT > 0) return false; return g.t - pl.lastBraceT <= PARRY_WIN && pl.lastBraceT - (pl.prevBraceT == null ? -99 : pl.prevBraceT) > 0.5; }
+  function doParry(g, p) {
+    p.parryT = PARRY_T; p.stunned = PARRY_T; p.expr = 'surprised'; p.exprT = PARRY_T;
+    g.player.finT = FIN_T; g.player.finId = p.id; g.player.finPi = -1; // 💥 次のパンチは一撃で倒す（doPunch）
+    bubble(g, p, 'うおっ!?', 1);
+    g.stats.parries = (g.stats.parries || 0) + 1;
+    emit(g, { type: 'parry', id: p.id }); emit(g, { type: 'sfx', name: 'parry' });
+  }
   // ---------------------------------------------------------------- 絡み屋（ほかの乗客にしつこく絡む人。中の名前は前のまま chikan）
   function updateFighter(g, p, dt) {
     if (g.multi) {
@@ -3109,13 +3167,14 @@
     const d = dist2(p.x, p.z, pl.x, pl.z);
     p.ry = Math.atan2(pl.x - p.x, pl.z - p.z);
     if (d > 0.85) { const [nx, nz] = aisleClamp(p.x + (pl.x - p.x) / d * 1.2 * dt, p.z + (pl.z - p.z) / d * 1.2 * dt); p.x = nx; p.z = nz; }
-    ch.ft -= dt * (p.stunned > 0 ? 0.5 : 1);
+    ch.ft -= dt * (p.stunned > 0 ? 0.5 : 1); if (p.parryT > 0) p.parryT -= dt;
     if (ch.fstate === 'idle' && ch.ft <= 0) { ch.fstate = 'windup'; ch.ft = ch.kind === 'boxer' ? 0.55 : 0.7; emit(g, { type: 'windup', id: p.id }); p.expr = 'angry'; p.exprT = 1; }
     else if (ch.fstate === 'windup' && ch.ft <= 0) {
       ch.fstate = 'recover'; ch.ft = 0.6;
       if (d < 1.5 && pl.seat < 0) {
         const dmg = Math.round((ch.kind === 'boxer' ? 22 : ch.kind === 'small' ? 10 : 15) * (1 - 0.03 * ST(g, 'def')));
-        if (pl.braceHeld) {
+        if (parryOk(g)) { doParry(g, p); ch.ft = 0.7; }
+        else if (pl.braceHeld) {
           const chip = pl.buffs.protein > 0 ? 0 : 2;
           if (chip) hurt(g, chip, 'ko');
           emit(g, { type: 'sfx', name: 'block' }); emit(g, { type: 'block' });
@@ -3385,7 +3444,7 @@
     C, LINE, LOOP_N, loopPlan, styleOf, TYPES, SKILLS, ITEMS, ACHIEVEMENTS, TITLES, DOORS, STATS, STAT_MAX, STAT_CAP_TOTAL, STAT_CAP_FAIR, normStats, statSum, capStats, xpNeed, levelOf, statPoints, xpGain,
     DAILY_RULES, dailyRule, hasRule, saveGame, loadGame,
     teamScore, reviveCost,
-    CPU_LV, styleLv, styleParse, guestOn, create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
+    CPU_LV, styleLv, styleParse, guestOn, boardEta, create, update, updateMulti, movePlayer, ghostStep, ghostMove, dropPlayer, botInput, finalScoreOf, standings, setCtx, PID, finalScore, checkAchievements, observe, stationName, nextStation, lastStation, person, titleFor, skillCost, rng,
     KO_PTS, REPORT_T, GOOD_MAX, BABY_P, strollerAt, GESTS, gestureNotes, _internal: { seatedPick,  punchPlayer, addKarma, bxHurt, sitAt, updateThief, spawnVillain, updateSuri, villainCount, planVillains, hogClaim, atOpenDoor, spawn, freeSeat, leave, placeStanding, releaseSlot, aimTarget, computePrompt, doAction, doPunch, doThrow, throwRange, throwTarget, useSkill, tryStartChikan, dropItem, witnessFactor, priorityNear, nearestFreeSeat, playerSit, playerStand, aisleClamp, headY },
   };
 });

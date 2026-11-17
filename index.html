@@ -174,6 +174,8 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 #pops{position:absolute;left:50%;top:40%;transform:translateX(-50%);width:0;height:0}
 .pop{position:absolute;left:0;transform:translateX(-50%);white-space:nowrap;font-weight:800;font-size:20px;text-shadow:0 2px 3px #000,0 0 8px rgba(0,0,0,.6);animation:popup 1.8s ease-out forwards}
 .pop.k{color:#d79cff;font-size:16px}
+.pop.parry{color:#bfe9ff;font-size:30px;font-style:italic;-webkit-text-stroke:1px #0b3d6b;text-shadow:0 3px 0 #0b3d6b,0 0 14px rgba(110,200,255,.9)}
+.pop.ko{color:#ffd23f;font-size:46px;font-style:italic;letter-spacing:2px;-webkit-text-stroke:2px #7a2a00;text-shadow:0 4px 0 #7a2a00,0 0 18px rgba(255,140,40,.9);animation:popup 1.4s cubic-bezier(.2,1.6,.4,1) forwards}
 .pop small{display:block;font-size:12px;text-align:center;color:#fff}
 @keyframes popup{0%{transform:translate(-50%,10px) scale(.7);opacity:0}15%{transform:translate(-50%,0) scale(1.1);opacity:1}80%{opacity:1}100%{transform:translate(-50%,-70px) scale(1);opacity:0}}
 #warn{position:absolute;left:50%;top:30%;transform:translateX(-50%);font-size:30px;font-weight:800;color:var(--warn);text-shadow:0 3px 0 #000,0 0 16px rgba(255,177,59,.6);white-space:nowrap;animation:shakeW .12s infinite}
@@ -182,6 +184,7 @@ html.pland body.touch #skTip{top:auto;bottom:calc(100% + 8px)}
 #ann{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);font-size:12px;color:#ffcf8a;background:rgba(0,0,0,.5);padding:3px 10px;border-radius:8px;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
 #fx{position:fixed;inset:0;pointer-events:none;z-index:4}
 #hitFlash{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,0,0,.55));opacity:0}
+#koFlash{position:absolute;inset:0;background:radial-gradient(ellipse at center,#fff 30%,rgba(255,230,150,.6));opacity:0}
 #sleepFx{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.55),rgba(0,0,0,.96));opacity:0;transition:opacity .4s;display:flex;align-items:center;justify-content:center;font-size:20px;color:#aab}
 #lowFx{position:absolute;inset:0;pointer-events:none}
 #pcHint{position:absolute;left:50%;top:58%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.7;text-align:center;pointer-events:none}
@@ -596,6 +599,8 @@ html.pland body.touch #toasts{top:max(6px,env(safe-area-inset-top));left:calc(50
 html.pland .toast{font-size:12px;padding:3px 10px}
 html.pland #warn{top:24%;font-size:24px}
 html.pland .pop{font-size:17px}
+html.pland .pop.ko{font-size:40px}
+html.pland .pop.parry{font-size:26px}
 html.pland #tbtns{width:160px;height:160px}
 html.pland #bAct{width:78px;height:78px}
 html.pland #bPunch{right:86px;bottom:2px;width:60px;height:60px}
@@ -663,7 +668,7 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart,html:not(.pland) 
 <canvas id="c"></canvas>
 <div id="loading">電車を待っています…</div>
 
-<div id="fx"><div id="hitFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
+<div id="fx"><div id="hitFlash"></div><div id="koFlash"></div><div id="lowFx"></div><div id="sleepFx">（狸寝入り中…）</div></div>
 
 <div id="spBar" class="hidden"><span class="rpTag">👀 観戦中</span><span id="spName"></span><button id="spTpv">🎥 3人称</button><button id="spNext">次の人 ▶</button><button id="spQuit">✕</button></div>
 <div id="rpBar" class="hidden"><div class="rpTop"><span class="rpTag">🎬 リプレイ</span><span id="rpName"></span><button id="rpHide" title="操作のバーをかくす／出す">▾ かくす</button></div><div class="rpCtl"><button id="rpPlay">⏸</button><button id="rpSpeed">1×</button><button id="rpPrevP" class="hidden">◀ 前の人</button><button id="rpTpv">🎥 3人称</button><button id="rpNextP" class="hidden">次の人 ▶</button><button id="rpWho" class="hidden" title="見る人を切りかえる"></button><button id="rpLike">🤍 いいね</button><button id="rpVid" class="hidden" title="いちばん大きな出来事を自動で選んで動画にする">📹 おまかせ</button><button id="rpClip" class="hidden" title="始まりと終わりを自分で選んで動画にする（最大 1 分）">✂ 選ぶ</button><button id="rpClose">✕ 終わる</button></div><div id="rpSeek" title="ドラッグで好きなところへ"><div class="rpProgW"><i id="rpProg"></i><i id="rpClipR"></i></div><i id="rpHead"></i><i class="rph" id="rpHA">[</i><i class="rph" id="rpHB">]</i></div><div id="rpTime"></div><div id="clipBox" class="hidden"><div class="cbRow"><button id="cbA">[ 開始をここに</button><button id="cbB">終了をここに ]</button></div><div class="cbRow"><button id="cbPlay">▶ 範囲を見る</button><button id="cbGo" class="go">🎬 動画にする</button><button id="cbX">やめる</button></div><div id="cbNote"></div></div><div class="rpMark">スワリタイ！ robit-devworks.github.io/suwaritai</div></div>
@@ -781,7 +786,7 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart,html:not(.pland) 
     <ul>
       <li>🪑 お年寄り・妊婦さん・ケガ人・子連れに<b>席を譲る</b>（また立つことになる）</li>
       <li>👛 <b>落とし物</b>を拾って持ち主へ（拾うと腰にくる）。持ち主のヒントを頼りに。持ち主が降りたら、停車中に開いたドアの近くで駅員に届けられる。足もとを見てアクションで床に置ける</li>
-      <li>👊 <b>絡み屋をパンチで撃退</b>（ほかの乗客にしつこく絡む人。大きな徳。でも反撃される）。相手が構えた瞬間に殴るとカウンター！ 非常通報ボタンなら安全だが徳は少なめ</li>
+      <li>👊 <b>絡み屋をパンチで撃退</b>（ほかの乗客にしつこく絡む人。大きな徳。でも反撃される）。相手が構えた瞬間に殴るとカウンター！ パンチが当たる直前にガードを押すとパリィ（相手がよろめいて、しばらくパンチが必ず通る）。 非常通報ボタンなら安全だが徳は少なめ</li>
       <li>🎯 落とし物を持っているときのパンチは<b>投げる</b>：長押しでためるほど遠くへ（赤い輪が落ちる所）。悪者にはパンチ 1 発分（まれに出る<b>入れ歯は 3 発分・謎の巻物は 5 発分</b>）。<b>頭に当てると 1.5 倍</b>（照準の高さを頭に合わせる・金色の輪になったら頭）、関係ない人に当てるとカルマ。座っている人には、パンチも投げた物も効かない</li>
       <li>🕵 床の落とし物や寝ている人の財布を盗む<b>泥棒</b>もいる。殴ると逃げるので、追いかけてもう一発で撃退</li>
       <li>📢 <b>迷惑客に注意</b>：音もれヘッドホン・においのきつい弁当・説教おじさん・リュック背負いっぱなし・ドア前から動かない人。近くにいると精神が減る。注意すると徳（こわい人は逆ギレ。人まちがいにも注意）</li>
@@ -1118,7 +1123,7 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart,html:not(.pland) 
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261116143501"</script><script src="logic.js?v=20261116143501"></script>
-<script src="game.js?v=20261116143501"></script>
+<script>window.SW_VER="20261117024934"</script><script src="logic.js?v=20261117024934"></script>
+<script src="game.js?v=20261117024934"></script>
 </body>
 </html>
