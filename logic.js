@@ -738,14 +738,14 @@
   const MP_TOKU = 30;
   // 倒れたら、まず床に倒れる（ほかの人には倒れた姿・本人は床から見る）。MP_DOWN 秒たったらやり直し
   const MP_DOWN = 1.8;
-  function mpRespawn(g, cause) {
+  function mpRespawn(g, cause, extra) {
     const P = g.players[g.pi], pl = P.pl;
     if (pl.seat >= 0) { freeSeat(g, g.seats[pl.seat], -1); pl.seat = -1; }
     if (pl.carrying) { const it = pl.carrying; pl.carrying = null; [it.x, it.z] = aisleClamp(pl.x, pl.z); it.taken = false; it.t0 = g.t; g.items.push(it); }
     pl.fakeSleep = false; pl.mode = null; pl.stagger = 0;
     P.down = true; P.respawnAt = g.t + MP_DOWN;
     P.keepScore = Math.floor(finalScore(g).total / 2); // フレンド戦：倒れたらスコア半分（2026-11-15・本人。前は 0）
-    toast(g, '💫 ' + CAUSES[cause].title + '…！ スコア半分（' + P.keepScore + ' 点）・徳 ' + MP_TOKU + ' からやり直し', 'bad');
+    toast(g, '💫 ' + (extra && extra.text ? extra.text : CAUSES[cause].title + '…！') + ' スコア半分（' + P.keepScore + ' 点）・徳 ' + MP_TOKU + ' からやり直し', 'bad');
     emit(g, { type: 'sfx', name: 'hit' }); emit(g, { type: 'shake', amount: 0.8 });
     toOthers(g, { type: 'toast', text: (g.anon ? 'だれか' : P.name) + 'が' + CAUSES[cause].title + '！（スコア半分からやり直し）', kind: 'warn' });
   }
@@ -757,7 +757,7 @@
   }
   function gameOver(g, cause, extra) {
     if (g.practice && !g.multi && cause !== 'clear') { practiceSave(g, cause); return; }
-    if (g.multi && !g.coop && !g.survival && !g.loopRide && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out && !P.down) mpRespawn(g, cause); return; }
+    if (g.multi && !g.coop && !g.survival && !g.loopRide && cause !== 'clear' && cause !== 'leave' && CAUSES[cause]) { const P = g.players[g.pi]; if (P && !P.out && !P.down) mpRespawn(g, cause, extra); return; }
     if (g.multi) {
       const P = g.players[g.pi]; if (!P || P.out) return;
       P.out = true; P.outT = g.t; P.outStation = g.station; g.outCount = (g.outCount || 0) + 1; P.outOrder = g.outCount;
@@ -1517,7 +1517,7 @@
       scorePts(g, KO_PTS, '👊 ' + T.name + ' を KO（スコアだけ・徳は増えない）');
       toast(g, T.name + ' にトドメを刺した！（スコア +' + KO_PTS + '）', 'warn');
       emit(g, { type: 'sfx', name: 'ko' }); emit(g, { type: 'koFx', pi: j, big: fin ? 1 : 0, fin: fin ? 1 : 0 }); // 💥 トドメの演出
-      setCtx(g, j); emit(g, { type: 'killed', by: me, name: g.players[me].name }); gameOver(g, 'pko', { by: g.players[me].name, byI: me, text: g.players[me].name + ' のパンチで床に沈んだ…' }); setCtx(g, me); // killed：キルカメラ用（だれに・いつ）
+      setCtx(g, j); emit(g, { type: 'killed', by: me, name: g.players[me].name }); gameOver(g, 'pko', { by: g.players[me].name, byI: me, text: g.players[me].name + (g.players[me].cpu ? '（🤖 CPU）' : '（👤 本物のプレイヤー）') + 'のパンチで床に沈んだ…' }); // 倒された瞬間に、人か CPU か分かる（2026-11-17・本人） setCtx(g, me); // killed：キルカメラ用（だれに・いつ）
     } else {
       addKarma(g, 15, T.name + (thrown ? 'に物をぶつけた' : 'を殴った'));
       tp.stamina = Math.max(1, tp.stamina - Math.round(8 * mul)); tp.stagger = 0.5; tp.hitFlash = 0.4;

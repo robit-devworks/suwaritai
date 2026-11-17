@@ -3040,6 +3040,7 @@
     track('横向き・全画面で遊ぶを押した');
   }
   $('bLand').addEventListener('click', playLandscape);
+  $('inappLand').addEventListener('click', (e) => { track('アプリの中から横画面にした'); playLandscape(e); });
   const backPortrait = () => { pseudoWant = false; resize(); updateLand(); };
   $('bPort').addEventListener('click', backPortrait); $('bPort2').addEventListener('click', backPortrait);
   $('rotClose').addEventListener('click', () => { wantLand = false; $('rotate').classList.add('hidden'); });
@@ -3256,6 +3257,7 @@
       '💥 パリィのあとのパンチは、下から突き上げる「一撃」。どんな相手も一撃で倒せる',
       '✨ 悪者を倒した瞬間に、ヒットストップ・火花・「K.O.!」が出るように。オンラインのライバルどうしでもパリィできる',
       '🟢 ホームの環状線のボタンに「いま N 人が乗っています」。だれかが乗っていたら、乱入しに行こう',
+      '📱 X などのアプリの中で開いても、上の帯の「📱 横画面」から横向きで遊べるように',
     ] },
     { d: '2026-11-16', t: '大型アップデート：降りる人を見極めて座るゲームに！', items: [
       '🎯 「降りる人を見極めて座る」が、いちばんスコアになるように！ 降りそうな人の前で待ってから座れたら「読み的中」。続けて当てるほど +30 → +60 → +90…と大きくなる（たちっぱ線・今日のダイヤ・環状線）',

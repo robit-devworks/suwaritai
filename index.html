@@ -104,6 +104,9 @@ body.inapp .logo .tag{display:none}
 body.inapp .logo{margin-bottom:6px}
 #inapp button{flex:none;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:800}
 #inapp #inappClose{padding:5px 9px}
+#inappLand{display:none;color:#ffd447}
+body.touch #inappLand{display:block}
+html.pland #inappLand{display:none!important} /* アプリの中のブラウザは横にしても回らないので、ここから横画面に（2026-11-17・本人） */
 #dailyRow .btn,#modesRow .btn{flex:1}
 #modesRow .pill{font-size:11px;padding:0 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}#modesRow .btn{white-space:nowrap;padding-left:4px;padding-right:4px;overflow:hidden;text-overflow:ellipsis}#title .row .btn{min-width:0}#modesRow .newb{margin-right:3px}
 .olcodein{flex:1;min-width:0;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:18px;text-align:center;letter-spacing:.2em;user-select:text;-webkit-user-select:text}
@@ -739,7 +742,7 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart,html:not(.pland) 
 <div id="title" class="screen hidden">
   <div class="card">
     <!-- X などのアプリの中で開いたときの案内 -->
-    <div id="inapp" class="hidden"><span id="inappText"></span><button id="inappClose" aria-label="閉じる">✕</button></div>
+    <div id="inapp" class="hidden"><span id="inappText"></span><button id="inappLand">📱 横画面</button><button id="inappClose" aria-label="閉じる">✕</button></div>
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
     <button class="btn sub2 hidden" id="bSaveResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
@@ -1124,7 +1127,7 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart,html:not(.pland) 
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261117080341"</script><script src="logic.js?v=20261117080341"></script>
-<script src="game.js?v=20261117080341"></script>
+<script>window.SW_VER="20261117100507"</script><script src="logic.js?v=20261117100507"></script>
+<script src="game.js?v=20261117100507"></script>
 </body>
 </html>
