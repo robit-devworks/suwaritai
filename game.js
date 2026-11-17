@@ -3258,6 +3258,7 @@
       '✨ 悪者を倒した瞬間に、ヒットストップ・火花・「K.O.!」が出るように。オンラインのライバルどうしでもパリィできる',
       '🟢 ホームの環状線のボタンに「いま N 人が乗っています」。だれかが乗っていたら、乱入しに行こう',
       '📱 X などのアプリの中で開いても、上の帯の「📱 横画面」から横向きで遊べるように',
+      '⏳ 環状線で、乗っている人の電車が少し遠くても、ホームで待って乱入できるように（「🚃 待たずに出発」もできる）',
     ] },
     { d: '2026-11-16', t: '大型アップデート：降りる人を見極めて座るゲームに！', items: [
       '🎯 「降りる人を見極めて座る」が、いちばんスコアになるように！ 降りそうな人の前で待ってから座れたら「読み的中」。続けて当てるほど +30 → +60 → +90…と大きくなる（たちっぱ線・今日のダイヤ・環状線）',
@@ -5025,24 +5026,28 @@
     if (MP.active || MP.joining) return;
     if (loopOnline()) {
       try {
-        const N = await withTimeout(net(), 8000), code = await loopFind(N);
-        if (code && await loopJoin(N, code)) return;
+        const N = await withTimeout(net(), 8000), f = await loopFind(N);
+        if (f && await loopJoin(N, f.code, f.long)) return;
       } catch (e) { }
     }
     return loopHost(loopOnline());
   }
   // 待ちが長い電車には乱入しない（2026-11-16 の夜・本人：60 秒もホームで待ってくれない）：次に乗れる駅まで LOOP_JOIN_MAXETA 秒より長い電車（次がボス駅など）は選ばない
   //   e は書いた時点の秒数なので、書いてからたった分を引く（端末の時計のずれは気にしない）。e がない古い版のホストの電車は、e のある電車のあと
-  const LOOP_JOIN_MAXETA = 35;
+  const LOOP_JOIN_MAXETA = 35, LOOP_JOIN_FARETA = 100; // FARETA：これより長い電車は待たない（ホームで待てるのは最大 LOOP_JOIN_MAX まで）
   async function loopFind(N) {
     const v = (await N.get(LOOPQ)) || {}, now = Date.now(), day = todayKey();
     const eNow = (x) => (typeof x.e === 'number' ? x.e - Math.max(0, now - (x.t || now)) / 1000 : null);
     const all = Object.entries(v).filter(([c, x]) => x && x.h !== N.uid && x.d === day && (x.c || 1) < 4 && now - (x.t || 0) < 40000 && /^[0-9]{4}$/.test(c));
     const list = all.filter(([c, x]) => { const e = eNow(x); return e === null || (e >= -2 && e <= LOOP_JOIN_MAXETA); });
-    if (all.length && !list.length) track('環状線：待ちが長いので乱入しなかった');
     const k = (x) => { const e = eNow(x); return e === null ? 999 : Math.max(0, e); };
-    list.sort((a, b) => k(a[1]) - k(b[1]) || (b[1].c || 1) - (a[1].c || 1)); // 早く乗れる電車から（同じくらいなら人の多い電車）
-    return list.length ? list[0][0] : null;
+    const by = (a, b) => k(a[1]) - k(b[1]) || (b[1].c || 1) - (a[1].c || 1); // 早く乗れる電車から（同じくらいなら人の多い電車）
+    if (list.length) return { code: list.sort(by)[0][0], long: false };
+    // 待ちが長い電車しかない（次がボス駅など）：すぐ出発せず、ホームで待つか「待たずに出発」かを選んでもらう（2026-11-17・本人）
+    const far = all.filter(([c, x]) => { const e = eNow(x); return e !== null && e > LOOP_JOIN_MAXETA && e <= LOOP_JOIN_FARETA; });
+    if (far.length) { track('環状線：待ちが長い電車をホームで待つ'); return { code: far.sort(by)[0][0], long: true }; }
+    if (all.length) track('環状線：待ちが長いので乱入しなかった');
+    return null;
   }
   const waitSec = () => { const s = (Date.now() - (MP.joinT0 || Date.now())) / 1000; return s < 10 ? '〜10秒' : s < 20 ? '10〜20秒' : s < 30 ? '20〜30秒' : s < 40 ? '30〜40秒' : '40秒〜'; };
   async function loopHost(online) {
@@ -5076,8 +5081,8 @@
     track('環状線（CPU あり）：出発（くせ ' + riders.filter((r) => r.y).length + '人分）' + (online ? '・乱入を待つ' : ''));
   }
   // 乱入する側：走っている電車の部屋に「乗せて」を出し、次の駅でホストが席をくれるのを待つ（来なければ自分がホストに）
-  async function loopJoin(N, code) {
-    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true, joinDl: 0, joinEta: 0 });
+  async function loopJoin(N, code, long) {
+    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true, joinDl: 0, joinEta: 0, joinLong: !!long });
     const me = { n: rankName().slice(0, 12), t: N.TS, s: fairStr() };
     try { await N.set(roomP(code) + '/members/' + N.uid, me); await N.set(roomP(code) + '/join/' + N.uid, me); }
     catch (e) { mpReset(); return false; }
@@ -5104,9 +5109,11 @@
     for (const off of (MP.offs || [])) { try { off(); } catch (e) { } } MP.offs = [];
     try { const N = await net(); await N.remove(roomP(code) + '/join/' + uid); await N.remove(roomP(code) + '/members/' + uid); await N.remove(roomP(code) + '/inputs/' + uid); } catch (e) { }
   }
-  async function loopJoinGiveUp() { // 乗せてもらえなかった：自分で走り出す
+  async function loopJoinGiveUp(self) { // 乗せてもらえなかった（self：「待たずに出発」を押した）：自分で走り出す
     if (!MP.joining) return; MP.joining = false; joinWaitShow(false);
-    await loopJoinLeave(); track('環状線：乱入できなかったので自分で出発'); track('環状線：乱入をあきらめるまで待った：' + waitSec());
+    await loopJoinLeave();
+    if (self) track('環状線：待たずに出発した：' + waitSec() + (MP.joinLong ? '（待ちが長い電車）' : ''));
+    else { track('環状線：乱入できなかったので自分で出発'); track('環状線：乱入をあきらめるまで待った：' + waitSec()); }
     loopHost(true);
   }
   // 🚉 乱入を待つあいだは、駅のホームで電車を待つ（2026-11-16・本人：ホーム画面で待つのではなく、駅のホームで）
@@ -5133,13 +5140,14 @@
     if (!on) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('div'); el.id = 'joinWait'; document.body.appendChild(el); }
     el.className = 'plat';
-    el.innerHTML = '<div class="jwc"><b>🚉 走っている電車がこの駅に来ます</b><p>ドアが開いたら乗りこもう（だれがライバルか分からない）<br><small id="jwT"></small></p><button class="btn sub2" id="jwX">やめる</button></div>';
+    el.innerHTML = '<div class="jwc"><b>🚉 走っている電車がこの駅に来ます</b><p>' + (MP.joinLong ? '次の駅がボス駅などで、少し待ちます。待たずに一人で出発もできます' : 'ドアが開いたら乗りこもう（だれがライバルか分からない）') + '<br><small id="jwT"></small></p><div class="jwb"><button class="btn sub2" id="jwGo">🚃 待たずに出発</button><button class="btn sub2" id="jwX">やめる</button></div></div>';
     const tick = () => {
       const e = $('jwT'); if (!e) return;
       const now = Date.now(), n = Math.max(0, Math.ceil(((MP.joinDl || now) - now) / 1000)), a = MP.joinEta ? Math.ceil((MP.joinEta - now) / 1000) : -1;
       e.textContent = a > 0 ? '電車が来るまで あと約 ' + a + ' 秒' : a > -6 && MP.joinEta ? 'まもなく電車が来ます…' : '来なければ ' + n + ' 秒後に、自分の電車で出発します';
     };
     tick(); MP.jwIv = setInterval(tick, 500);
+    $('jwGo').onclick = () => loopJoinGiveUp(true); // 2026-11-17・本人：待つか選べるように
     $('jwX').onclick = async () => { track('環状線：乱入を待つのをやめた：' + waitSec()); MP.joining = false; joinWaitShow(false); await loopJoinLeave(); mpReset(); titleScreen(); };
   }
   // ホスト：8 秒ごとに「乗れます」を出す・駅に着いてドアが開いたら、待っている人を CPU の席と入れかえて乗せる・席の顔ぶれをみんなに知らせる
