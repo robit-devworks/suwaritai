@@ -1974,6 +1974,8 @@
     P.pl.plat = true; // 🚉 乱入はホームから乗りこむ（ドアが閉まるまでにホームにいれば駆け込む：platBoardAll。2026-11-16・本人）
     P.pl.yaw = g.doorSide > 0 ? 0 : Math.PI; P.stats = makeStats(); P.out = false; P.away = false; P.down = false; P.result = null; P.from = g.station; P.offAt = 1e9;
     P.aim = -1; P.prompt = null; P.pko = 0; P.tricks = 0; P.ghost = false; P.events = [];
+    const c = o.carry; // 🔁 前の電車から乗りかえてきた人：点数・徳・カルマ・体力・精神はそのまま（2026-11-18・本人。数はおかしくならない範囲に）
+    if (c && typeof c === 'object') { const n = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d); Object.assign(P.pl, { earned: n(c.earned, 0, 20000, 0), toku: n(c.toku, 0, 9999, MP_TOKU), karma: n(c.karma, 0, 99, 0), stamina: n(c.stamina, 1, C.MAX_STAMINA, C.MAX_STAMINA), mind: n(c.mind, 1, C.MAX_MIND, C.MAX_MIND) }); }
     setCtx(g, prev);
     P.events.push({ type: 'toast', text: '🚉 乱入！ ' + stationName(g, g.station) + 'から乗りこんだ。だれがライバルか分からない…席を取り合え（倒れたら終わり）', kind: 'good' });
     g.players.forEach((Q) => { if (Q !== P && !Q.cpu && !Q.away) Q.events.push({ type: 'toast', text: '⚠ 本物のプレイヤーが乱入してきた！（だれかは分からない）', kind: 'warn' }); });

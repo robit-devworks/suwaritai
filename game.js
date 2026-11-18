@@ -1699,7 +1699,9 @@
   const ohR = () => profile.ohR || 0.6; // 視点だけの範囲（スティックの半径に対する割合）
   const ringD = (r) => Math.round((r || ohR()) * OH_M * 2 + 48); // 輪の直径（スティックの台の中で。台は 150px）
   let joyS = () => 1; // スティックの大きさ（あとで、操作方法ごとの設定を読むものに入れかえる）
-  function applyJoy() { const f = joyFix(); document.body.classList.toggle('joyfix', !!f); document.body.classList.toggle('joyR', f === 'r' || (f === 'O' && OH_RING)); document.body.classList.toggle('joyO', f === 'O' && OH_RING);
+  // 🔄 振り向くボタンを出すか（2026-11-18・本人：ジャマ）：自分で決めていなければ（profile.turnBtn なし）片手モードのときだけ出す
+  const turnBtnOn = () => (profile.turnBtn == null ? joyFix() === 'O' : !!profile.turnBtn);
+  function applyJoy() { document.body.classList.toggle('noTurn', !turnBtnOn()); if ($('leTurnOn')) $('leTurnOn').checked = turnBtnOn(); const f = joyFix(); document.body.classList.toggle('joyfix', !!f); document.body.classList.toggle('joyR', f === 'r' || (f === 'O' && OH_RING)); document.body.classList.toggle('joyO', f === 'O' && OH_RING);
     const rg = $('joyRing'), d = ringD(); rg.style.width = rg.style.height = d + 'px'; rg.style.margin = (-d / 2) + 'px 0 0 ' + (-d / 2) + 'px';
     if ($('ohRow')) { /* 一時停止の「視点だけの範囲」は 2026-11-13 にやめた（感度・ボタン調整の画面で輪を見ながら） */ $('ohR').value = ohR(); $('ohV').textContent = Math.round(ohR() * 100) + '%'; const pv = $('ohPrev').firstChild; pv.style.width = pv.style.height = (d / 150 * 100) + '%'; }
     JO = null; applyLay(); document.body.classList.toggle('joyL1', f === 'L'); document.body.classList.toggle('joyRR', f === 'R'); joyKnob.style.transform = ''; if ($('joyMode')) $('joyMode').value = f; }
@@ -1794,6 +1796,7 @@
   $('leAK').addEventListener('input', () => { profile.accelK = Math.round(+$('leAK').value * 10) / 10; accUI(); });
   $('leAK').addEventListener('change', () => { saveProfile(); track('視点の加速の強さ：' + accK().toFixed(1)); });
   $('leDbl').addEventListener('change', () => { profile.dblTap = $('leDbl').checked ? 1 : 0; saveProfile(); track('どこでも 2 回タップ：' + (profile.dblTap ? 'オン' : 'オフ')); });
+  $('leTurnOn').addEventListener('change', () => { profile.turnBtn = $('leTurnOn').checked ? 1 : 0; saveProfile(); applyJoy(); track('振り向くボタン：' + (profile.turnBtn ? '出す' : '出さない')); });
   $('leTap').addEventListener('change', () => { profile.tapWalk = $('leTap').checked ? 1 : 0; if (!profile.tapWalk) AW = null; $('leNote').classList.toggle('hidden', !profile.tapWalk); saveProfile(); track('タップで移動：' + (profile.tapWalk ? 'オン' : 'オフ')); });
   $('leAccel').addEventListener('change', () => { profile.lookAccel = $('leAccel').checked ? 1 : 0; accUI(); saveProfile(); track('視点の加速：' + (profile.lookAccel ? 'オン' : 'オフ')); });
   $('turnR').value = turnT(); $('turnV').textContent = turnT().toFixed(2) + '秒';
@@ -1802,7 +1805,7 @@
     const box = $('leBox'), [W, H] = scrWH(), L = curLay(); box.innerHTML = ''; LE = {};
     LS = { sz: Object.assign({}, (L && L.size) || {}), r: ohR() }; $('leR').value = LS.r;
     $('leRrow').classList.toggle('hidden', !(joyFix() === 'O' && OH_RING));
-    $('leNote').classList.toggle('hidden', profile.tapWalk === 0); $('leTap').checked = profile.tapWalk !== 0; $('leDbl').checked = !!profile.dblTap;
+    $('leNote').classList.toggle('hidden', profile.tapWalk === 0); $('leTap').checked = profile.tapWalk !== 0; $('leTurnOn').checked = turnBtnOn(); $('leDbl').checked = !!profile.dblTap;
     $('leJoy').value = joyFix() || '';
     $('leTitle').textContent = '🎛 感度・ボタン調整（' + JOY_JA[joyFix()] + '・' + (layO() === 'l' ? '横' : '縦') + '）'; leTab('B');
     $('leSens').value = profile.sens || SENS0; $('leSensV').textContent = (profile.sens || SENS0).toFixed(1) + '倍';
@@ -3266,6 +3269,8 @@
       '⏳ 乗っている人の電車が少し遠くても（次がボス駅など）、ホームで待って乱入できるように。「🚃 待たずに出発」もできる',
       '🔁 乗せてくれた人が降りても、次の駅で自分の電車に乗りかえて続けられるように（点数・体力はそのまま）',
       '🚉 ホームで待っていると、乗りこむ電車がちゃんと走ってきて止まるように',
+      '👥 乗りこんだ人が何人いても、乗りかえるときは同じ電車にまとまる',
+      '🔄 振り向くボタンは、はじめは片手モードのときだけ。「🎛 感度・ボタン調整」で出せる',
     ] },
     { d: '2026-11-17', t: 'パリィと一撃！ 悪者を倒すのが気持ちよく', items: [
       '🛡 絡み屋や帝王の一味のパンチが当たる直前にガードすると「パリィ」！ ダメージなしで、相手がよろめく',
@@ -3313,7 +3318,7 @@
       '🎯 落とし物を頭に当てるとヘッドショット（1.5 倍）',
       '👆 床をタップすると、黄色い輪のところまで自動で歩く。人をタップするとその人の正面まで（スマホ）',
       '🎛 「感度・ボタン調整」：ボタンの位置・大きさを自分で決められる。感度は 5 倍まで（一時停止・「路線・練習・感度調整」から）',
-      '🔄 振り向くボタン：押すと車両の反対の端をまっすぐ向く（PC は R キー）',
+      '🔄 振り向くボタン：押すと車両の反対の端をまっすぐ向く（PC は R キー）。はじめは片手モードのときだけ出る。「🎛 感度・ボタン調整」の「👀 感度・操作」で出す・出さないを変えられる',
       '🚀 速くなぞるほど大きく回る「視点の加速」・画面のどこでも 2 回タップでアクション（どちらも選べる）',
       '🚃 練習乗車は体力・精神が減らない。ボタンの設定を試すのにどうぞ',
       '🎯 落とし物を投げつけられる！ パンチ長押しでためるほど遠くへ。悪者にはパンチ 1 発分・入れ歯は 3 発分・謎の巻物は 5 発分',
@@ -5098,16 +5103,17 @@
     track('環状線（CPU あり）：出発（くせ ' + riders.filter((r) => r.y).length + '人分）' + (online ? '・乱入を待つ' : ''));
   }
   // 乱入する側：走っている電車の部屋に「乗せて」を出し、次の駅でホストが席をくれるのを待つ（来なければ自分がホストに）
-  async function loopJoin(N, code, long) {
-    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true, joinDl: 0, joinEta: 0, joinLong: !!long, brakeS: 0 });
+  async function loopJoin(N, code, long, cont) {
+    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true, joinDl: 0, joinEta: 0, joinLong: !!long, brakeS: 0, joinCont: cont || null });
     const me = { n: rankName().slice(0, 12), t: N.TS, s: fairStr() };
+    if (cont) me.c = { earned: cont.earned, toku: cont.toku, karma: cont.karma, stamina: cont.stamina, mind: cont.mind }; // 🔁 乗りかえ：前の電車の数字
     try { await N.set(roomP(code) + '/members/' + N.uid, me); await N.set(roomP(code) + '/join/' + N.uid, me); }
     catch (e) { mpReset(); return false; }
     N.onDisconnectRemove(roomP(code) + '/members/' + N.uid); N.onDisconnectRemove(roomP(code) + '/inputs/' + N.uid); N.onDisconnectRemove(roomP(code) + '/join/' + N.uid);
     loopPlatWait(); joinWaitShow(true);
     MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; }));
     MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
-    MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code === code) { if (MP.active) loopTransfer(); else if (MP.joining) loopJoinGiveUp(); } }));
+    MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code === code) { if (MP.active) loopHostLost('降りた'); else if (MP.joining) loopJoinGiveUp(); } }));
     MP.joinT0 = Date.now(); MP.joinEta = 0; loopJoinArm(Date.now() + LOOP_JOIN_WAIT);
     MP.offs.push(N.on(LOOPQ + '/' + code, (v) => { // ホストの「次に乗れる駅まで あと e 秒」
       if (!MP.joining || MP.code !== code) return;
@@ -5131,7 +5137,7 @@
     await loopJoinLeave();
     if (self) track('環状線：待たずに出発した：' + waitSec() + (MP.joinLong ? '（待ちが長い電車）' : ''));
     else { track('環状線：乱入できなかったので自分で出発'); track('環状線：乱入をあきらめるまで待った：' + waitSec()); }
-    loopHost(true);
+    loopHost(true, MP.joinCont || null);
   }
   // 🚉 乱入を待つあいだは、駅のホームで電車を待つ（2026-11-16・本人：ホーム画面で待つのではなく、駅のホームで）
   // PC：クリックしないとマウスが固定されないとき（電車をさがしてから始まるモード）は、案内を出す
@@ -5185,7 +5191,7 @@
         if (slot < 0) break;
         const r = req[uid] || {}, a = String(r.s || '').split(','), stats = {}; SW.STATS.forEach((d, k) => { stats[d.key] = +a[k] || 0; });
         const name = dispName(r.n).slice(0, 12);
-        if (SW.guestOn(g, slot, { name, uid, stats })) {
+        if (SW.guestOn(g, slot, { name, uid, stats, carry: r.c || null })) {
           MP.players[slot] = { uid, name, cpu: false, st: String(r.s || '') }; delete MP.last[uid]; delete req[uid];
           net().then((N) => N.remove(roomP(MP.code) + '/join/' + uid)).catch(() => { });
           track('環状線：乱入を受け入れた');
@@ -5208,12 +5214,47 @@
   // 乱入した側：倒れて「結果へ」・ホストがいなくなった：いま分かっている点数で結果を出して、部屋を出る
   // 🔁 ホストが降りても続ける（2026-11-18・本人：ホストが降りたら強制終了で、環状線にした意味がない）：乗りこんだ人は、同じ環状線の
   //   次の駅（止まっているならその駅）から自分の電車に乗りかえる。点数・徳・体力・精神・カルマはそのまま、残りの駅の数もそのまま（loop.len）
-  async function loopTransfer() {
+  //   乗りこんだ人が 2 人以上いたら、残った人の uid がいちばん小さい人が新しい電車を出し、ほかの人はその電車をさがして乗りこむ（loopFollow）。
+  //   ホストのアプリが裏に回って止まったとき（今の様子が LOOP_STALL 秒届かない）も、降りたのと同じにする
+  const LOOP_STALL = 10000, LOOP_FOLLOW_WAIT = 15000;
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && MP.snapAt) MP.snapAt = Date.now(); }); // 自分のアプリが裏から戻ったときは、少し待ってから見る
+  function loopCont() {
     const g = G, me = g && g.players[MP.me];
-    if (!g || !me || me.out || g.over || !g.loop || MP.spect) return loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです');
+    if (!g || !me || me.out || g.over || !g.loop || MP.spect) return null;
     const at = g.phase === 'stop' ? g.station : g.station + 1, len = SW.lastStation(g) - at;
-    if (len < 2) return loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです');
-    const pl = me.pl, cont = { start: (g.loop.start + at) % 12, len, earned: Math.max(0, (MP.scores[MP.me] || 0) + Math.round(pl.karma || 0)), toku: pl.toku, karma: pl.karma, stamina: pl.stamina, mind: pl.mind, buffs: Object.assign({}, pl.buffs || {}) };
+    if (len < 1) return null; // 1 駅でも残っていれば乗りかえる（2026-11-18・本人）
+    const pl = me.pl;
+    return { start: (g.loop.start + at) % 12, len, earned: Math.max(0, (MP.scores[MP.me] || 0) + Math.round(pl.karma || 0)), toku: pl.toku, karma: pl.karma, stamina: pl.stamina, mind: pl.mind, buffs: Object.assign({}, pl.buffs || {}) };
+  }
+  async function loopHostLost(why) {
+    if (!MP.active || MP.isHost || !MP.loopNet || MP.lostOnce) return; MP.lostOnce = true;
+    const g = G, alive = (MP.players || []).map((p, i) => ({ p, i })).filter(({ p, i }) => i !== 0 && p && !p.cpu && p.uid && g.players[i] && !g.players[i].out && !g.players[i].away);
+    track('環状線：ホストが' + why);
+    const lead = alive.map((a) => a.p.uid).sort()[0];
+    if (!lead || lead === MP.uid) return loopTransfer();
+    return loopFollow(lead);
+  }
+  async function loopFollow(lead) { // 一緒に乗っていた人（lead）の新しい電車をさがして乗りこむ。見つからなければ自分の電車で
+    const cont = loopCont();
+    if (!cont) return loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです');
+    await loopJoinLeave(); MP.active = false;
+    loopPlatWait(); addToast('🔁 ホストが電車を降りた！ 一緒に乗っていた人の電車に乗りかえ…（点数・体力はそのまま）', 'warn');
+    try {
+      const N = await net(), t0 = Date.now();
+      while (Date.now() - t0 < LOOP_FOLLOW_WAIT && state === 'play' && G && G.platWait) {
+        const v = (await N.get(LOOPQ)) || {}, now = Date.now();
+        const e = Object.entries(v).find(([c, x]) => x && x.h === lead && x.d === todayKey() && now - (x.t || 0) < 40000 && /^[0-9]{4}$/.test(c));
+        if (e) { track('環状線：乗りかえで一緒の電車にまとまった'); if (await loopJoin(N, e[0], false, cont)) return; break; }
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    } catch (e) { }
+    if (!(state === 'play' && G && G.platWait)) return; // 待っているあいだにやめた
+    track('環状線：乗りかえ先が見つからず自分の電車');
+    loopHost(loopOnline(), cont);
+  }
+  async function loopTransfer() {
+    const cont = loopCont();
+    if (!cont) return loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです');
     await loopJoinLeave(); MP.active = false;
     loopPlatWait(); addToast('🔁 ホストが電車を降りた！ この駅で次の電車に乗りかえ（点数・体力はそのまま）', 'warn'); // 乗りかえるあいだは、ホームで待つ
     track('環状線：ホストが降りたので自分の電車に乗りかえた');
@@ -5407,7 +5448,7 @@
     if (MP.spect) idx = Math.max(0, (st.players || []).findIndex((p) => !p.cpu)); // 観戦：まず人間のプレイヤーを追いかける
     if (idx < 0) { olNote('始まった試合に入れませんでした'); return; }
     Object.assign(MP, { active: true, me: idx, players: st.players, base: 0, remote: {}, last: {}, evRing: [], seq: 0, k: 0, lastK: -1, snapT: 0, sendT: 0, seen: 0, newIds: [], ghost: false, watching: false, outShown: false, resSent: false, scores: [], myObs: null, kc: null, follow: -1 });
-    MP.cnt = { a: 0, p: 0, bp: 0, fs: 0, sk: 0 };
+    MP.cnt = { a: 0, p: 0, bp: 0, fs: 0, sk: 0 }; MP.lostOnce = false; MP.snapAt = Date.now();
     for (const k in MP.avatars) { scene.remove(MP.avatars[k].H.root); if (MP.avatars[k].tag) scene.remove(MP.avatars[k].tag); if (MP.avatars[k].HD) scene.remove(MP.avatars[k].HD.root); } MP.avatars = {};
     if (RP.active) { if (VR) vrStop(true); rpAvClear(); RP.active = false; RP.fr = null; RP.mp = null; $('rpBar').classList.add('hidden'); $('rpEnd').classList.add('hidden'); document.body.classList.remove('replay'); }
     initAudio(); clearWorld();
@@ -5589,7 +5630,7 @@
   function mpApply(snap) {
     if (MP.joinSt === -1 && G && snap.st != null) MP.joinSt = snap.st; // 乱入した駅（結果の駅数に使う）
     if (!G || RP.active || snap.k <= MP.lastK) return;
-    MP.lastK = snap.k;
+    MP.lastK = snap.k; MP.snapAt = Date.now();
     const g = G;
     applyWorld(g, snap, MP.looks, MP.spect);
     (snap.pl || []).forEach((a, i) => {
@@ -6048,6 +6089,7 @@
       const li = { mx, mz, yaw: inp.yaw, pitch: inp.pitch, action: inp.action, punch: inp.punch, brace: !!keys.Space || inp.braceTouch, bracePressed: inp.bracePressed, fakeSleep: inp.fakeSleep, skill: inp.skill, throwPow: inp.throwPow, gesture: inp.gesture };
       inp.action = inp.punch = inp.bracePressed = inp.fakeSleep = false; inp.skill = -1; inp.throwPow = null; inp.gesture = null;
       mpFrame(dt, t, li);
+      if (MP.active && MP.loopNet && !MP.isHost && !MP.spect && !document.hidden && MP.snapAt && Date.now() - MP.snapAt > LOOP_STALL) loopHostLost('止まった'); // ホストのアプリが裏に回った など
       if (MP.active && G) {
         if (MP.rec) for (const e of G.events) MP.recEv.push(e);
         handleEvents(G);
