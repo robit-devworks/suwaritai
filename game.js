@@ -1270,7 +1270,16 @@
       L.far.material.map.offset.x = sgn * trainPos * 0.0016;
       L.near.material.map.offset.x = sgn * trainPos * 0.075;
     }
-    car.visible = !g.platWait; // 🚉 乱入を待つあいだは電車がいない
+    // 🚉 乱入を待つあいだ：ふだんは電車がいない。ホストの電車が来るまでの残り秒数（MP.joinEta＝ドアが開く時刻）が分かれば、
+    //   ふつうの到着と同じ減速で走ってきて止まり、ドアが開く（2026-11-18・本人：電車がいきなり目の前に出ていた）
+    let carShow = !g.platWait, carX = 0;
+    if (g.platWait && MP.joining && MP.joinEta) {
+      const tl = (MP.joinEta - Date.now()) / 1000 - SW.C.DOOR_OPEN, d = tl <= 0 ? 0 : tl < 6 ? VMAX * tl * tl / 12 : VMAX * 3 + VMAX * (tl - 6);
+      if (d < 90) { carShow = true; carX = -d; }
+      if (tl < 1.8 && tl > -1 && !MP.brakeS) { MP.brakeS = 1; sfx('brake'); }
+      if (tl <= 0 && !g.doorsOpen) { g.doorsOpen = true; sfx('door'); }
+    }
+    car.visible = carShow; car.position.x = carX;
     // ホーム
     const T = SW.C.T_TRAVEL;
     let px = null, pside = g.doorSide;
@@ -3073,7 +3082,7 @@
     const n = loopLeft(), L = n > 0;
     $('startBox').classList.toggle('lk', L);
     $('bLoop').classList.toggle('main', !L); $('bLoop').classList.toggle('locked', L); // たちっぱ線はいつも緑の大きなボタン（mainG）
-    $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β 調整中</span><small class="md">（あと ' + n + ' 回で解放）</small>' : LN.n > 0 ? '🔄 環状線<span class="beta">β 調整中</span><small class="md lnow">🟢 いま ' + LN.n + ' 人が乗っています</small>' : '🔄 環状線<span class="beta">β 調整中</span><small class="md">（CPU・プレイヤー乱入モード）</small>'; // 2026-11-16・本人：たちっぱ線（一人モード）と形をそろえる
+    $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β 調整中</span><small class="md">（あと ' + n + ' 回で解放）</small>' : LN.n > 0 ? '🔄 環状線<span class="beta">β 調整中</span><small class="md lnow">🟢 いま ' + LN.n + ' 人が乗っています</small>' : '🔄 環状線<span class="beta">β 調整中</span><small class="md">' + (LOOP_JOIN_ON ? '（CPU・プレイヤー乱入モード）' : '（CPU といっしょ・乱入は調整中）') + '</small>'; // 2026-11-16・本人：たちっぱ線（一人モード）と形をそろえる
     $('bStart').innerHTML = L ? '🚃 たちっぱ線<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span><small class="md">（新ダイヤ・一人モード）</small>' : '🚃 たちっぱ線<small class="md">（新ダイヤ・一人モード）</small>';
   }
   $('bLoop').addEventListener('click', () => {
@@ -3095,7 +3104,7 @@
       '🧪 まだβ版です。席の取り合い・CPU の強さ・ボス駅などのバランスを調整中で、遊び方がよく変わります',
       '🚉 ホームからスタート。電車が来てドアが開いたら、乗りこんで空いている席を取り合う',
       '🔄 12 駅でちょうど 1 周。どの駅から乗っても全部の駅を 1 回ずつ通る（駅の並びはその日みんな同じ）',
-      '👤 ほかのプレイヤーが走っている電車に途中の駅から乱入してくる（自分もほかの人の電車に乱入できる）。🤖 空いた席には CPU が乗ってくる（本物のプレイヤーの遊び方をまねている）',
+      '👤 ほかのプレイヤーが走っている電車に途中の駅から乱入してくる（自分もほかの人の電車に乱入できる）。🤖 空いた席には CPU が乗ってくる（本物のプレイヤーの遊び方をまねている）。🔁 乗せてくれた人が降りても、次の駅で自分の電車に乗りかえて続く',
       '🕵 ライバル（プレイヤーも CPU も）の見た目はふつうの乗客と同じ。動きで見破ろう',
       '🎯 降りる人の前で 1.5 秒以上待ってから座れたら「読み的中」でスコア（続けて当てるほど大きく）。降りる合図（荷物・掲示板・時計）はカードに出ないので、しぐさで読む（👓 メガネのあいだは見える）',
       '🧍 立っていると体力が減る。降りそうな人（掲示板チラ見・時計・荷物をまとめる）の前で待って、空いたら座る',
@@ -3255,6 +3264,8 @@
   const NEWS = [
     { d: '2026-11-18', t: '環状線 β：乱入しやすく', items: [
       '⏳ 乗っている人の電車が少し遠くても（次がボス駅など）、ホームで待って乱入できるように。「🚃 待たずに出発」もできる',
+      '🔁 乗せてくれた人が降りても、次の駅で自分の電車に乗りかえて続けられるように（点数・体力はそのまま）',
+      '🚉 ホームで待っていると、乗りこむ電車がちゃんと走ってきて止まるように',
     ] },
     { d: '2026-11-17', t: 'パリィと一撃！ 悪者を倒すのが気持ちよく', items: [
       '🛡 絡み屋や帝王の一味のパンチが当たる直前にガードすると「パリィ」！ ダメージなしで、相手がよろめく',
@@ -5023,7 +5034,10 @@
   // 乱入を待つ時間（2026-11-16・本人）：ホストが loopq に「次に乗れる駅でドアが開くまでの秒数」（e）を書くので、それ＋ゆとり 15 秒だけ待つ
   //   （前は 45 秒で決め打ち：次がボス駅だと 2 駅先まで約 60 秒かかり、乗れる電車をあきらめていた）。e を書かない古い版のホストは 45 秒・どんなときも 2 分まで
   const LOOPQ = 'suwaritai/loopq', LOOP_JOIN_WAIT = 45000, LOOP_JOIN_PAD = 15000, LOOP_JOIN_MAX = 120000;
-  const loopOnline = () => !inClaude && (NET_LOCAL || fbAllowed);
+  // ⏸ 乱入は一旦止める（2026-11-18・本人：ホームで待っていると電車がいきなり目の前に出る・ホストが降りると乗りこんだ人まで終わる）。
+  //   止めているあいだは、いつも自分の電車で CPU だけと乗る（loopq にも書かない）。電車が来る見た目とホストの引きつぎを作ったら true にもどす
+  const LOOP_JOIN_ON = true; // 2026-11-18：電車が走ってきて止まる見た目・ホストが降りたら乗りかえる、を作ったのでもどした
+  const loopOnline = () => LOOP_JOIN_ON && !inClaude && (NET_LOCAL || fbAllowed);
   const fairStr = () => SW.STATS.map((d) => SW.capStats(profile.st, SW.STAT_CAP_FAIR)[d.key]).join(',');
   async function loopRideStart() {
     if (MP.active || MP.joining) return;
@@ -5053,9 +5067,9 @@
     return null;
   }
   const waitSec = () => { const s = (Date.now() - (MP.joinT0 || Date.now())) / 1000; return s < 10 ? '〜10秒' : s < 20 ? '10〜20秒' : s < 30 ? '20〜30秒' : s < 40 ? '30〜40秒' : '40秒〜'; };
-  async function loopHost(online) {
+  async function loopHost(online, cont) {
     const riders = await stylePool();
-    mpReset(); MP.cpuMode = true; MP.loopRide = true; MP.cpuLv = 2; cpuNet = !online;
+    mpReset(); MP.cont = cont || null; MP.cpuMode = true; MP.loopRide = true; MP.cpuLv = 2; cpuNet = !online;
     let N = await net(), code = 'CPU';
     if (online) {
       code = null;
@@ -5067,14 +5081,14 @@
           code = c;
         }
       } catch (e) { code = null; }
-      if (!code) { mpReset(); MP.cpuMode = true; MP.loopRide = true; MP.cpuLv = 2; cpuNet = true; N = await net(); code = 'CPU'; online = false; } // つながらないときは CPU だけで
+      if (!code) { mpReset(); MP.cont = cont || null; MP.cpuMode = true; MP.loopRide = true; MP.cpuLv = 2; cpuNet = true; N = await net(); code = 'CPU'; online = false; } // つながらないときは CPU だけで
     }
     MP.isHost = true; MP.code = code; MP.uid = N.uid; MP.hostUid = N.uid; MP.loopNet = online;
     MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
     const players = [{ uid: N.uid, name: rankName().slice(0, 12), cpu: false, st: fairStr() }].concat([0, 1, 2].map((k) => ({ uid: 'cpu' + k, name: '…', cpu: true, lv: 2, st: '' })));
-    const state0 = { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: true, mode: 'vs', survival: 0, lv: 2, rated: false, loop: { day: todayKey() }, riders, platStart: 1, t: Date.now() };
+    const state0 = { s: 'play', seed: (Math.random() * 1e9) | 0, players, cpu: true, mode: 'vs', survival: 0, lv: 2, rated: false, loop: cont ? { day: todayKey(), start: cont.start, len: cont.len } : { day: todayKey() }, riders, platStart: 1, t: Date.now() };
     try { await N.update(roomP(code), online ? { host: N.uid, created: N.TS, state: state0 } : { host: N.uid, state: state0 }); }
-    catch (e) { if (online) return loopHost(false); throw e; }
+    catch (e) { if (online) return loopHost(false, cont); throw e; }
     if (online) {
       N.onDisconnectRemove(roomP(code)); N.onDisconnectRemove(LOOPQ + '/' + code);
       MP.offs.push(N.on(roomP(code) + '/join', (v) => { MP.joinReq = v || {}; }));
@@ -5085,7 +5099,7 @@
   }
   // 乱入する側：走っている電車の部屋に「乗せて」を出し、次の駅でホストが席をくれるのを待つ（来なければ自分がホストに）
   async function loopJoin(N, code, long) {
-    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true, joinDl: 0, joinEta: 0, joinLong: !!long });
+    mpReset(); Object.assign(MP, { cpuMode: true, loopRide: true, cpuLv: 2, loopNet: true, code, uid: N.uid, isHost: false, joining: true, joinDl: 0, joinEta: 0, joinLong: !!long, brakeS: 0 });
     const me = { n: rankName().slice(0, 12), t: N.TS, s: fairStr() };
     try { await N.set(roomP(code) + '/members/' + N.uid, me); await N.set(roomP(code) + '/join/' + N.uid, me); }
     catch (e) { mpReset(); return false; }
@@ -5093,7 +5107,7 @@
     loopPlatWait(); joinWaitShow(true);
     MP.offs.push(N.on(roomP(code) + '/members', (v) => { MP.members = v || {}; }));
     MP.offs.push(N.on(roomP(code) + '/state', (v) => mpOnState(v)));
-    MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code === code) { if (MP.active) loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです'); else if (MP.joining) loopJoinGiveUp(); } }));
+    MP.offs.push(N.on(roomP(code) + '/host', (v) => { MP.hostUid = v; if (!v && MP.code === code) { if (MP.active) loopTransfer(); else if (MP.joining) loopJoinGiveUp(); } }));
     MP.joinT0 = Date.now(); MP.joinEta = 0; loopJoinArm(Date.now() + LOOP_JOIN_WAIT);
     MP.offs.push(N.on(LOOPQ + '/' + code, (v) => { // ホストの「次に乗れる駅まで あと e 秒」
       if (!MP.joining || MP.code !== code) return;
@@ -5192,6 +5206,19 @@
     pl.forEach((p, i) => { const P = G && G.players[i]; if (P && i !== MP.me) { P.name = p.name; P.cpu = !!p.cpu; } });
   }
   // 乱入した側：倒れて「結果へ」・ホストがいなくなった：いま分かっている点数で結果を出して、部屋を出る
+  // 🔁 ホストが降りても続ける（2026-11-18・本人：ホストが降りたら強制終了で、環状線にした意味がない）：乗りこんだ人は、同じ環状線の
+  //   次の駅（止まっているならその駅）から自分の電車に乗りかえる。点数・徳・体力・精神・カルマはそのまま、残りの駅の数もそのまま（loop.len）
+  async function loopTransfer() {
+    const g = G, me = g && g.players[MP.me];
+    if (!g || !me || me.out || g.over || !g.loop || MP.spect) return loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです');
+    const at = g.phase === 'stop' ? g.station : g.station + 1, len = SW.lastStation(g) - at;
+    if (len < 2) return loopGuestEnd('🚃 ホストが電車を降りたので、ここで終わりです');
+    const pl = me.pl, cont = { start: (g.loop.start + at) % 12, len, earned: Math.max(0, (MP.scores[MP.me] || 0) + Math.round(pl.karma || 0)), toku: pl.toku, karma: pl.karma, stamina: pl.stamina, mind: pl.mind, buffs: Object.assign({}, pl.buffs || {}) };
+    await loopJoinLeave(); MP.active = false;
+    loopPlatWait(); addToast('🔁 ホストが電車を降りた！ この駅で次の電車に乗りかえ（点数・体力はそのまま）', 'warn'); // 乗りかえるあいだは、ホームで待つ
+    track('環状線：ホストが降りたので自分の電車に乗りかえた');
+    loopHost(loopOnline(), cont);
+  }
   async function loopGuestEnd(msg) {
     if (!G || !MP.loopNet || MP.isHost) return;
     const res = G.players.map((P, i) => ({ i, name: P.name, cpu: !!P.cpu, uid: i === MP.me ? MP.uid : P.cpu ? 'cpu' : (MP.players[i] || {}).uid, score: MP.scores[i] || 0, cause: P.result ? P.result.cause : P.out ? '' : 'alive', ride: '', st: G.station - (MP.joinSt || 0) }))
@@ -5392,6 +5419,8 @@
     if (st.loop && !MP.spect) G.keepWatch = true; // 環状線：倒れても、見続けるか結果へ行くかを選ぶまで終わらない
     MP.sentMax = G.nextId - 1; MP.base = MP.isHost ? G.nextId - 1 : 0;
     SW.setCtx(G, MP.me);
+    const cont = MP.isHost && st.loop && MP.cont; MP.cont = null;
+    if (cont) { const pl = G.player; Object.assign(pl, { earned: cont.earned, toku: cont.toku, karma: cont.karma, stamina: cont.stamina, mind: cont.mind, buffs: cont.buffs || {} }); } // 🔁 乗りかえ：前の電車の数字のまま
     SHOT.url = null; SHOT.raw = null; SHOT.p = 0; SHOT.pending = null; inp.yaw = G.player.yaw; inp.pitch = 0; endT = 0; pendingResult = false; eyeH = 1.6;
     state = 'play'; show(null);
     $('hud').classList.remove('hidden'); $('mpBoard').classList.remove('hidden');
@@ -5401,6 +5430,7 @@
     if (MP.spect) { document.body.classList.add('replay'); $('spBar').classList.remove('hidden'); spName(); addToast('👀 観戦中。「次の人」で見る人を切りかえ', 'good'); track('オンライン：観戦をはじめた'); }
     else if (!isTouch && !noLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } pcClickHint(); }
     if (MP.joining) { MP.joining = false; MP.joinSt = -1; clearTimeout(MP.joinTO); joinWaitShow(false); track('環状線：乱入した'); track('環状線：乱入まで待った：' + waitSec()); }
+    else if (cont) addToast('🔁 ホストが降りたので、次の電車に乗りかえ！ 点数・体力はそのまま、あと ' + SW.lastStation(G) + ' 駅で 1 周', 'good');
     else if (st.loop) addToast('🚉 電車が来た！ ドアが開いたら乗りこんで、空いている席を取り合え（12 駅で 1 周・倒れたら終わり）' + (MP.loopNet ? '　途中の駅から、ほかのプレイヤーが乱入してくるかも…' : ''), 'good');
     else if (!MP.spect && G.survival) addToast(MP.cpuMode ? '🤖 CPU 戦（' + CPU_LVJ[st.lv || 0] + '）スタート！ 倒れたら即脱落。最後まで生き残れ' : '🏅 レート戦スタート！ 倒れたら即脱落。最後まで生き残った人の勝ち', 'good');
     else if (!MP.spect) addToast(G.coop ? '🤝 共闘スタート！ みんなの合計で勝負。倒れた仲間はそばで「復活させる」' : '🌐 オンライン対戦（β）スタート！ 7 駅でいちばん徳を積んだ人の勝ち', 'good');

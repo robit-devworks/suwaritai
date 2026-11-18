@@ -326,7 +326,7 @@
     if (opts.coop && g.multi) { g.coop = true; g.coopRev = 0; g.coopPen = 0; } // 共闘モード（COOP の項）
     if (opts.loop) { // 環状線：その日の並び＋乗る駅（ボス駅からは乗らない）
       const P = loopPlan(opts.loop.day), ok = [...Array(LOOP_N).keys()].filter((i) => !P.boss[i]);
-      g.loop = Object.assign(P, { start: opts.loop.start != null ? opts.loop.start : ok[rng((g.seed ^ 0x5717a7) >>> 0).int(0, ok.length - 1)] });
+      g.loop = Object.assign(P, { start: opts.loop.start != null ? opts.loop.start : ok[rng((g.seed ^ 0x5717a7) >>> 0).int(0, ok.length - 1)], len: Math.max(1, Math.min(LOOP_N, opts.loop.len || LOOP_N)) }); // len：何駅で終わるか（ホストが降りて乗りかえたときは、残りの駅だけ・2026-11-18）
     }
     if (g.loop && g.multi && opts.riders) { // 環状線の CPU：2 人目からは「まだ乗っていない」席。駅ごとに乗ってきて、何駅か乗って降りる（RIDERS の項）
       g.loopRide = { r: rng((g.seed ^ 0x51de1d3) >>> 0), pool: opts.riders.slice(), k: 0, n: 0, st: -1, log: [] };
@@ -368,7 +368,7 @@
     bodies0.forEach((b, k) => { const d = DOORS[(k + r.int(0, 2)) % DOORS.length]; b.plat = true; b.seat = -1; b.x = d + r.range(-0.9, 0.9); b.z = sd * r.range(2.1, 2.9); b.yaw = sd > 0 ? 0 : Math.PI; b.pitch = 0; });
   }
 
-  function lastStation(g) { return g.endless ? 1e9 : g.online ? 7 : g.loop ? LOOP_N : LINE.length - 1; }
+  function lastStation(g) { return g.endless ? 1e9 : g.online ? 7 : g.loop ? (g.loop.len || LOOP_N) : LINE.length - 1; }
   function stationName(g, i) {
     if (g.bossAt && g.bossAt[i]) return BOSS[g.bossAt[i]].name;
     if (g.loop) return LINE[g.loop.ring[loopAt(g, i)]].name; // 環状線：12 駅目は乗った駅にもどる
@@ -553,7 +553,7 @@
       g.people.push(p); placeStanding(g, p, true);
     }
     g.phase = 'stop'; g.phaseT = C.BOARD + 1.5; g.doorsOpen = true; g.doorSide = 1; g.nextDoorSide = 1;
-    g.ann = stationName(g, 0) + '駅。この電車は ' + (g.loop ? '環状線です。12 駅で 1 周します。' : (g.endless ? 'どこまでも' : stationName(g, lastStation(g)) + ' 行き') + 'です。');
+    g.ann = stationName(g, 0) + '駅。この電車は ' + (g.loop ? (g.loop.len < LOOP_N ? '環状線です。あと ' + g.loop.len + ' 駅で 1 周です。' : '環状線です。12 駅で 1 周します。') : (g.endless ? 'どこまでも' : stationName(g, lastStation(g)) + ' 行き') + 'です。');
   }
 
   function chooseSlot(g, p, nearX, nearZ, preferFront) {
