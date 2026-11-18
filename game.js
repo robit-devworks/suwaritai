@@ -3271,6 +3271,7 @@
       '🚉 ホームで待っていると、乗りこむ電車がちゃんと走ってきて止まるように',
       '👥 乗りこんだ人が何人いても、乗りかえるときは同じ電車にまとまる',
       '🔄 振り向くボタンは、はじめは片手モードのときだけ。「🎛 感度・ボタン調整」で出せる',
+      '📝 10 回以上遊んだ人は、結果の画面のアンケートに答えると 🎫 名前ガチャチケット 3 枚（いいところ・いやなところ・こうなったらいいなを教えてね）',
     ] },
     { d: '2026-11-17', t: 'パリィと一撃！ 悪者を倒すのが気持ちよく', items: [
       '🛡 絡み屋や帝王の一味のパンチが当たる直前にガードすると「パリィ」！ ダメージなしで、相手がよろめく',
@@ -3352,6 +3353,10 @@
   // 片手のお知らせのカード：2026-11-13 に一旦やめた（本人）。また出すときは true に
   var OH_ON = false;
   // 🗳 新ダイヤ・旧ダイヤのアンケート（2026-11-16・本人：どっちがいいか聞く）：両方を 1 回以上遊んだ人に、結果画面で 1 回だけ。答えは GoatCounter
+  document.querySelectorAll('#qPoll [data-qp]').forEach((b) => b.addEventListener('click', () => {
+    profile.qPoll = b.dataset.qp; saveProfile(); track('アンケート：どうだった：' + b.textContent.trim() + '（' + (profile.plays || 0) + '回目）');
+    $('qPoll').innerHTML = '<b>🙏 ありがとう！ 参考にします</b>';
+  }));
   document.querySelectorAll('#dPoll [data-dp]').forEach((b) => b.addEventListener('click', () => {
     profile.dPoll = b.dataset.dp; saveProfile(); track('アンケート：ダイヤ：' + b.textContent.trim());
     $('dPoll').innerHTML = '<b>🙏 ありがとう！ 参考にします</b>';
@@ -3539,6 +3544,10 @@
     lastResult.punch = punchLine({ s, cause: r.cause, koText: r.text, loop: !!g.loop, st: s.stations, mode }); lastResult.photo = SHOT.raw || rawShot(); // 📣 ツッコミの一言と写真（2026-11-16）
     setShareHref(); showNudge(g);
     $('dPoll').classList.toggle('hidden', !askPoll); if (askPoll) track('アンケート：ダイヤ：出した');
+    svShow($('svAsk'));
+    // 🗳 はじめのころの人のワンタップのアンケート（2026-11-18・本人：やめた理由を知りたい）：遊んだ回数 2〜9 回の人に、結果の画面で 1 回だけ。GoatCounter で数える（文は書かない）
+    const askQ = !askPoll && (profile.plays || 0) >= 2 && (profile.plays || 0) <= 9 && !profile.qPoll && !RP.active;
+    $('qPoll').classList.toggle('hidden', !askQ); if (askQ) track('アンケート：どうだった：出した（' + profile.plays + '回目）');
     $('bRetry').textContent = mode === 'practice' ? '🚃 本番に挑戦！' : 'もう一回乗る';
     // すぐ倒れた（3 駅目まで）はじめのころの人にだけ、見習い乗車をすすめる（2026-11-13：はじめの 3 回の見習い乗車をやめたかわり）
     const rkTip = mode === 'normal' && !g.rookie && r.cause !== 'clear' && Math.min(s.stations, SW.lastStation(g)) <= 3 && (profile.plays || 0) <= 10;
@@ -3837,6 +3846,29 @@
     })(), 12000).catch(e => { fbWait = null; throw e; });
     return fbWait.then(fbTouch);
   }
+  // 📝 常連さんへのアンケート（2026-11-18・本人：ランキングの上位勢や常連に、いいところ・いやなところ・こうなったらいいなを聞きたい）：
+  //   10 回以上遊んだ人に、結果の画面でいつも「📝 アンケートに答えて」（答えるまで）。答えは suwaritai/survey/{uid}（本人は書くだけ・読むのは Actions の「アンケートを見る」）
+  //   お礼に名前ガチャチケット 3 枚（この端末で 1 回だけ）
+  const SV_MIN = 10, SV_GIFT = 3;
+  const svCan = () => fbAllowed && (profile.plays || 0) >= SV_MIN && !profile.survey;
+  function svShow(el) { const on = svCan(); el.classList.toggle('hidden', !on); if (on && !svShow.told) { svShow.told = 1; track('アンケート：常連：出した'); } }
+  function svOpen() { $('svE').textContent = ''; $('svGo').disabled = false; $('svBox').classList.remove('hidden'); track('アンケート：常連：開いた'); }
+  document.body.appendChild($('svBox')); // どの画面（結果・オンラインの結果）からでも出るように、いちばん外へ
+  document.querySelectorAll('.svAsk').forEach((b) => b.addEventListener('click', svOpen));
+  $('svX').addEventListener('click', () => $('svBox').classList.add('hidden'));
+  $('svGo').addEventListener('click', async () => {
+    const g = $('svG').value.trim().slice(0, 300), b = $('svB').value.trim().slice(0, 300), w = $('svW').value.trim().slice(0, 300);
+    if (!g && !b && !w) { $('svE').textContent = 'どれか 1 つ書いてね'; return; }
+    $('svGo').disabled = true; $('svE').textContent = '送っています…';
+    try {
+      const F = await firebaseReady(); if (!F) throw new Error('オンラインにつながりません');
+      await withTimeout(F.db.ref('suwaritai/survey/' + F.uid).set({ g, b, w, n: rankName().slice(0, 12), s: Math.max(0, Math.min(99999, Math.round(profile.best || 0))), p: Math.min(99999, profile.plays || 0), v: String(window.SW_VER || '').slice(0, 20), t: F.TS }), 10000);
+      profile.survey = todayKey(); profile.nameTickets = ticketsLeft() + SV_GIFT; saveProfile();
+      track('アンケート：常連：答えた');
+      $('svBox').classList.add('hidden'); document.querySelectorAll('.svAsk').forEach((e) => e.classList.add('hidden'));
+      addToast('🙏 ありがとう！ 🎫 名前ガチャチケットを ' + SV_GIFT + ' 枚プレゼント', 'good');
+    } catch (e) { $('svGo').disabled = false; $('svE').textContent = '送れませんでした。電波のいいところで、もう一度押してね'; }
+  });
   function rankName() {
     return validName(profile.name) ? String(profile.name).slice(0, 12) : '名無しの乗客';
   }
@@ -5770,6 +5802,7 @@
     $('mpOut').classList.add('hidden'); $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('mpBoard').classList.add('hidden');
     if (document.pointerLockElement) document.exitPointerLock();
     state = 'result'; backTo = 'mpres';
+    svShow($('svAsk2')); // 📝 常連さんへのアンケート
     const causeJa = { alive: '生き残り', clear: MP.loopRide ? '1 周した' : '終点到着', collapse: '膝が笑った', ko: 'KO負け', arrest: '連行', pko: 'トドメ', leave: '途中で降りた', broken: '心が折れた' };
     let myRank = 0;
     $('mpResList').innerHTML = res.map((r, k) => {

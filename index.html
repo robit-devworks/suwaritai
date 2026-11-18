@@ -669,6 +669,9 @@ html:not(.pland) #title #bLoop,html:not(.pland) #title #bStart,html:not(.pland) 
 #bLoop small.lnow{color:#fff;opacity:1;font-weight:900;text-shadow:0 1px 2px rgba(0,0,0,.45)}
 #joinWait .jwb{display:flex;gap:8px;justify-content:center}#joinWait .jwb .btn{width:auto;flex:1}#joinWait #jwGo{color:#7dffa0}
 body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さない（2026-11-18・本人：ジャマ。片手モード以外ははじめ出さない） */
+.svAsk{order:8;margin:6px 0;padding:9px 10px;border:2px solid #ffd447;border-radius:14px;background:rgba(255,212,71,.1);color:#fff;font-weight:900;font-size:14px;line-height:1.3;width:100%}.svAsk small{display:block;font-size:11.5px;font-weight:700;color:var(--sub);margin-top:2px}
+#svBox{position:fixed;inset:0;z-index:125;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:16px}#svBox.hidden{display:none}#svBox .rbc{position:relative;width:min(440px,100%);max-height:86vh;overflow:auto;background:var(--panel,#1b1f29);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:16px 16px 14px;color:#fff;text-align:left}#svBox .rbx{position:absolute;right:8px;top:8px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;font-size:16px}#svBox .rbc{background:#1b1f29!important}#svBox .rbc label{display:block;margin:8px 0 0;font-size:13px;font-weight:800}#svBox textarea{display:block;width:100%;box-sizing:border-box;margin-top:4px;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:#fff;font:inherit;font-size:14px;resize:vertical;user-select:text;-webkit-user-select:text}#svBox .svN{font-size:12.5px;color:var(--sub);margin:4px 0}#svBox .svE{color:#ff9c8f;font-size:12.5px;min-height:1em;margin:6px 0}#svBox h3{margin:0 30px 4px 0}
+#qPoll{order:8;margin:6px 0;padding:8px 10px;border:2px solid #7fd1ff;border-radius:14px;background:rgba(127,209,255,.08);text-align:center}#qPoll b{display:block;color:#bfe7ff;font-size:14px}#qPoll small{display:block;font-size:11.5px;color:var(--sub);margin-top:2px}#qPoll div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:6px}#qPoll .btn{margin:0;padding:8px 4px;font-size:12.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 </style>
 </head>
 <body>
@@ -750,6 +753,7 @@ body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さな�
     <button class="btn sub2 hidden" id="bSaveResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
     <div id="startBox"><div class="sbw"><button class="btn mainG" id="bStart">🚃 たちっぱ線<small class="md">（新ダイヤ・一人モード）</small></button><button class="rq" data-rule="normal" aria-label="たちっぱ線のルール">？<small>ルール</small></button></div><div class="sbw sbLoop"><button class="btn main" id="bLoop">🔄 環状線<span class="beta">β 調整中</span><small class="md">（CPU・プレイヤー乱入モード）</small></button><button class="rq" data-rule="loop" aria-label="環状線のルール">？<small>ルール</small></button></div><div class="sbw"><button class="btn mainB" id="bClassic">🕰 旧ダイヤ<small class="md">（前の遊び方）</small></button><button class="rq" data-rule="classic" aria-label="旧ダイヤのルール">？<small>ルール</small></button></div></div>
+    <div id="svBox" class="hidden"><div class="rbc"><button class="rbx" id="svX" aria-label="とじる">✕</button><h3>📝 スワリタイのアンケート</h3><p class="svN">いつも遊んでくれてありがとう！ 思ったことを、短くてもいいので教えてください（どれか 1 つでも OK）。名前や連絡先などの個人の情報は書かないでね。</p><label>👍 いいところ・好きなところ<textarea id="svG" maxlength="300" rows="3"></textarea></label><label>👎 いやなところ・むずかしいところ<textarea id="svB" maxlength="300" rows="3"></textarea></label><label>💡 こうなったらいいな<textarea id="svW" maxlength="300" rows="3"></textarea></label><p class="svE" id="svE"></p><button class="btn main" id="svGo">📨 送る（🎫 名前ガチャチケット 3 枚）</button></div></div>
     <div id="ruleBox" class="hidden"><div class="rbc"><button class="rbx" aria-label="とじる">✕</button><h3 id="ruleT"></h3><ul id="ruleL"></ul><button class="btn main" id="ruleGo">出発する</button></div></div>
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
     <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る <span class="pill">PV・作者の実況プレイ</span></button></div>
@@ -1059,6 +1063,7 @@ body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さな�
     <h2 id="mpResT">🏁 オンライン対戦の結果</h2>
     <div id="mpResList"></div>
     <p class="small" id="mpResNote"></p>
+    <button class="btn svAsk hidden" id="svAsk2">📝 アンケートに答えて 🎫 名前ガチャチケット 3 枚！<small>いいところ・いやなところ・こうなったらいいな</small></button>
     <div id="mpNudge" class="hidden"></div>
     <p class="small"><a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--accent)">🔔 作者（𝕏 @ROBITdesuyo）をフォローして、アップデート情報を受け取る</a></p>
     <button class="btn sub2 hidden" id="mpKc" style="border-color:#ff7a7a;color:#ffd0d0"></button>
@@ -1097,6 +1102,8 @@ body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さな�
     <div class="newach" id="rAch"></div>
     <p class="small" id="rRank"></p>
     <div id="rNudge" class="hidden"></div>
+    <button class="btn svAsk hidden" id="svAsk">📝 アンケートに答えて 🎫 名前ガチャチケット 3 枚！<small>いいところ・いやなところ・こうなったらいいな</small></button>
+    <div id="qPoll" class="hidden"><b>🗳 スワリタイ、どうだった？</b><small>いちばん近いものを 1 つ（作者が直す参考にします）</small><div><button class="btn" data-qp="hard">😵 むずかしい</button><button class="btn" data-qp="lost">🤔 遊び方が分からない</button><button class="btn" data-qp="ctrl">🕹 操作しにくい</button><button class="btn" data-qp="bored">😴 あきた</button><button class="btn" data-qp="slow">🐢 重い・カクカク</button><button class="btn" data-qp="fun">😆 おもしろい</button></div></div>
     <div id="dPoll" class="hidden"><b>🗳 アンケート：これからのたちっぱ線は？</b><small>新ダイヤ（見極めて座る）と旧ダイヤ（落とし物いっぱい）</small><div><button class="btn" data-dp="new">🆕 新がいい</button><button class="btn" data-dp="old">🕰 旧がいい</button><button class="btn" data-dp="both">🙌 両方残して</button></div></div>
     <div id="rMiniBox" class="hidden" style="margin-top:10px"><div id="rMini"></div><button class="btn sub2" id="bRankR" style="margin-top:6px">🏆 みんなのランキングを見る</button></div>
     </div>
@@ -1130,7 +1137,7 @@ body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さな�
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261118045937"</script><script src="logic.js?v=20261118045937"></script>
-<script src="game.js?v=20261118045937"></script>
+<script>window.SW_VER="20261118125723"</script><script src="logic.js?v=20261118125723"></script>
+<script src="game.js?v=20261118125723"></script>
 </body>
 </html>
