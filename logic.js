@@ -585,7 +585,7 @@
     return p.h * 0.93;
   }
   function eyeY(g) { return g.player.seat >= 0 ? C.EYE_SIT : C.EYE_STAND; }
-  function aimTarget(g, maxD) {
+  function aimTarget(g, maxD, loose) { // loose：パンチのとき（2026-11-20・アンケート：パンチの判定がよわい）。腰も見る・角度を少し広く
     const pl = g.player;
     const cp = Math.cos(pl.pitch);
     const fx = -Math.sin(pl.yaw) * cp, fy = Math.sin(pl.pitch), fz = -Math.cos(pl.yaw) * cp;
@@ -594,14 +594,14 @@
     for (const p of g.people) {
       if (p.state === 'gone' || p.state === 'exit' && Math.abs(p.z) > 1.5) continue;
       const hy = headY(p);
-      for (const yy of [hy - 0.05, hy - 0.45]) {
+      for (const yy of loose ? [hy - 0.05, hy - 0.45, hy - 0.85] : [hy - 0.05, hy - 0.45]) {
         const dx = p.x - pl.x, dy = yy - ey, dz = p.z - pl.z;
         const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (d > maxD || d < 0.05) continue;
         const dot = (dx * fx + dy * fy + dz * fz) / d;
         if (dot <= 0) continue;
         const ang = Math.acos(clamp(dot, -1, 1));
-        const allow = Math.atan(0.3 / d) + 0.05;
+        const allow = loose ? Math.atan(0.4 / d) + 0.09 : Math.atan(0.3 / d) + 0.05;
         if (ang < allow) { const sc = ang / allow + d * 0.05; if (sc < bs) { bs = sc; best = p.id; } }
       }
     }
@@ -609,13 +609,13 @@
       g.players.forEach((P, j) => {
         if (j === g.pi || P.out) return;
         const b = P.pl, hy = b.seat >= 0 ? C.EYE_SIT + 0.05 : C.EYE_STAND + 0.05;
-        for (const yy of [hy - 0.05, hy - 0.45]) {
+        for (const yy of loose ? [hy - 0.05, hy - 0.45, hy - 0.85] : [hy - 0.05, hy - 0.45]) {
           const dx = b.x - pl.x, dy = yy - ey, dz = b.z - pl.z;
           const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
           if (d > maxD || d < 0.05) continue;
           const dot = (dx * fx + dy * fy + dz * fz) / d;
           if (dot <= 0) continue;
-          const ang = Math.acos(clamp(dot, -1, 1)), allow = Math.atan(0.3 / d) + 0.05;
+          const ang = Math.acos(clamp(dot, -1, 1)), allow = loose ? Math.atan(0.4 / d) + 0.09 : Math.atan(0.3 / d) + 0.05;
           if (ang < allow) { const sc = ang / allow + d * 0.05; if (sc < bs) { bs = sc; best = PID + j; } }
         }
       });
@@ -1362,6 +1362,20 @@
     return hasRule(g, 'half') ? Math.ceil(c / 2) : c; // スキル半額の日
   }
 
+  // 👊 パンチの当たり（2026-11-20・アンケート：パンチの判定がよわい）：届くのは PUNCH_R。照準に誰もいなくても、
+  //   ケンカ中の悪者（絡み屋・逆ギレ・帝王の一味・逃げる泥棒）が前の 45 度・1.9m 以内にいれば当てる（関係ない人には手助けしない）
+  const PUNCH_R = 1.8;
+  function foeNear(g) {
+    const pl = g.player, ch = g.chikan, fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw);
+    let best = -1, bd = 1.9;
+    for (const p of g.people) {
+      const foe = (ch && p.id === ch.chikanId && ch.stage === 'fight') || (p.aggro && p.brute) || (p.role === 'thief' && p.fleeing);
+      if (!foe || p.state === 'ko' || p.state === 'gone' || p.state === 'exit') continue;
+      const dx = p.x - pl.x, dz = p.z - pl.z, d = Math.hypot(dx, dz);
+      if (d < bd && d > 0.05 && (dx * fx + dz * fz) / d > Math.cos(Math.PI / 4)) { bd = d; best = p.id; }
+    }
+    return best;
+  }
   function doPunch(g) {
     const pl = g.player;
     if (pl.punchCD > 0 || pl.seat >= 0) return;
@@ -1370,7 +1384,8 @@
     emit(g, { type: 'sfx', name: 'whoosh' });
     if (pl.finT > 0 && finisher(g)) return;
     if (speakerNear(g)) { hitSpeaker(g, pl.buffs.protein > 0 ? 2 : 1); return; }
-    punchHit(g, aimTarget(g, 1.6), 1, false);
+    let tid = aimTarget(g, PUNCH_R, true); if (tid < 0) tid = foeNear(g);
+    punchHit(g, tid, 1, false);
   }
   // 💥 パリィのあとの一撃（2026-11-17・本人：パリィのメリットを大きく）：パリィしてから FIN_T 秒のあいだのパンチは、モーションが変わって一撃で倒す。
   //   相手が 2.2m 以内なら照準がずれていても当たる（よろめいて体がずれるため）。プレイヤー同士はトドメ

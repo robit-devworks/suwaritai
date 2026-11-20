@@ -1370,7 +1370,18 @@
   // ================================================================ 音
   const AU = { ctx: null, master: null, rumbleGain: null, nextThump: 0, on: profile.sound !== false };
   function initAudio() {
-    if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume(); return; }
+    if (AU.ctx) { // 🔇 たまに無音になる（2026-11-20・アンケート）：iPhone は電話・通知・アプリの切りかえのあと 'interrupted' になり、前は 'suspended' しか鳴らし直していなかった
+      if (AU.ctx.state !== 'running') {
+        const was = AU.ctx.state; try { const r = AU.ctx.resume(); if (r && r.catch) r.catch(() => { }); } catch (e) { }
+        if (!AU.wake) { AU.wake = 1; setTimeout(() => { // 鳴らし直してもだめなら、作り直す（次にさわったときに鳴る）
+          AU.wake = 0; if (!AU.ctx || document.hidden) return;
+          if (AU.ctx.state === 'running') { if (!AU.told1) { AU.told1 = 1; track('音：止まっていたので鳴らし直した（' + was + '）'); } return; }
+          if (!AU.told2) { AU.told2 = 1; track('音：鳴らし直せず作り直した（' + AU.ctx.state + '）'); }
+          try { AU.ctx.close(); } catch (e) { } AU.ctx = null; initAudio();
+        }, 700); }
+      }
+      return;
+    }
     try {
       const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
       const ctx = new C(); AU.ctx = ctx;
@@ -1385,6 +1396,9 @@
       loadSnd('bigPunch', 'punch-big.mp3'); // sounds/punch-mid.mp3（中パンチ）はハリセン・傘など、これから作る物のためにとってある（2026-11-17・本人）
     } catch (e) { AU.ctx = null; }
   }
+  // さわるたびに、音が止まっていないか見る（iPhone は画面をさわったときにしか鳴らし直せない）・アプリが戻ってきたときも
+  for (const ev of ['touchend', 'pointerdown', 'keydown']) document.addEventListener(ev, () => { if (AU.ctx && AU.ctx.state !== 'running') initAudio(); }, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && AU.ctx && AU.ctx.state !== 'running') initAudio(); });
   // 🔊 音のファイル（2026-11-17・本人：中パンチ＝ふつうのパンチが当たった・大パンチ＝パリィのあとの一撃）。sounds/ に置く。Artifact 版は build.py が window.SW_SOUNDS に埋めこむ
   AU.buf = {};
   function loadSnd(key, file) {
@@ -3265,6 +3279,11 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
+    { d: '2026-11-20', t: 'アンケートの声から：パンチが当たりやすく・音が消えるのを直した', items: [
+      '👊 パンチが当たりやすく。ケンカ中の悪者には、照準が少しずれていても当たる（関係ない人には当たらない）',
+      '🔇 iPhone で通知やアプリの切りかえのあと、音が出なくなることがあったのを直した',
+      '🙏 アンケートに答えてくれた人、ありがとう！ これからも少しずつ直していきます',
+    ] },
     { d: '2026-11-18', t: '環状線 β：乱入しやすく', items: [
       '⏳ 乗っている人の電車が少し遠くても（次がボス駅など）、ホームで待って乱入できるように。「🚃 待たずに出発」もできる',
       '🔁 乗せてくれた人が降りても、次の駅で自分の電車に乗りかえて続けられるように（点数・体力はそのまま）',
