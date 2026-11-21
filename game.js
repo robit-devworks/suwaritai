@@ -3086,8 +3086,9 @@
   // 🟢 いま環状線に乗っている人数（2026-11-17・本人：だれかが乗っていると分かるように・環状線も育てる）：ホームにいるあいだ 20 秒ごとに
   //   suwaritai/loopq（走っている環状線の一覧・ホストが 8 秒ごとに書く。一人で乗っていても書く）を読み、今日の・40 秒以内の電車の人間の数（c）を足す
   const LN = { t: 0, n: 0 };
+  const LOOP_HOME = false, CLASSIC_HOME = false; // 環状線・旧ダイヤをホームに出すか（2026-11-21・本人：あまり遊ばれていないので一旦かくす。もどすときは true にして index.html の .sbLoop・.sbClassic・.howLoop の display:none を消す）
   function loopNowTick(dt) {
-    if (state !== 'title' || !loopOnline() || loopLeft() > 0) return;
+    if (state !== 'title' || !LOOP_HOME || !loopOnline() || loopLeft() > 0) return;
     LN.t -= dt; if (LN.t > 0) return; LN.t = 20;
     net().then((N) => N.get(LOOPQ)).then((v) => {
       const now = Date.now(), day = todayKey();
@@ -3100,7 +3101,7 @@
     $('startBox').classList.toggle('lk', L);
     $('bLoop').classList.toggle('main', !L); $('bLoop').classList.toggle('locked', L); // たちっぱ線はいつも緑の大きなボタン（mainG）
     $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β 調整中</span><small class="md">（あと ' + n + ' 回で解放）</small>' : LN.n > 0 ? '🔄 環状線<span class="beta">β 調整中</span><small class="md lnow">🟢 いま ' + LN.n + ' 人が乗っています</small>' : '🔄 環状線<span class="beta">β 調整中</span><small class="md">' + (LOOP_JOIN_ON ? '（CPU・プレイヤー乱入モード）' : '（CPU といっしょ・乱入は調整中）') + '</small>'; // 2026-11-16・本人：たちっぱ線（一人モード）と形をそろえる
-    $('bStart').innerHTML = L ? '🚃 たちっぱ線<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span><small class="md">（新ダイヤ・一人モード）</small>' : '🚃 たちっぱ線<small class="md">（新ダイヤ・一人モード）</small>';
+    $('bStart').innerHTML = L ? '🚃 たちっぱ線<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span><small class="md">（一人モード）</small>' : '🚃 たちっぱ線<small class="md">（一人モード）</small>';
   }
   $('bLoop').addEventListener('click', () => {
     const n = loopLeft();
@@ -3279,6 +3280,10 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
+    { d: '2026-11-21', t: '観察力を上げると、カードに降りる合図が出る！', items: [
+      '👀 観察力 2 で「🎒 荷物をまとめている」、4 で「🪧 掲示板をチラ見」、6 で「⌚ 時計を見た」が乗客のカードに出るように。しぐさを読むのが苦手な人は、観察力に振ってみよう',
+      '🙈 環状線と旧ダイヤは、しばらくお休みします（ホームから外しました）',
+    ] },
     { d: '2026-11-20', t: 'アンケートの声から：パンチが当たりやすく・音が消えるのを直した', items: [
       '👊 パンチが当たりやすく。ケンカ中の悪者には、照準が少しずれていても当たる（関係ない人には当たらない）',
       '🔇 iPhone で通知やアプリの切りかえのあと、音が出なくなることがあったのを直した',
@@ -3372,6 +3377,10 @@
   // 片手のお知らせのカード：2026-11-13 に一旦やめた（本人）。また出すときは true に
   var OH_ON = false;
   // 🗳 新ダイヤ・旧ダイヤのアンケート（2026-11-16・本人：どっちがいいか聞く）：両方を 1 回以上遊んだ人に、結果画面で 1 回だけ。答えは GoatCounter
+  document.querySelectorAll('#ePoll [data-ep]').forEach((b) => b.addEventListener('click', () => {
+    profile.ePoll = b.dataset.ep; saveProfile(); track('アンケート：観察力のカード：' + b.textContent.trim() + '（観察力 ' + ((profile.st || {}).eye || 0) + '）');
+    $('ePoll').innerHTML = '<b>🙏 ありがとう！ 参考にします</b>';
+  }));
   document.querySelectorAll('#qPoll [data-qp]').forEach((b) => b.addEventListener('click', () => {
     profile.qPoll = b.dataset.qp; saveProfile(); track('アンケート：どうだった：' + b.textContent.trim() + '（' + (profile.plays || 0) + '回目）');
     $('qPoll').innerHTML = '<b>🙏 ありがとう！ 参考にします</b>';
@@ -3558,7 +3567,7 @@
     }
     if (mode === 'classic') profile.dN = Object.assign({ o: 0, n: 0 }, profile.dN, { o: ((profile.dN || {}).o || 0) + 1 });
     else if (mode === 'normal') profile.dN = Object.assign({ o: 0, n: 0 }, profile.dN, { n: ((profile.dN || {}).n || 0) + 1 });
-    const askPoll = (mode === 'classic' || mode === 'normal') && profile.dN && profile.dN.o >= 1 && profile.dN.n >= 1 && !profile.dPoll;
+    const askPoll = CLASSIC_HOME && (mode === 'classic' || mode === 'normal') && profile.dN && profile.dN.o >= 1 && profile.dN.n >= 1 && !profile.dPoll;
     lastResult.moment = momentText(g);
     lastResult.punch = punchLine({ s, cause: r.cause, koText: r.text, loop: !!g.loop, st: s.stations, mode }); lastResult.photo = SHOT.raw || rawShot(); // 📣 ツッコミの一言と写真（2026-11-16）
     setShareHref(); showNudge(g);
@@ -3567,6 +3576,9 @@
     // 🗳 はじめのころの人のワンタップのアンケート（2026-11-18・本人：やめた理由を知りたい）：遊んだ回数 2〜9 回の人に、結果の画面で 1 回だけ。GoatCounter で数える（文は書かない）
     const askQ = !askPoll && (profile.plays || 0) >= 2 && (profile.plays || 0) <= 9 && !profile.qPoll && !RP.active;
     $('qPoll').classList.toggle('hidden', !askQ); if (askQ) track('アンケート：どうだった：出した（' + profile.plays + '回目）');
+    // 🗳 観察力でカードに合図が出るのはどう？（2026-11-21・本人）：観察力で合図を見た回（g.eyeSeen）の結果で 1 回だけ。GoatCounter で数える
+    const askE = !askPoll && !askQ && !!g.eyeSeen && !profile.ePoll && !RP.active;
+    $('ePoll').classList.toggle('hidden', !askE); if (askE) track('アンケート：観察力のカード：出した');
     $('bRetry').textContent = mode === 'practice' ? '🚃 本番に挑戦！' : 'もう一回乗る';
     // すぐ倒れた（3 駅目まで）はじめのころの人にだけ、見習い乗車をすすめる（2026-11-13：はじめの 3 回の見習い乗車をやめたかわり）
     const rkTip = mode === 'normal' && !g.rookie && r.cause !== 'clear' && Math.min(s.stations, SW.lastStation(g)) <= 3 && (profile.plays || 0) <= 10;

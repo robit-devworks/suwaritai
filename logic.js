@@ -159,8 +159,9 @@
     { key: 'atk', name: '攻撃力', icon: '👊', desc: 'パンチがクリティカル（2倍）になりやすい' },
     { key: 'def', name: '防御力', icon: '🛡', desc: '殴られても痛くない・揺れで踏ん張りやすい' },
     { key: 'guts', name: '度胸', icon: '😤', desc: 'こわい人に注意しても言うことを聞いてくれやすい' },
-    { key: 'eye', name: '観察力', icon: '👀', desc: 'メガネが長持ち・あやしい人に気づきやすい' },
+    { key: 'eye', name: '観察力', icon: '👀', desc: '降りる合図がカードに出る（2 で荷物・4 で掲示板・6 で時計）・メガネが長持ち・あやしい人に気づきやすい' },
   ];
+  const EYE_PACK = 2, EYE_LOOK = 4, EYE_WATCH = 6; // 観察力いくつで、カードに 🎒 荷物・🪧 掲示板・⌚ 時計 が出るか（2026-11-21）
   const STAT_MAX = 10, STAT_CAP_TOTAL = 30, STAT_CAP_FAIR = 20; // 合計の上限（ランキング・オンラインは 20）
   function normStats(st) { const o = {}; for (const d of STATS) o[d.key] = clamp(Math.floor(+(st && st[d.key]) || 0), 0, STAT_MAX); return o; }
   function statSum(st) { let n = 0; for (const d of STATS) n += (st && st[d.key]) || 0; return n; }
@@ -3436,22 +3437,25 @@
     }
     // 🎯 降りる合図（荷物・掲示板・時計）は、たちっぱ線などでは動きで見る（2026-11-16・本人：カードを見れば読めてしまっていた）。
     //   見えるのは：メガネのあいだ・はじめての 3 回（g.tellsAll）だけ（観察力では見えない：2026-11-16・本人。育てたら答えが見えるのは芯とぶつかる）。見極め線はカードなし・オンラインは今までどおり
-    const tellsOk = !g.readOn || g.tellsAll || (g.player.buffs && g.player.buffs.glasses > 0);
-    const tellsHid = !tellsOk && p.state === 'seated';
-    if (p.packing && tellsOk) {
+    //   2026-11-21・本人：観察力を上げるほど、カードに出る合図が増える（2 で荷物・4 で掲示板・6 で時計）。ランキングはステータスの合計が 20 までなので、ほかを削って観察力に振ることになる
+    const tellsAll = !g.readOn || g.tellsAll || (g.player.buffs && g.player.buffs.glasses > 0), eye = ST(g, 'eye');
+    const packOk = tellsAll || eye >= EYE_PACK, looksOk = tellsAll || eye >= EYE_LOOK, watchOk = tellsAll || eye >= EYE_WATCH;
+    const tellsHid = !(packOk && looksOk && watchOk) && p.state === 'seated';
+    if ((packOk || looksOk || watchOk) && !tellsAll && (p.packing || recentLooks || recentWatch) && p.state === 'seated') g.eyeSeen = true; // 観察力で合図が見えた（アンケート用）
+    if (p.packing && packOk) {
       // フェイントの人は、よく見ると分かる（スマホを見たまま）。観察力 5 以上かメガネなら、はっきり分かる
       out.push(p.feintNow ? '🎒 荷物をまとめている…けど、' + ({ book: '単語帳', game: 'ゲーム', makeup: '鏡', map: '路線図' }[p.idle] || 'スマホ') + 'から目を離さない' : '🎒 荷物をまとめている');
       if (p.feintNow && (ST(g, 'eye') >= 5 || (g.player.buffs && g.player.buffs.glasses > 0))) out.push('🤔 本当に降りる？ 落ち着きすぎている（' + (g.player.buffs && g.player.buffs.glasses > 0 ? 'メガネ' : '観察力') + '）');
     }
-    if (recentLooks && tellsOk) out.push('🪧 掲示板をチラ見 ×' + recentLooks + '（30秒）');
-    if (recentWatch && tellsOk) out.push('⌚ 時計を見た ×' + recentWatch);
+    if (recentLooks && looksOk) out.push('🪧 掲示板をチラ見 ×' + recentLooks + '（30秒）');
+    if (recentWatch && watchOk) out.push('⌚ 時計を見た ×' + recentWatch);
     if (p.leaving || p.state === 'exit') out.push('🚪 降りる気まんまん');
     const idleTxt = { phone: '📱 スマホを見ている', book: '📖 単語帳を読んでいる', makeup: '💄 化粧をしている', map: '🗺 路線図を見ている', game: '🎮 ゲームに夢中' }[p.idle];
     if (p.state === 'seated' && p.sleep === 0 && idleTxt && !p.packing && out.length < 3) out.push(idleTxt);
     if (p.priority && p.state !== 'seated') out.push('🙇 座りたそうにしている');
     if (p.tough) out.push('😠 ちょっと怖い');
     if (p.type === 'drunk') out.push('🍶 お酒くさい');
-    if (tellsHid && !out.length) out.push('👀 降りそうかどうかは、しぐさを見て読もう');
+    if (tellsHid && !out.length) out.push(eye >= EYE_PACK ? '👀 これより細かい合図は、しぐさを見て読もう（観察力を上げると見える）' : '👀 降りそうかどうかは、しぐさを見て読もう（観察力 ' + EYE_PACK + ' でカードに出る）');
     if (!out.length) out.push('…特に変わった様子はない');
     return { name: p.dispName || T.name, notes: out };
   }
