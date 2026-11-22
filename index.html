@@ -674,6 +674,14 @@ body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さな�
 #qPoll{order:8;margin:6px 0;padding:8px 10px;border:2px solid #7fd1ff;border-radius:14px;background:rgba(127,209,255,.08);text-align:center}#qPoll b{display:block;color:#bfe7ff;font-size:14px}#qPoll small{display:block;font-size:11.5px;color:var(--sub);margin-top:2px}#qPoll div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:6px}#qPoll .btn{margin:0;padding:8px 4px;font-size:12.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 #startBox .sbLoop,#startBox .sbClassic,.howLoop{display:none!important} /* 環状線と旧ダイヤはホームからかくす（2026-11-21・本人：あまり遊ばれていない。作りは残す。開発者の「ほかの路線」からは環状線を試せる） */
 #ePoll{order:8;margin:6px 0;padding:8px 10px;border:2px solid #7fd1ff;border-radius:14px;background:rgba(127,209,255,.08);text-align:center}#ePoll b{display:block;color:#bfe7ff;font-size:13.5px;line-height:1.35}#ePoll small{display:block;font-size:11.5px;color:var(--sub);margin-top:2px}#ePoll div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px}#ePoll .btn{margin:0;padding:8px 3px;font-size:12.5px;line-height:1.25;min-width:0}
+/* たちっぱ線だけになったので、ボタンを大きく（2026-11-22・本人：画面が寂しい） */
+html #title #startBox .sbw>#bStart{font-size:clamp(26px,8vw,34px);padding-top:22px;padding-bottom:22px;letter-spacing:.04em}
+@media (min-height:780px){ html:not(.pland) #title #startBox .sbw>#bStart{font-size:clamp(28px,9vw,38px);padding-top:30px;padding-bottom:30px} }
+@media (max-height:700px){ html #title #startBox .sbw>#bStart{font-size:clamp(24px,7vw,30px);padding-top:14px;padding-bottom:14px} }
+html.pland #title #startBox .sbw>#bStart{font-size:clamp(22px,calc(var(--ph) * 3.6 / 100),30px);padding-top:12px;padding-bottom:12px}
+html #title #startBox .sbw:has(#bStart) .rq{max-height:56px}
+/* ホームのボタンのかたまりを上へ（2026-11-22・本人：全体的に上にしてバランスを）：前はロゴの下の余白が残り全部で、ボタンがいちばん下に寄っていた。余白をロゴの下といちばん下に半分ずつ */
+@media (orientation: portrait) and (max-width: 600px) { html:not(.pland) #title .card>#titleFoot{margin-bottom:auto!important} }
 </style>
 </head>
 <body>
@@ -754,7 +762,7 @@ body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さな�
     <div class="logo" id="logo"><h1>スワリタイ！</h1><p>〜 降りる人を見極めろ 〜</p><span class="tag">電車FPS・善行と煩悩のサバイバル</span></div>
     <button class="btn sub2 hidden" id="bSaveResume" style="margin:0 0 6px;border-color:#7fd1ff;color:#bfe7ff">▶ 続きから</button>
     <button class="land-hint" id="bLand">📱 横向きでも遊べるよ！ <u>横画面にする</u></button>
-    <div id="startBox"><div class="sbw"><button class="btn mainG" id="bStart">🚃 たちっぱ線<small class="md">（一人モード）</small></button><button class="rq" data-rule="normal" aria-label="たちっぱ線のルール">？<small>ルール</small></button></div><div class="sbw sbLoop"><button class="btn main" id="bLoop">🔄 環状線<span class="beta">β 調整中</span><small class="md">（CPU・プレイヤー乱入モード）</small></button><button class="rq" data-rule="loop" aria-label="環状線のルール">？<small>ルール</small></button></div><div class="sbw sbClassic"><button class="btn mainB" id="bClassic">🕰 旧ダイヤ<small class="md">（前の遊び方）</small></button><button class="rq" data-rule="classic" aria-label="旧ダイヤのルール">？<small>ルール</small></button></div></div>
+    <div id="startBox"><div class="sbw"><button class="btn mainG" id="bStart">🚃 たちっぱ線</button><button class="rq" data-rule="normal" aria-label="たちっぱ線のルール">？<small>ルール</small></button></div><div class="sbw sbLoop"><button class="btn main" id="bLoop">🔄 環状線<span class="beta">β 調整中</span><small class="md">（CPU・プレイヤー乱入モード）</small></button><button class="rq" data-rule="loop" aria-label="環状線のルール">？<small>ルール</small></button></div><div class="sbw sbClassic"><button class="btn mainB" id="bClassic">🕰 旧ダイヤ<small class="md">（前の遊び方）</small></button><button class="rq" data-rule="classic" aria-label="旧ダイヤのルール">？<small>ルール</small></button></div></div>
     <div id="svBox" class="hidden"><div class="rbc"><button class="rbx" id="svX" aria-label="とじる">✕</button><h3>📝 スワリタイのアンケート</h3><p class="svN">いつも遊んでくれてありがとう！ 思ったことを、短くてもいいので教えてください（どれか 1 つでも OK）。名前や連絡先などの個人の情報は書かないでね。</p><label>👍 いいところ・好きなところ<textarea id="svG" maxlength="300" rows="3"></textarea></label><label>👎 いやなところ・むずかしいところ<textarea id="svB" maxlength="300" rows="3"></textarea></label><label>💡 こうなったらいいな<textarea id="svW" maxlength="300" rows="3"></textarea></label><p class="svE" id="svE"></p><button class="btn main" id="svGo">📨 送る（🎫 名前ガチャチケット 3 枚）</button></div></div>
     <div id="ruleBox" class="hidden"><div class="rbc"><button class="rbx" aria-label="とじる">✕</button><h3 id="ruleT"></h3><ul id="ruleL"></ul><button class="btn main" id="ruleGo">出発する</button></div></div>
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
@@ -764,7 +772,7 @@ body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さな�
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
     <button class="btn sub2 hidden" id="bPort">📱 縦画面にもどす</button>
-    <p class="small" style="margin:2px 0 0"><a href="https://robit-devworks.github.io/suwaritai/pondashi/" style="color:var(--sub);white-space:nowrap">🧪 ポン出し版はこちら</a>　<a class="dg-link" data-from="タイトル" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">🎮 作者の別ゲーム：デストロイ碁</a>　<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">𝕏 作者をフォロー</a>　<a class="follow-yt" href="https://www.youtube.com/@futarigurashi_games?sub_confirmation=1" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">▶ 作者の YouTube を登録</a></p>
+    <p class="small" id="titleFoot" style="margin:2px 0 0"><a href="https://robit-devworks.github.io/suwaritai/pondashi/" style="color:var(--sub);white-space:nowrap">🧪 ポン出し版はこちら</a>　<a class="dg-link" data-from="タイトル" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">🎮 作者の別ゲーム：デストロイ碁</a>　<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">𝕏 作者をフォロー</a>　<a class="follow-yt" href="https://www.youtube.com/@futarigurashi_games?sub_confirmation=1" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">▶ 作者の YouTube を登録</a></p>
   </div>
 </div>
 
@@ -1140,7 +1148,7 @@ body.noTurn #bTurn{display:none!important} /* 振り向くボタンを出さな�
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261121225633"</script><script src="logic.js?v=20261121225633"></script>
-<script src="game.js?v=20261121225633"></script>
+<script>window.SW_VER="20261122014315"</script><script src="logic.js?v=20261122014315"></script>
+<script src="game.js?v=20261122014315"></script>
 </body>
 </html>

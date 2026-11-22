@@ -3101,7 +3101,7 @@
     $('startBox').classList.toggle('lk', L);
     $('bLoop').classList.toggle('main', !L); $('bLoop').classList.toggle('locked', L); // たちっぱ線はいつも緑の大きなボタン（mainG）
     $('bLoop').innerHTML = L ? '🔒 環状線<span class="beta">β 調整中</span><small class="md">（あと ' + n + ' 回で解放）</small>' : LN.n > 0 ? '🔄 環状線<span class="beta">β 調整中</span><small class="md lnow">🟢 いま ' + LN.n + ' 人が乗っています</small>' : '🔄 環状線<span class="beta">β 調整中</span><small class="md">' + (LOOP_JOIN_ON ? '（CPU・プレイヤー乱入モード）' : '（CPU といっしょ・乱入は調整中）') + '</small>'; // 2026-11-16・本人：たちっぱ線（一人モード）と形をそろえる
-    $('bStart').innerHTML = L ? '🚃 たちっぱ線<span class="beta" style="background:#7fd1ff;color:#002a3a">おすすめ</span><small class="md">（一人モード）</small>' : '🚃 たちっぱ線<small class="md">（一人モード）</small>';
+    $('bStart').innerHTML = '🚃 たちっぱ線'; // 2026-11-22・本人：たちっぱ線だけになったので「（一人モード）」「おすすめ」はいらない
   }
   $('bLoop').addEventListener('click', () => {
     const n = loopLeft();
@@ -3140,7 +3140,7 @@
       '🙏 席を譲る・落とし物を届ける・悪者をこらしめると徳とスコア。徳はスキルに使える',
       '🏢 ボス駅あり。🏆 ランキングはなし（自己ベストだけ）',
     ]],
-    normal: ['🚃 たちっぱ線・新ダイヤ（一人モード）のルール', [
+    normal: ['🚃 たちっぱ線のルール', [
       '🚃 各駅停車で、終点「やっと座れ橋」をめざす。乗っているのは自分だけ',
       '🧍 立っていると体力が減る。降りそうな人（掲示板チラ見・時計・荷物をまとめる）を見極めて前に立ち、空いたら座る',
       '👀 降りる合図（荷物をまとめる・掲示板チラ見・時計）はカードに出ない。乗客のしぐさを見て読もう（はじめての 3 回と 👓 メガネのあいだは、カードにも出る）',
