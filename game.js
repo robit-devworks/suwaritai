@@ -3280,6 +3280,9 @@
   // ---- 📰 お知らせ：アップデートを日付ごとにまとめて出す（新しいものが上）。まだ読んでいない日があればボタンに赤い点
   // 小さな直し（ボタンの位置など）は書かない。遊ぶ人が「やってみよう」と思えることだけ。1 日 1 つにまとめる
   const NEWS = [
+    { d: '2026-11-24', t: '作者の新作「オイコシタイ！」も遊べます', items: [
+      '🌙 夜道で前を歩く人を、怖がらせずに追いこすバカゲー。結果画面の下と遊び方の「作者の別ゲーム」から遊びに行けます',
+    ] },
     { d: '2026-11-21', t: '観察力を上げると、カードに降りる合図が出る！', items: [
       '👀 観察力 2 で「🎒 荷物をまとめている」、4 で「🪧 掲示板をチラ見」、6 で「⌚ 時計を見た」が乗客のカードに出るように。しぐさを読むのが苦手な人は、観察力に振ってみよう',
       '🙈 環状線と旧ダイヤは、しばらくお休みします（ホームから外しました）',
@@ -3774,6 +3777,7 @@
     try { const p = navigator.clipboard && navigator.clipboard.writeText(shareText(lastResult)); if (p && p.catch) p.catch(() => { }); } catch (e) { }
   });
   document.querySelectorAll('.dg-link').forEach((a) => a.addEventListener('click', () => track('デストロイ碁へ（' + a.dataset.from + '）')));
+  document.querySelectorAll('.oi-link').forEach((a) => a.addEventListener('click', () => track('オイコシタイへ（' + a.dataset.from + '）'))); // 2026-11-24・本人
   document.querySelectorAll('.fb-x').forEach((a) => a.addEventListener('click', () => track('#スワリタイ でつぶやくを押した（' + (a.closest('.fbx').dataset.from || '') + '）')));
   document.querySelectorAll('.follow-yt').forEach((a) => a.addEventListener('click', () => track('作者の YouTube を押した（タイトル）')));
   document.querySelectorAll('.follow-x').forEach((a) => a.addEventListener('click', () => track('作者をフォローを押した（' + (a.id === 'bFollow' ? '結果' : a.closest('#title') ? 'タイトル' : a.closest('#mpres') ? 'オンライン結果' : '遊び方') + '）')));
