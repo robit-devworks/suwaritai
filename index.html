@@ -109,7 +109,7 @@ body.inapp .logo{margin-bottom:6px}
 body.touch #inappLand{display:block}
 html.pland #inappLand{display:none!important} /* アプリの中のブラウザは横にしても回らないので、ここから横画面に（2026-11-17・本人） */
 #dailyRow .btn,#modesRow .btn{flex:1}
-#modesRow .pill{font-size:11px;padding:0 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}#modesRow .btn{white-space:nowrap;padding-left:4px;padding-right:4px;overflow:hidden;text-overflow:ellipsis}#title .row .btn{min-width:0}#modesRow .newb{margin-right:3px}
+#modesRow .pill{font-size:11px;padding:0 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}#modesRow .btn{white-space:nowrap;padding-left:4px;padding-right:4px;overflow:hidden;text-overflow:ellipsis}#title .row .btn{min-width:0}#modesRow #bModes{white-space:normal;line-height:1.2;font-size:13px}/* ボタンが 3 つになったので折り返す（2026-11-24） */#modesRow .newb{margin-right:3px}
 .olcodein{flex:1;min-width:0;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.4);color:var(--ink);font-family:inherit;font-size:18px;text-align:center;letter-spacing:.2em;user-select:text;-webkit-user-select:text}
 .olcode{text-align:center;font-size:15px;margin:4px 0 8px}
 .olcode b{font-size:30px;letter-spacing:.15em;color:var(--toku)}
@@ -766,13 +766,13 @@ html #title #startBox .sbw:has(#bStart) .rq{max-height:56px}
     <div id="svBox" class="hidden"><div class="rbc"><button class="rbx" id="svX" aria-label="とじる">✕</button><h3>📝 スワリタイのアンケート</h3><p class="svN">いつも遊んでくれてありがとう！ 思ったことを、短くてもいいので教えてください（どれか 1 つでも OK）。名前や連絡先などの個人の情報は書かないでね。</p><label>👍 いいところ・好きなところ<textarea id="svG" maxlength="300" rows="3"></textarea></label><label>👎 いやなところ・むずかしいところ<textarea id="svB" maxlength="300" rows="3"></textarea></label><label>💡 こうなったらいいな<textarea id="svW" maxlength="300" rows="3"></textarea></label><p class="svE" id="svE"></p><button class="btn main" id="svGo">📨 送る（🎫 名前ガチャチケット 3 枚）</button></div></div>
     <div id="ruleBox" class="hidden"><div class="rbc"><button class="rbx" aria-label="とじる">✕</button><h3 id="ruleT"></h3><ul id="ruleL"></ul><button class="btn main" id="ruleGo">出発する</button></div></div>
     <div class="row" id="dailyRow"><button class="btn" id="bMiki"><span class="newb">NEW</span><i class="ic">👀</i>見極め線 <span class="pill">しぐさで読む</span></button><button class="btn" id="bDaily"><i class="ic">📅</i>今日のダイヤ <span class="pill" id="dailyBest">-</span></button><button class="btn hidden" id="bOnline"><span class="newb">NEW</span><i class="ic">🌐</i>オンライン <span class="pill">対戦・レート戦β</span></button></div>
-    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る <span class="pill">PV・作者の実況プレイ</span></button></div>
+    <div class="row" id="modesRow"><button class="btn sub2" id="bModes">🔒 ほかの路線</button><button class="btn sub2 hidden" id="bVideo"><i class="ic">🎬</i>動画で見る <span class="pill">PV・作者の実況プレイ</span></button><button class="btn sub2" id="bOthers"><i class="ic">🎮</i>別のゲーム</button></div>
     <div class="row"><button class="btn sub2" id="bHow"><i class="ic">📖</i>遊び方</button><button class="btn sub2" id="bRank"><i class="ic">🏆</i>ランキング</button><button class="btn sub2" id="bAch"><i class="ic">🎖</i>実績</button><button class="btn sub2" id="bStat"><i class="ic">📊</i>Lv<span id="lvTxt">1</span><i id="lvDot" class="hidden">●</i></button></div>
     <div class="namebox"><span class="nmlbl">乗客名</span> <button class="btn sub2" id="bName" title="名前ガチャ"><span id="nameShow">-</span> 🎲</button><input id="nameIn" type="hidden"><button class="btn sub2" id="bNews" title="お知らせ" style="width:auto;margin:0;padding:6px 10px;position:relative">📰<i id="newsDot" class="hidden"></i></button><button class="btn sub2" id="bSnd" style="width:auto;margin:0;padding:6px 10px">🔊</button><button class="btn sub2 fs-btn" id="bFs" style="width:auto;margin:0;padding:6px 10px">⛶ 全画面</button></div>
     <p class="small" id="nameNote" style="color:var(--toku);min-height:0"></p>
     <p class="small" id="bestLine"></p>
     <button class="btn sub2 hidden" id="bPort">📱 縦画面にもどす</button>
-    <p class="small" id="titleFoot" style="margin:2px 0 0"><a href="https://robit-devworks.github.io/suwaritai/pondashi/" style="color:var(--sub);white-space:nowrap">🧪 ポン出し版はこちら</a>　<a class="dg-link" data-from="タイトル" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">🎮 作者の別ゲーム：デストロイ碁</a>　<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">𝕏 作者をフォロー</a>　<a class="follow-yt" href="https://www.youtube.com/@futarigurashi_games?sub_confirmation=1" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">▶ 作者の YouTube を登録</a></p>
+    <p class="small" id="titleFoot" style="margin:2px 0 0"><a href="https://robit-devworks.github.io/suwaritai/pondashi/" style="color:var(--sub);white-space:nowrap">🧪 ポン出し版はこちら</a>　<a class="follow-x" href="https://x.com/intent/follow?screen_name=ROBITdesuyo" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">𝕏 作者をフォロー</a>　<a class="follow-yt" href="https://www.youtube.com/@futarigurashi_games?sub_confirmation=1" target="_blank" rel="noopener" style="color:var(--sub);white-space:nowrap">▶ 作者の YouTube を登録</a></p>
   </div>
 </div>
 
@@ -936,6 +936,18 @@ html #title #startBox .sbw:has(#bStart) .rq{max-height:56px}
     <p class="small" style="color:var(--sub);margin:2px 0 8px">悪者・スキル・やりこみまで、ぜんぶ知りたい人に</p>
     <a class="btn vidP" target="_blank" rel="noopener" style="text-decoration:none">🎮 開発者のプレイ動画（開発2日目の版）</a>
     <p class="small vidP" style="color:var(--sub);margin:2px 0 8px">作った本人が、開発2日目のスワリタイを遊んでみた</p>
+    <button class="btn sub2" data-back>もどる</button>
+  </div>
+</div>
+
+<!-- 作者の別のゲーム（2026-11-24・本人：路線・感度練習と動画で見るのとなりにまとめる） -->
+<div id="others" class="screen hidden">
+  <div class="card">
+    <h2>🎮 作者の別のゲーム</h2>
+    <a class="btn main oi-link" data-from="別のゲーム" href="https://robit-devworks.github.io/oikoshitai/?ref=suwaritai" target="_blank" rel="noopener" style="text-decoration:none">🌙 オイコシタイ！</a>
+    <p class="small" style="color:var(--sub);margin:2px 0 8px">夜道で前を歩く人を、怖がらせずに追いこすバカゲー</p>
+    <a class="btn dg-link" data-from="別のゲーム" href="https://robit-devworks.github.io/destroy-go-play/?ref=suwaritai" target="_blank" rel="noopener" style="text-decoration:none">⚫ デストロイ碁</a>
+    <p class="small" style="color:var(--sub);margin:2px 0 8px">爽快囲碁バトル！</p>
     <button class="btn sub2" data-back>もどる</button>
   </div>
 </div>
@@ -1148,7 +1160,7 @@ html #title #startBox .sbw:has(#bStart) .rq{max-height:56px}
 <script>
 if (!window.THREE) document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');
 </script>
-<script>window.SW_VER="20261124015009"</script><script src="logic.js?v=20261124015009"></script>
-<script src="game.js?v=20261124015009"></script>
+<script>window.SW_VER="20261124022904"</script><script src="logic.js?v=20261124022904"></script>
+<script src="game.js?v=20261124022904"></script>
 </body>
 </html>

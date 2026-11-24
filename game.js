@@ -2303,7 +2303,7 @@
   }
 
   // ================================================================ 画面
-  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'stat', 'videos', 'news', 'namegacha', 'tutask', 'pause', 'result', 'online', 'mpres'];
+  const screens = ['title', 'modes', 'howto', 'rank', 'ach', 'stat', 'videos', 'others', 'news', 'namegacha', 'tutask', 'pause', 'result', 'online', 'mpres'];
   let backTo = 'title';
   function show(id) {
     for (const s of screens) $(s).classList.toggle('hidden', s !== id);
@@ -3404,6 +3404,7 @@
   newsDot();
   $('bNews').addEventListener('click', () => { renderNews(); profile.newsSeen = NEWS[0].d; saveProfile(); newsDot(); backTo = 'title'; show('news'); track('お知らせを開いた'); });
   $('bVideo').addEventListener('click', () => { backTo = 'title'; show('videos'); track('動画で見るを開いた'); });
+  $('bOthers').addEventListener('click', () => { backTo = 'title'; show('others'); track('作者の別のゲームを開いた'); }); // 2026-11-24・本人
   $('bDaily').addEventListener('click', () => startGame('daily'));
   $('bMiki').addEventListener('click', () => startGame('mikiwame'));
   // ひとりのレート戦（ランク線）は 2026-11-11 にホームから外した（startRanked などのしくみは残してある）
